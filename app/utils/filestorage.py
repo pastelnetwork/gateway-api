@@ -2,16 +2,16 @@ import os
 import aiofiles
 import uuid
 
-from config.app_config import settings
+from core.config import settings
 
 
 class LocalFile:
     def __init__(self, file_name, content_type):
-        if not os.path.exists(settings.file_storage):
-            os.makedirs(settings.file_storage)
+        if not os.path.exists(settings.FILE_STORAGE):
+            os.makedirs(settings.FILE_STORAGE)
         self.name = file_name
         self.type = content_type
-        self.path = f'{settings.file_storage}/{uuid.uuid4()}'
+        self.path = f'{settings.FILE_STORAGE}/{uuid.uuid4()}'
 
     async def save(self, in_data):
         async with aiofiles.open(self.path, 'wb') as out_file:

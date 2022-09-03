@@ -1,7 +1,7 @@
 import uvicorn as uvicorn
 from fastapi import FastAPI
 
-from config.celery_utils import create_celery
+from core.celery_utils import create_celery
 from routers import cascade
 
 
@@ -12,6 +12,7 @@ def create_app() -> FastAPI:
 
     current_app.celery_app = create_celery()
     current_app.include_router(cascade.router)
+    # current_app.include_router(sense.router)
     return current_app
 
 

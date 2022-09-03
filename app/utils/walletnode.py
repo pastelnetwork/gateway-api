@@ -1,9 +1,9 @@
 import requests
-from config.app_config import settings
+from core.config import settings
 
 
 def call(post, url_cmd, payload, files, headers, return_item1, return_item2):
-    wn_url = f'{settings.base_cascade_url}/{url_cmd}'
+    wn_url = f'{settings.BASE_CASCADE_URL}/{url_cmd}'
 
     if post:
         response = requests.post(wn_url, headers=headers, data=payload, files=files)

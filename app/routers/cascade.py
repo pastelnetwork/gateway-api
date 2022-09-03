@@ -3,7 +3,7 @@ from typing import List
 from starlette.responses import JSONResponse
 
 import celery_tasks.tasks as tasks
-from config.celery_utils import get_task_info
+from core.celery_utils import get_task_info
 from utils.filestorage import LocalFile
 
 router = APIRouter(
@@ -15,7 +15,7 @@ router = APIRouter(
 
 
 @router.post("/process")
-async def cascade_process(files: List[UploadFile]):
+async def cascade_process(*, files: List[UploadFile]) -> JSONResponse:
 
     data: dict = {}
     results = {}
@@ -28,7 +28,7 @@ async def cascade_process(files: List[UploadFile]):
 
 
 @router.get("/task/{task_id}")
-async def get_task_status(task_id: str):
+async def get_task_status(*, task_id: str) -> dict:
     """
     Return the status of the submitted Task
     """

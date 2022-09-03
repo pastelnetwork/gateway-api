@@ -12,6 +12,7 @@ flower = "^1.2.0"
 httpx = "^0.23.0"
 uvicorn = {version = "^0.17.6", extras = ["standard"]}
 aiofiles = "^0.8.0"
+SQLAlchemy = "^1.4.40"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
