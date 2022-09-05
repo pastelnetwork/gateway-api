@@ -1,0 +1,11 @@
+Generic single-database configuration.
+
+
+Initial alembic call - to create tables in the fresh DB setup only!!!
+```shell
+alembic revision --autogenerate -m "init"
+```
+alembic call to update DB:
+```shell
+alembic upgrade head
+```

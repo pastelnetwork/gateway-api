@@ -17,7 +17,6 @@ router = APIRouter(
 @router.post("/process")
 async def cascade_process(*, files: List[UploadFile]) -> JSONResponse:
 
-    data: dict = {}
     results = {}
     for file in files:
         lf = LocalFile(file.filename, file.content_type)

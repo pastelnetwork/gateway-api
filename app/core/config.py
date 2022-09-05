@@ -1,5 +1,7 @@
 from functools import lru_cache
-from pydantic import BaseSettings
+from dotenv import find_dotenv
+from pydantic import BaseSettings, EmailStr, PostgresDsn, validator
+from typing import Any, Dict, Optional
 
 
 class Settings(BaseSettings):
@@ -16,10 +18,30 @@ class Settings(BaseSettings):
 
     FILE_STORAGE: str
 
-    SQLALCHEMY_DATABASE_URI: str
+    POSTGRES_SERVER: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
+
+    @validator("SQLALCHEMY_DATABASE_URI", pre=True)
+    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+        if isinstance(v, str):
+            return v
+        return PostgresDsn.build(
+            scheme="postgresql",
+            user=values.get("POSTGRES_USER"),
+            password=values.get("POSTGRES_PASSWORD"),
+            host=values.get("POSTGRES_SERVER"),
+            path=f"/{values.get('POSTGRES_DB') or ''}",
+        )
+
+    FIRST_SUPERUSER: EmailStr
+    FIRST_SUPERUSER_PASSWORD: str
 
     class Config:
-        env_file = ".env"
+        env_file = find_dotenv(usecwd=True)
+        print("env_file is "+env_file)
 
 
 @lru_cache()

@@ -7,15 +7,21 @@ authors = ["a-ok123 <alexey@pastel.network>"]
 [tool.poetry.dependencies]
 python = "^3.10"
 fastapi = {extras = ["all"], version = "^0.81.0"}
+uvicorn = {version = "^0.17.6", extras = ["standard"]}
 celery = "^5.2.7"
 flower = "^1.2.0"
 httpx = "^0.23.0"
-uvicorn = {version = "^0.17.6", extras = ["standard"]}
-aiofiles = "^0.8.0"
+aiofiles = "^22.0.0"
 SQLAlchemy = "^1.4.40"
+psycopg2-binary = "^2.8.5"
+alembic = "^1.8.1"
+tenacity = "^8.0.1"
+pydantic = "^1.4"
+python-jose = {extras = ["cryptography"], version = "^3.1.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.2"}
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
+pytest = "^7.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
