@@ -5,12 +5,16 @@ from sqlalchemy.orm import Session
 from core.security import get_password_hash, verify_password
 from app.crud.base import CRUDBase
 from app.models.user import User
+from app.models.api_key import ApiKey
 from app.schemas.user import UserCreate, UserUpdate
 
 
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def get_by_email(self, db: Session, *, email: str) -> Optional[User]:
         return db.query(User).filter(User.email == email).first()
+
+    def get_by_api_key(self, db: Session, *, api_key: str) -> Optional[User]:
+        return db.query(User).join(ApiKey).first()
 
     def create(self, db: Session, *, obj_in: UserCreate) -> User:
         db_obj = User(

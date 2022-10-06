@@ -1,0 +1,11 @@
+Generic single-database configuration.
+
+
+alembic call to create migrations after changes to SQLAlchemy models
+```shell
+alembic revision --autogenerate -m "description of changes"
+```
+alembic call to create new OR update existing DB with the latest migration:
+```shell
+alembic upgrade head
+```

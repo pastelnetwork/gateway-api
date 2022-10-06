@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, UploadFile
+from fastapi.security.api_key import APIKey
+
 from typing import List
 from starlette.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -17,7 +19,8 @@ async def cascade_process(
         *,
         files: List[UploadFile],
         db: Session = Depends(deps.get_db),
-        current_user: models.User = Depends(deps.get_current_user)
+        api_key: APIKey = Depends(deps.APIKeyAuth.get_api_key)
+        # current_user: models.User = Depends(deps.OAuth2Auth.get_current_user)
 ) -> JSONResponse:
 
     results = {}
@@ -34,7 +37,8 @@ async def get_task_status(
         *,
         task_id: str,
         db: Session = Depends(deps.get_db),
-        current_user: models.User = Depends(deps.get_current_user)
+        api_key: APIKey = Depends(deps.APIKeyAuth.get_api_key)
+        # current_user: models.User = Depends(deps.OAuth2Auth.get_current_user)
 ) -> dict:
     """
     Return the status of the submitted Task

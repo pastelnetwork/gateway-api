@@ -1,0 +1,13 @@
+
+## ONLY ONCE AT NEW LOCATION OR AFTER DB SCHEMA UPDATED
+--export PYTHONPATH=$PYTHONPATH:/Users/alexey/Work/Pastel/webpastelapi/openapi && poetry run ./prestart.sh--
+
+poetry run ./prestart.sh
+
+
+## To start application
+
+poetry run python main.py
+
+
+
