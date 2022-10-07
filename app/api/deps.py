@@ -69,21 +69,64 @@ class OAuth2Auth:
 
 class APIKeyAuth:
     @staticmethod
-    async def get_api_key(api_key: str = Security(api_key_header)):
-        if api_key == "test-api-key":
-            return api_key_header
-        else:
+    async def get_api_key(
+            db: Session = Depends(get_db),
+            api_key: str = Security(api_key_header)
+    ) -> models.ApiKey:
+        print(api_key)
+        apikey = crud.api_key.get_by_api_key(db=db, api_key=api_key)
+        if not apikey:
             raise HTTPException(
                 status_code=403, detail="Could not validate API KEY"
             )
+        return apikey
 
     @staticmethod
-    def get_current_user(
+    async def get_api_key_for_cascade(
+            db: Session = Depends(get_db),
+            api_key: str = Security(api_key_header)
+    ) -> models.ApiKey:
+        apikey = await APIKeyAuth.get_api_key(db=db, api_key=api_key)
+        if not apikey.can_cascade:
+            raise HTTPException(
+                status_code=403,
+                detail="Cascade scope is not allowed for API Key",
+            )
+        return apikey
+
+    @staticmethod
+    async def get_api_key_for_sense(
+            db: Session = Depends(get_db),
+            api_key: str = Security(api_key_header)
+    ) -> models.ApiKey:
+        apikey = await APIKeyAuth.get_api_key(db=db, api_key=api_key)
+        if not apikey.can_sense:
+            raise HTTPException(
+                status_code=403,
+                detail="Sense scope is not allowed for API Key",
+            )
+        return apikey
+
+    @staticmethod
+    async def get_api_key_for_nft(
+            db: Session = Depends(get_db),
+            api_key: str = Security(api_key_header)
+    ) -> models.ApiKey:
+        apikey = await APIKeyAuth.get_api_key(db=db, api_key=api_key)
+        if not apikey.can_nft:
+            raise HTTPException(
+                status_code=403,
+                detail="Cascade scope is not allowed for API Key",
+            )
+        return apikey
+
+    @staticmethod
+    def get_user_by_apikey(
             db: Session = Depends(get_db),
             api_key: str = Depends(api_key_header)
     ) -> models.User:
         print(api_key)
-        user = crud.user.get_by_api_key(api_key)
+        user = crud.user.get_by_api_key(db=db, api_key=api_key)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="Unknown API Key")
         return user

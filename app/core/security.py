@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from typing import Any, Union
 from jose import jwt
 from passlib.context import CryptContext
+import secrets
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+hash_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ALGORITHM = "HS256"
 
 
@@ -24,9 +25,15 @@ def create_access_token(
     return encoded_jwt
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+def create_api_key(
+        owner_id: int
+) -> str:
+    return secrets.token_hex()
 
 
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+def verify_hashed_secret(plain_secret: str, hashed_secret: str) -> bool:
+    return hash_context.verify(plain_secret, hashed_secret)
+
+
+def get_secret_hash(secret: str) -> str:
+    return hash_context.hash(secret)

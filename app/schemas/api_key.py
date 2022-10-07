@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 # Shared properties
 class ApiKeyBase(BaseModel):
-    api_key: str = None
     can_nft: Optional[bool] = False
     can_sense: Optional[bool] = False
     can_cascade: Optional[bool] = False
@@ -25,6 +24,7 @@ class ApiKeyUpdate(ApiKeyBase):
 # Properties shared by models stored in DB
 class ApiKeyInDBBase(ApiKeyBase):
     id: int
+    api_key: str = None
     created_at: datetime.datetime
     owner_id: int
 

@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Union
 
 from sqlalchemy.orm import Session
 
-from core.security import get_password_hash, verify_password
+from core.security import get_secret_hash, verify_hashed_secret
 from app.crud.base import CRUDBase
 from app.models.user import User
 from app.models.api_key import ApiKey
@@ -19,7 +19,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def create(self, db: Session, *, obj_in: UserCreate) -> User:
         db_obj = User(
             email=obj_in.email,
-            hashed_password=get_password_hash(obj_in.password),
+            hashed_password=get_secret_hash(obj_in.password),
             full_name=obj_in.full_name,
             is_superuser=obj_in.is_superuser,
         )
@@ -36,7 +36,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         else:
             update_data = obj_in.dict(exclude_unset=True)
         if update_data["password"]:
-            hashed_password = get_password_hash(update_data["password"])
+            hashed_password = get_secret_hash(update_data["password"])
             del update_data["password"]
             update_data["hashed_password"] = hashed_password
         return super().update(db, db_obj=db_obj, obj_in=update_data)
@@ -45,7 +45,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         user = self.get_by_email(db, email=email)
         if not user:
             return None
-        if not verify_password(password, user.hashed_password):
+        if not verify_hashed_secret(password, user.hashed_password):
             return None
         return user
 

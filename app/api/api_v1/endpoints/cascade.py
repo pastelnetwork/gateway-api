@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile
-from fastapi.security.api_key import APIKey
+from fastapi import APIRouter, Depends, UploadFile, HTTPException
 
 from typing import List
 from starlette.responses import JSONResponse
@@ -19,10 +18,9 @@ async def cascade_process(
         *,
         files: List[UploadFile],
         db: Session = Depends(deps.get_db),
-        api_key: APIKey = Depends(deps.APIKeyAuth.get_api_key)
-        # current_user: models.User = Depends(deps.OAuth2Auth.get_current_user)
-) -> JSONResponse:
-
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> dict:
     results = {}
     for file in files:
         lf = LocalFile(file.filename, file.content_type)
@@ -37,7 +35,7 @@ async def get_task_status(
         *,
         task_id: str,
         db: Session = Depends(deps.get_db),
-        api_key: APIKey = Depends(deps.APIKeyAuth.get_api_key)
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade)
         # current_user: models.User = Depends(deps.OAuth2Auth.get_current_user)
 ) -> dict:
     """

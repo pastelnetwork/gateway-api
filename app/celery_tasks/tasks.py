@@ -16,7 +16,7 @@ def cascade_process(self, file):
                            "file_id", "estimated_fee")
 
     # details = await process(file_id, fee / 5)
-    return {file.name: file_id}
+    return {file.name: file_id, fee: fee}
 
 
 @shared_task(bind=True, utoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 5},

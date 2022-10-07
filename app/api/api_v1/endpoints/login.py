@@ -9,7 +9,7 @@ from app import crud, models, schemas
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.core.security import get_password_hash
+from app.core.security import get_secret_hash
 from app.utils.authentication import (
     generate_password_reset_token,
     send_reset_password_email,
@@ -95,7 +95,7 @@ def reset_password(
         )
     elif not crud.user.is_active(user):
         raise HTTPException(status_code=400, detail="Inactive user")
-    hashed_password = get_password_hash(new_password)
+    hashed_password = get_secret_hash(new_password)
     user.hashed_password = hashed_password
     db.add(user)
     db.commit()

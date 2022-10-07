@@ -1,19 +1,29 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
+from core.security import create_api_key
 from app.crud.base import CRUDBase
 from app.models.api_key import ApiKey
 from app.schemas.api_key import ApiKeyCreate, ApiKeyUpdate
 
 
 class CRUDApiKey(CRUDBase[ApiKey, ApiKeyCreate, ApiKeyUpdate]):
+    def get_by_api_key(self, db: Session, *, api_key: str) -> Optional[ApiKey]:
+        return db.query(ApiKey).filter(ApiKey.api_key == api_key).first()
+
     def create_with_owner(
         self, db: Session, *, obj_in: ApiKeyCreate, owner_id: int
     ) -> ApiKey:
-        obj_in_data = jsonable_encoder(obj_in)
-        db_obj = self.model(**obj_in_data, owner_id=owner_id)
+        # obj_in_data = jsonable_encoder(obj_in)
+        # db_obj = self.model(**obj_in_data, owner_id=owner_id)
+        db_obj = ApiKey(
+            api_key=create_api_key(owner_id),
+            can_nft=obj_in.can_nft,
+            can_sense=obj_in.can_sense,
+            can_cascade=obj_in.can_cascade,
+            owner_id=owner_id
+        )
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
