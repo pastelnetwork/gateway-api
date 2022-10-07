@@ -1,10 +1,11 @@
 from typing import TYPE_CHECKING
-import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import Base
+from app.core.config import settings
 
 if TYPE_CHECKING:
     from .user import User  # noqa: F401

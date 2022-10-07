@@ -28,7 +28,7 @@ def read_apikeys(
     return apikeys
 
 
-@router.post("/{scopes}", response_model=schemas.ApiKey)
+@router.post("/", response_model=schemas.ApiKey)
 def create_apikey(
     *,
     db: Session = Depends(deps.get_db),
