@@ -73,8 +73,10 @@ services:
         - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.middlewares=${STACK_NAME?Variable not set}-www-redirect,${STACK_NAME?Variable not set}-https-redirect
 
   queue:
-    image: rabbitmq:3-management
-#    image: rabbitmq:3
+#    image: rabbitmq:3-management
+    image: rabbitmq:3
+    ports:
+      - "15673:15672"
 
   flower:
     image: mher/flower
@@ -83,9 +85,13 @@ services:
       - default
     env_file:
       - .env
-    command:
-      - "--broker=amqp://guest@queue:5672//"
-      - "--broker_api=http://guest:guest@queue:15672/api//"
+    environment:
+#      - CELERY_BROKER_URL=amqp://guest:guest@queue:5672//
+#      - CELERY_RESULT_BACKEND=rpc://
+      - FLOWER_PORT=5555
+#    command:
+#      - "--broker=amqp://guest@queue:5672//"
+#      - "--broker_api=http://guest:guest@queue:15672/api//"
     deploy:
       labels:
         - traefik.enable=true
@@ -99,6 +105,8 @@ services:
         - traefik.http.routers.${STACK_NAME?Variable not set}-flower-https.tls=true
         - traefik.http.routers.${STACK_NAME?Variable not set}-flower-https.tls.certresolver=le
         - traefik.http.services.${STACK_NAME?Variable not set}-flower.loadbalancer.server.port=5555
+    depends_on:
+      - queue
 
   backend:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'

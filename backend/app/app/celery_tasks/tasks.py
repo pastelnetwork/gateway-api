@@ -1,5 +1,5 @@
 from celery import shared_task
-import utils.walletnode as wn
+import app.utils.walletnode as wn
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 5},

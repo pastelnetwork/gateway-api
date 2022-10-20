@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from core.security import create_api_key
+from app.core.security import create_api_key
 from app.crud.base import CRUDBase
 from app.models.api_key import ApiKey
 from app.schemas.api_key import ApiKeyCreate, ApiKeyUpdate

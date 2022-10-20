@@ -1,5 +1,5 @@
 import requests
-from core.config import settings
+from app.core.config import settings
 
 
 def call(post, url_cmd, payload, files, headers, return_item1, return_item2):

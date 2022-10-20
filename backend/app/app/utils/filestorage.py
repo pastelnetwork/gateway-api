@@ -2,7 +2,7 @@ import os
 import aiofiles
 import uuid
 
-from core.config import settings
+from app.core.config import settings
 
 
 class LocalFile:

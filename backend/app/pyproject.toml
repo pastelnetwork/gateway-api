@@ -20,6 +20,8 @@ pydantic = "^1.4"
 passlib = {extras = ["bcrypt"], version = "^1.7.2"}
 emails = "^0.6"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+kombu = "^5.2.4"
+redis = "4.3.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1"

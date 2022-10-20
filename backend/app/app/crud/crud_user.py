@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Union
 
 from sqlalchemy.orm import Session
 
-from core.security import get_secret_hash, verify_hashed_secret
+from app.core.security import get_secret_hash, verify_hashed_secret
 from app.crud.base import CRUDBase
 from app.models.user import User
 from app.models.api_key import ApiKey
