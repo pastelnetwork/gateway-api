@@ -30,12 +30,15 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
 
+    PASTEL_RPC_URL: str = "http://127.0.0.1:19932"
     PASTEL_RPC_USER: str
     PASTEL_RPC_PWD: str
     PASTEL_ID: str
     PASSPHRASE: str
+    BURN_ADDRESS = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u"     # Testnet
+    # BURN_ADDRESS = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd"   # Mainnet
 
-    WN_BASE_URL: str = "http://127.0.0.1:8080"
+    WN_BASE_URL: str = "http://127.0.0.1:8181"
     BASE_CASCADE_URL = f"{WN_BASE_URL}/openapi/cascade"
     BASE_SENSE_URL = f"{WN_BASE_URL}/openapi/sense"
 

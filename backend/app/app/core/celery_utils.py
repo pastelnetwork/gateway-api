@@ -15,7 +15,7 @@ def create_celery():
     celery_app.conf.update(result_persistent=True)
     celery_app.conf.update(worker_send_task_events=False)
     celery_app.conf.update(worker_prefetch_multiplier=1)
-    # celery_app.conf.update(celery_ignore_result=False)
+    celery_app.conf.update(celery_ignore_result=False)
 
     return celery_app
 
@@ -28,6 +28,7 @@ def get_task_info(task_id):
     result = {
         "task_id": task_id,
         "task_status": task_result.status,
+        "task_state": task_result.state,
         "task_result": str(task_result.result)
     }
     return result

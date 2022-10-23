@@ -4,7 +4,7 @@ from typing import List
 from starlette.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-import app.celery_tasks.tasks as tasks
+import app.celery_tasks.cascade as cascade
 from app.core.celery_utils import get_task_info
 from app.utils.filestorage import LocalFile
 from app.api import deps
@@ -25,8 +25,9 @@ async def cascade_process(
     for file in files:
         lf = LocalFile(file.filename, file.content_type)
         await lf.save(file)
-        task = tasks.cascade_process.apply_async(args=[lf])
-        results.update({file.filename: task.id})
+        res = cascade.cascade_process.delay(lf)
+        results.update({file.filename: res.id, "result": res.get()})
+
     return JSONResponse(results)
 
 

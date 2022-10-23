@@ -1,0 +1,20 @@
+version: "3.3"
+services:
+  
+  queue:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  wn:
+    image: wn-testnet:latest
+    ports:
+      - "8181:8080"
+      - "19932:19932"
+    build:
+      context: ../backend
+      dockerfile: wn-testnet.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
+
+
