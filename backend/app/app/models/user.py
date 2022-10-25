@@ -1,16 +1,12 @@
 from typing import TYPE_CHECKING
-import random
 from sqlalchemy import Boolean, Column, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import Base
+from app.db.base_class import gen_rand_id
 
 if TYPE_CHECKING:
     from .api_key import ApiKey  # noqa: F401
-
-
-def gen_rand_id():
-    return random.getrandbits(31)
 
 
 class User(Base):
