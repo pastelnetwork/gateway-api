@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+import app.db.session as session
 from app import crud, models, schemas
 from app.api import deps
 from app.core import security
@@ -21,7 +22,7 @@ router = APIRouter()
 
 @router.post("/login/access-token", response_model=schemas.Token)
 def login_access_token(
-        db: Session = Depends(deps.get_db),
+        db: Session = Depends(session.get_db_session),
         form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
@@ -56,7 +57,7 @@ def test_token(
 @router.post("/password-recovery/{email}", response_model=schemas.Msg)
 def recover_password(
         email: str,
-        db: Session = Depends(deps.get_db)
+        db: Session = Depends(session.get_db_session)
 ) -> Any:
     """
     Password Recovery
@@ -79,7 +80,7 @@ def recover_password(
 def reset_password(
         token: str = Body(...),
         new_password: str = Body(...),
-        db: Session = Depends(deps.get_db),
+        db: Session = Depends(session.get_db_session),
 ) -> Any:
     """
     Reset password

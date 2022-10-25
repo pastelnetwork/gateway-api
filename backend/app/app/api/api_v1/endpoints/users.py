@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic.networks import EmailStr
 from sqlalchemy.orm import Session
 
+import app.db.session as session
 from app import crud, models, schemas
 from app.api import deps
 from app.core.config import settings
@@ -15,7 +16,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[schemas.User])
 def read_users(
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     skip: int = 0,
     limit: int = 100,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
@@ -30,7 +31,7 @@ def read_users(
 @router.post("/", response_model=schemas.User)
 def create_user(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     user_in: schemas.UserCreate,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
 ) -> Any:
@@ -54,7 +55,7 @@ def create_user(
 @router.put("/me", response_model=schemas.User)
 def update_user_me(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     password: str = Body(None),
     full_name: str = Body(None),
     email: EmailStr = Body(None),
@@ -77,7 +78,7 @@ def update_user_me(
 
 @router.get("/me", response_model=schemas.User)
 def read_user_me(
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> Any:
     """
@@ -89,7 +90,7 @@ def read_user_me(
 @router.post("/open", response_model=schemas.User)
 def create_user_open(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     password: str = Body(...),
     email: EmailStr = Body(...),
     full_name: str = Body(None),
@@ -117,7 +118,7 @@ def create_user_open(
 def read_user_by_id(
     user_id: int,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
 ) -> Any:
     """
     Get a specific user by id.
@@ -135,7 +136,7 @@ def read_user_by_id(
 @router.put("/{user_id}", response_model=schemas.User)
 def update_user(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     user_id: int,
     user_in: schemas.UserUpdate,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),

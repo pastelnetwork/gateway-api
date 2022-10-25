@@ -2,7 +2,6 @@ from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.security.api_key import APIKeyHeader
 
-from typing import Generator
 from jose import jwt
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -10,7 +9,7 @@ from sqlalchemy.orm import Session
 from app import crud, models, schemas
 from app.core import security
 from app.core.config import settings
-from app.db.session import SessionLocal
+from app.db.session import get_db_session
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -19,17 +18,10 @@ reusable_oauth2 = OAuth2PasswordBearer(
 api_key_header = APIKeyHeader(name="api_key", auto_error=False)
 
 
-def get_db() -> Generator:
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
-
 class OAuth2Auth:
     @staticmethod
     def get_current_user(
-            db: Session = Depends(get_db),
+            db: Session = Depends(get_db_session),
             token: str = Depends(reusable_oauth2)
     ) -> models.User:
         try:
@@ -70,7 +62,7 @@ class OAuth2Auth:
 class APIKeyAuth:
     @staticmethod
     async def get_api_key(
-            db: Session = Depends(get_db),
+            db: Session = Depends(get_db_session),
             api_key: str = Security(api_key_header)
     ) -> models.ApiKey:
         print(api_key)
@@ -83,7 +75,7 @@ class APIKeyAuth:
 
     @staticmethod
     async def get_api_key_for_cascade(
-            db: Session = Depends(get_db),
+            db: Session = Depends(get_db_session),
             api_key: str = Security(api_key_header)
     ) -> models.ApiKey:
         apikey = await APIKeyAuth.get_api_key(db=db, api_key=api_key)
@@ -96,7 +88,7 @@ class APIKeyAuth:
 
     @staticmethod
     async def get_api_key_for_sense(
-            db: Session = Depends(get_db),
+            db: Session = Depends(get_db_session),
             api_key: str = Security(api_key_header)
     ) -> models.ApiKey:
         apikey = await APIKeyAuth.get_api_key(db=db, api_key=api_key)
@@ -109,7 +101,7 @@ class APIKeyAuth:
 
     @staticmethod
     async def get_api_key_for_nft(
-            db: Session = Depends(get_db),
+            db: Session = Depends(get_db_session),
             api_key: str = Security(api_key_header)
     ) -> models.ApiKey:
         apikey = await APIKeyAuth.get_api_key(db=db, api_key=api_key)
@@ -122,7 +114,7 @@ class APIKeyAuth:
 
     @staticmethod
     def get_user_by_apikey(
-            db: Session = Depends(get_db),
+            db: Session = Depends(get_db_session),
             api_key: str = Depends(api_key_header)
     ) -> models.User:
         print(api_key)

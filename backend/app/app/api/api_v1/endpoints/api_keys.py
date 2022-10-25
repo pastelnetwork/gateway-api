@@ -3,6 +3,7 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+import app.db.session as session
 from app import crud, models, schemas
 from app.api import deps
 
@@ -11,7 +12,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[schemas.ApiKey])
 def read_apikeys(
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     skip: int = 0,
     limit: int = 100,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
@@ -31,7 +32,7 @@ def read_apikeys(
 @router.post("/", response_model=schemas.ApiKey)
 def create_apikey(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     apikey_in: schemas.ApiKeyCreate,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> Any:
@@ -45,7 +46,7 @@ def create_apikey(
 @router.get("/{api_key}", response_model=schemas.ApiKey)
 def read_apikey(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     api_key: str,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> Any:
@@ -58,7 +59,7 @@ def read_apikey(
 @router.delete("/{api_key}", response_model=schemas.ApiKey)
 def delete_apikey(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(session.get_db_session),
     api_key: str,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> Any:
