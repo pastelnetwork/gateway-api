@@ -9,7 +9,9 @@ import app.db.session as session
 from app.core.celery_utils import get_task_info
 from app.utils.filestorage import LocalFile
 from app.api import deps
-from app import models#, crud, schemas
+from app import models, crud, schemas
+from core.security import create_hex_id
+
 
 router = APIRouter()
 
@@ -23,10 +25,16 @@ async def cascade_process(
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> dict:
     results = {}
+    work_id = create_hex_id()
     for file in files:
         lf = LocalFile(file.filename, file.content_type)
         await lf.save(file)
-        res = cascade.cascade_process.delay(lf)
+
+        res = (cascade.register_image.s(lf, work_id, current_user.id) |
+               cascade.preburn_fee.s() |
+               cascade.process.s()).apply_async()
+        # res = cascade.cascade_process.delay(lf, work_id, current_user.id)
+
         results.update({file.filename: res.id})
 
     return JSONResponse(results)

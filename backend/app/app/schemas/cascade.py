@@ -1,42 +1,31 @@
-import datetime
-
-from pydantic import BaseModel
+from .base_task import BaseTaskBase, BaseTaskCreate, BaseTaskUpdate, BaseTaskInDBBase, BaseTask, BaseTaskInDB
 
 
 # Shared properties
-class CascadeBase(BaseModel):
-    task_id: str
-    wn_task_id: str
-    height: int
+class CascadeBase(BaseTaskBase):
+    pass
 
 
 # Properties to receive on Cascade creation
-class CascadeCreate(CascadeBase):
+class CascadeCreate(BaseTaskCreate, CascadeBase):
     pass
 
 
 # Properties to receive on Cascade update
-class CascadeUpdate(CascadeBase):
-    updated_at: datetime.datetime = datetime.utcnow
+class CascadeUpdate(BaseTaskUpdate, CascadeBase):
+    burn_txid: int
 
 
 # Properties shared by models stored in DB
-class CascadeInDBBase(CascadeBase):
-    id: int
-    work_id: int
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
-    owner_id: int
-
-    class Config:
-        orm_mode = True
+class CascadeInDBBase(BaseTaskInDBBase, CascadeBase):
+    pass
 
 
 # Properties to return to client
-class Cascade(CascadeInDBBase):
+class Cascade(BaseTask, CascadeInDBBase):
     pass
 
 
 # Properties stored in DB
-class CascadeInDB(CascadeInDBBase):
+class CascadeInDB(BaseTaskInDB, CascadeInDBBase):
     pass

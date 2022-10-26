@@ -1,5 +1,5 @@
 from typing import Optional
-import datetime
+from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -23,9 +23,9 @@ class ApiKeyUpdate(ApiKeyBase):
 
 # Properties shared by models stored in DB
 class ApiKeyInDBBase(ApiKeyBase):
-    id: int
+    id: Optional[int] = None
     api_key: str = None
-    created_at: datetime.datetime
+    created_at: datetime
     owner_id: int
 
     class Config:
