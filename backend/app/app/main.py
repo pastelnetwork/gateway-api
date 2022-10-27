@@ -12,6 +12,9 @@ def create_app() -> FastAPI:
                           description=settings.PROJECT_DESCRIPTION,
                           openapi_url=f"{settings.API_V1_STR}/openapi.json", )
 
+    from app.core.logging import configure_logging
+    configure_logging()
+
     current_app.celery_app = create_celery()
     current_app.include_router(api_router, prefix=settings.API_V1_STR)
 

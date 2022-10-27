@@ -1,3 +1,5 @@
+from typing import Optional
+
 from .base_task import BaseTaskBase, BaseTaskCreate, BaseTaskUpdate, BaseTaskInDBBase, BaseTask, BaseTaskInDB
 
 
@@ -8,12 +10,12 @@ class CascadeBase(BaseTaskBase):
 
 # Properties to receive on Cascade creation
 class CascadeCreate(BaseTaskCreate, CascadeBase):
-    pass
+    burn_txid: Optional[int]
 
 
 # Properties to receive on Cascade update
 class CascadeUpdate(BaseTaskUpdate, CascadeBase):
-    burn_txid: int
+    pass
 
 
 # Properties shared by models stored in DB

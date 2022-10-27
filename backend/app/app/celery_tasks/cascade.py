@@ -2,7 +2,7 @@ from celery import shared_task
 
 import app.utils.walletnode as wn
 import app.utils.pasteld as psl
-# from app.core.config import settings
+from app.core.config import settings
 from app import crud, models, schemas
 from app.db.session import db_context
 
@@ -30,7 +30,7 @@ def register_image(self, local_file, work_id, user_id):
                 original_file_content_type=local_file.type,
                 original_file_local_path=local_file.path,
                 work_id=work_id,
-                task_id=task_id,
+                last_task_id=task_id,
                 wn_file_id=file_id,
                 wn_fee=fee,
                 height=height,
@@ -60,7 +60,7 @@ def preburn_fee(self, prev_task_id):
             if not burn_tx:
                 burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=burn_amount)
                 if not burn_tx:
-                    # burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])
+                    burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])
                     burn_txid = f"Test - {task_id}"
                     burn_tx = crud.preburn_tx.create_new_bound(session,
                                                                fee=burn_amount,
@@ -73,7 +73,7 @@ def preburn_fee(self, prev_task_id):
             if burn_tx.height > height - 5:
                 preburn_fee.retry()
 
-            upd = {"burn_txid": burn_tx.txid, "task_id": task_id}
+            upd = {"burn_txid": burn_tx.txid, "last_task_id": task_id}
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
 
     return task_id
@@ -96,28 +96,28 @@ def process(self, prev_task_id):
 
     task_id = process.request.id
     with db_context() as session:
-        upd = {"task_id": task_id}
+        upd = {"last_task_id": task_id}
         crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
 
-    # task_id = wn.call(True,
-    #                   f'start/{file_id}',
-    #                   json.dumps({
-    #                       "burn_txid": burn_txid,
-    #                       "app_pastelid": settings.PASTEL_ID,
-    #                   }),
-    #                   [],
-    #                   {
-    #                       'app_pastelid_passphrase': settings.PASSPHRASE,
-    #                       'Content-Type': 'application/json'
-    #                   },
-    #                   "task_id", "")
+    task_id = wn.call(True,
+                      f'start/{wn_file_id}',
+                      json.dumps({
+                          "burn_txid": burn_txid,
+                          "app_pastelid": settings.PASTEL_ID,
+                      }),
+                      [],
+                      {
+                          'app_pastelid_passphrase': settings.PASSPHRASE,
+                          'Content-Type': 'application/json'
+                      },
+                      "task_id", "")
 
     # ipfs_client = ipfshttpclient.connect()  # Connects to: /dns/localhost/tcp/5001/http
     # res = ipfs_client.add(f'{tmpDirectory}/{file_id}')
     # ipfs_link = 'https://ipfs.io/ipfs/' + res['Hash']
 
     return {"file_name": file_name, "file_id": wn_file_id, "fee": wn_fee,
-            "burn_txid": burn_txid, "height": height, "task_id": task_id}
+            "burn_txid": burn_txid, "height": height, "last_task_id": task_id}
 
 
 @shared_task(bind=True, utoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 5},

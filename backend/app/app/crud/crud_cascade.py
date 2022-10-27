@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
+import sqlalchemy as sa
 
 from app.crud.base import CRUDBase
 from app.models.cascade import Cascade
@@ -16,20 +17,89 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             original_file_content_type=obj_in.original_file_content_type,
             original_file_local_path=obj_in.original_file_local_path,
             work_id=obj_in.work_id,
-            task_id=obj_in.task_id,
+            ticket_id=obj_in.ticket_id,
+            last_task_id=obj_in.last_task_id,
             wn_file_id=obj_in.wn_file_id,
             wn_fee=obj_in.wn_fee,
             height=obj_in.height,
             owner_id=owner_id
         )
-
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
 
     def get_by_task_id(self, db: Session, *, task_id: str) -> Optional[Cascade]:
-        return db.query(Cascade).filter(Cascade.task_id == task_id).first()
+        return db.query(Cascade).filter(Cascade.last_task_id == task_id).first()
+
+    def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str) -> Optional[Cascade]:
+        return (
+            db.query(Cascade)
+            .filter(Cascade.work_id == work_id)
+            .filter(Cascade.original_file_name == file_name)
+            .first()
+        )
+
+    def get_all_in_work(
+            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.work_id == work_id)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def get_all_in_work_not_started(
+            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.work_id == work_id)
+            .filter(
+                sa.and_(
+                    Cascade.burn_txid.is_(None),
+                    Cascade.wn_task_id.is_(None),
+                ))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def get_all_in_work_prepaid(
+            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.work_id == work_id)
+            .filter(
+                sa.and_(
+                    Cascade.burn_txid.isnot(None),
+                    Cascade.wn_task_id.is_(None),
+                )
+            )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def get_all_in_work_started(
+            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.work_id == work_id)
+            .filter(
+                sa.and_(
+                    Cascade.burn_txid.isnot(None),
+                    Cascade.wn_task_id.isnot(None),
+                )
+            )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
     def get_multi_by_owner(
             self, db: Session, *, owner_id: int, skip: int = 0, limit: int = 100

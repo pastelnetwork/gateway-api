@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Json
 
 
 class BaseTaskBase(BaseModel):
@@ -9,11 +9,17 @@ class BaseTaskBase(BaseModel):
     original_file_content_type: str
     original_file_local_path: str
     work_id: str
-    task_id: str
+    ticket_id: str
+    last_task_id: str
     wn_file_id: str
     wn_fee: int
     height: int
     wn_task_id: Optional[str] = None
+    reg_ticket_txid: Optional[str] = None
+    act_ticket_txid: Optional[str] = None
+    ipfs_link: Optional[str] = None
+    aws_link: Optional[str] = None
+    other_links: Optional[Json] = None
 
 
 class BaseTaskCreate(BaseTaskBase):

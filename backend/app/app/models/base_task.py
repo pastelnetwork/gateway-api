@@ -1,7 +1,8 @@
 from typing import TYPE_CHECKING
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.base_class import Base, gen_rand_id
 
@@ -16,13 +17,20 @@ class BaseTask(Base):
     original_file_name = Column(String)
     original_file_content_type = Column(String)
     original_file_local_path = Column(String)
+    ipfs_link = Column(String)
+    aws_link = Column(String)
+    other_links = Column(JSONB)
 
     work_id = Column(String, index=True)
-    task_id = Column(String, index=True)
+    ticket_id = Column(String, index=True)
+    last_task_id = Column(String, index=True)
     wn_file_id = Column(String, index=True)
     wn_task_id = Column(String, index=True)
     wn_fee = Column(Integer)
     height = Column(Integer, index=True)
+
+    reg_ticket_txid = Column(String, index=True)
+    act_ticket_txid = Column(String, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)

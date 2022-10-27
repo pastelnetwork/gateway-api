@@ -2,6 +2,7 @@ from celery import current_app as current_celery_app
 from celery.result import AsyncResult
 
 from .celery_config import settings
+import app.celery_tasks.scheduled
 
 
 def create_celery():
@@ -17,6 +18,14 @@ def create_celery():
     celery_app.conf.update(worker_prefetch_multiplier=1)
     celery_app.conf.update(celery_ignore_result=False)
     celery_app.conf.update(celery_task_always_eager=True)
+
+    celery_app.conf.beat_schedule = {
+        'preburn_fee': {
+            'task': 'preburn_fee',
+            'schedule': 600.0,
+        },
+    }
+    celery_app.conf.timezone = 'UTC'
 
     return celery_app
 
