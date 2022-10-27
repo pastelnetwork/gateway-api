@@ -23,7 +23,6 @@ class BaseTask(Base):
 
     work_id = Column(String, index=True)
     ticket_id = Column(String, index=True)
-    last_task_id = Column(String, index=True)
     wn_file_id = Column(String, index=True)
     wn_task_id = Column(String, index=True)
     wn_fee = Column(Integer)

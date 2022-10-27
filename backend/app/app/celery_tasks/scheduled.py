@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task(name="preburn_fee")
 def preburn_fee():
+    logger.info(f"preburn_fee task started")
     with db_context() as session:
 
         fees = []

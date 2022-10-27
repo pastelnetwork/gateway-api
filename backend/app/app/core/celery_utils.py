@@ -2,7 +2,7 @@ from celery import current_app as current_celery_app
 from celery.result import AsyncResult
 
 from .celery_config import settings
-import app.celery_tasks.scheduled
+import app.celery_tasks.scheduled   # MUST be here for beat to work
 
 
 def create_celery():

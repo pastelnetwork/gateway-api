@@ -9,8 +9,9 @@ from app.schemas.cascade import CascadeCreate, CascadeUpdate
 
 
 class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
+    @staticmethod
     def create_with_owner(
-            self, db: Session, *, obj_in: CascadeCreate, owner_id: int
+            db: Session, *, obj_in: CascadeCreate, owner_id: int
     ) -> Cascade:
         db_obj = Cascade(
             original_file_name=obj_in.original_file_name,
@@ -18,7 +19,6 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             original_file_local_path=obj_in.original_file_local_path,
             work_id=obj_in.work_id,
             ticket_id=obj_in.ticket_id,
-            last_task_id=obj_in.last_task_id,
             wn_file_id=obj_in.wn_file_id,
             wn_fee=obj_in.wn_fee,
             height=obj_in.height,
@@ -29,12 +29,12 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def get_by_task_id(self, db: Session, *, task_id: str) -> Optional[Cascade]:
-        return db.query(Cascade).filter(Cascade.last_task_id == task_id).first()
+    def get_by_ticket_id(self, db: Session, *, ticket_id: str) -> Optional[Cascade]:
+        return db.query(self.model).filter(Cascade.ticket_id == ticket_id).first()
 
     def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str) -> Optional[Cascade]:
         return (
-            db.query(Cascade)
+            db.query(self.model)
             .filter(Cascade.work_id == work_id)
             .filter(Cascade.original_file_name == file_name)
             .first()

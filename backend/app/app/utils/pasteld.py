@@ -18,7 +18,7 @@ def call(method, parameters):
 
 
 class PasteldException(Exception):
-    """Exception raised for errors in the walletnode call
+    """Exception raised for errors in the pasteld call
 
     Attributes:
         message -- explanation of the error

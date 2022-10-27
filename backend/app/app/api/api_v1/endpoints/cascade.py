@@ -23,15 +23,17 @@ async def cascade_process(
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> dict:
+) -> JSONResponse:
     results = {}
     work_id = create_hex_id()
     for file in files:
         lf = LocalFile(file.filename, file.content_type)
         await lf.save(file)
-        res = (cascade.register_image.s(lf, work_id, current_user.id) |
-               cascade.preburn_fee.s() |
-               cascade.process.s()).apply_async()
+        res = (
+                cascade.register_image.s(lf, work_id, current_user.id) |
+                cascade.preburn_fee.s() |
+                cascade.process.s()
+               ).apply_async()
         results.update({file.filename: res.id})
 
     return JSONResponse(results)

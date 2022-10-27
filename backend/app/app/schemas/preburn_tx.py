@@ -18,14 +18,14 @@ class PreBurnTxCreate(PreBurnTxBase):
 # Properties to receive on PreBurnTx update
 class PreBurnTxUpdate(PreBurnTxBase):
     status: PBTXStatus
-    task_id: Optional[str] = None
+    ticket_id: Optional[str] = None
 
 
 # Properties shared by models stored in DB
 class PreBurnTxInDBBase(PreBurnTxBase):
     id: int
     status: PBTXStatus
-    task_id: Optional[str] = None
+    ticket_id: Optional[str] = None
 
     class Config:
         orm_mode = True

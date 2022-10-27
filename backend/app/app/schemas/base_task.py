@@ -10,7 +10,6 @@ class BaseTaskBase(BaseModel):
     original_file_local_path: str
     work_id: str
     ticket_id: str
-    last_task_id: str
     wn_file_id: str
     wn_fee: int
     height: int
