@@ -17,7 +17,7 @@ def register_image(self, local_file, work_id, user_id) -> str:
     self.message = f'Starting image registration... [Ticket ID: {ticket_id}]'
 
     with db_context() as session:
-        cascade_task = crud.cascade.get_by_task_id(session, ticket_id=ticket_id)
+        cascade_task = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
 
     if not cascade_task:
         self.message = f'New image - calling WN... [Ticket ID: {ticket_id}]'
@@ -56,7 +56,7 @@ def preburn_fee(self, ticket_id):
     self.message = f'Searching for pre-burn tx for image registration... [Ticket ID: {ticket_id}]'
 
     with db_context() as session:
-        cascade_task = crud.cascade.get_by_task_id(session, ticket_id=ticket_id)
+        cascade_task = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
 
     if not cascade_task:
         raise CascadeException(f'No cascade task found for ticket_id {ticket_id}')
