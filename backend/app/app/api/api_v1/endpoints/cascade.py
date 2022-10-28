@@ -36,7 +36,7 @@ async def cascade_process(
                ).apply_async()
         results.update({file.filename: res.id})
 
-    return JSONResponse(results)
+    return JSONResponse({"work_id": work_id, "files": results})
 
 
 @router.get("/task/{task_id}")
