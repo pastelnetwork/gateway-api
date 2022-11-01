@@ -62,8 +62,8 @@ async def get_work_status(
     stored_tasks = crud.cascade.get_all_in_work(db=db, work_id=work_id)
     for task in stored_tasks:
         if task.task_id:
-            if task.task_id == "DONE":
-                status = "DONE"
+            if task.task_id == 'DONE':
+                status = 'PENDING'
             else:
                 task_info = get_task_info(task.task_id)
                 status = task_info['task_status']
@@ -79,6 +79,9 @@ async def get_work_status(
         for step in wn_task_status:
             if step['status'] == 'Task Rejected':
                 status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
+                break
+            if step['status'] == 'Task Completed':
+                status = 'DONE'
                 break
 
         task_result = schemas.TaskResult(
