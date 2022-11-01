@@ -20,9 +20,9 @@ class PastelTask(celery.Task):
                 raise Exception("Invalid args")
 
         with db_context() as session:
-            cascade_task = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
+            task = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
             upd = {"task_id": "DONE"}
-            crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
+            crud.cascade.update(session, db_obj=task, obj_in=upd)
 
     # def on_failure(self, exc, task_id, args, kwargs, einfo):
     #     print(f'{task_id} failed: {exc}')

@@ -23,6 +23,10 @@ def create_celery():
             'task': 'preburn_fee',
             'schedule': 600.0,
         },
+        'registration_finisher': {
+            'task': 'registration_finisher',
+            'schedule': 60.0,
+        },
     }
     celery_app.conf.timezone = 'UTC'
 

@@ -6,6 +6,7 @@ import app.utils.pasteld as psl
 from app.core.config import settings
 from app import crud
 from app.db.session import db_context
+import app.utils.walletnode as wn
 
 logger = logging.getLogger(__name__)
 
@@ -40,3 +41,40 @@ def preburn_fee():
                                        fee=burn_amount,
                                        height=height,
                                        txid=burn_txid)
+
+
+@shared_task(name="registration_finisher")
+def registration_finisher():
+    logger.info(f"registration_finisher started")
+    with db_context() as session:
+        tasks = crud.cascade.get_all_started_not_finished(session)
+        for task in tasks:
+            if task.wn_task_id:
+                wn_task_status = wn.call(False,
+                                         f'{task.wn_task_id}/history',
+                                         {},
+                                         [],
+                                         {},
+                                         "", "")
+                for step in wn_task_status:
+                    status = step['status']
+                    if status == 'Task Rejected':
+                        # mark task as failed, and requires reprocessing
+                        upd = {"task_id": "ERROR"}
+                        crud.cascade.update(session, db_obj=task, obj_in=upd)
+                        break
+                    reg = status.split('Validated Cascade Reg TXID: ', 1)
+                    if len(reg) == 2:
+                        upd = {"reg_ticket_txid": reg[1]}
+                        crud.cascade.update(session, db_obj=task, obj_in=upd)
+                    act = status.split('Activated Cascade Action Ticket TXID: ', 1)
+                    if len(act) == 2:
+                        upd = {"act_ticket_txid": act[2]}
+                        crud.cascade.update(session, db_obj=task, obj_in=upd)
+                        break
+                    elif task.reg_ticket_txid:
+                        act_ticket = psl.call("tickets", ['find', 'action-act', task.reg_ticket_txid])
+                        if act_ticket and act_ticket.txid:
+                            upd = {"act_ticket_txid": act_ticket.txid}
+                            crud.cascade.update(session, db_obj=task, obj_in=upd)
+                        break

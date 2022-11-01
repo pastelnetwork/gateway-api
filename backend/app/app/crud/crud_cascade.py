@@ -101,6 +101,25 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             .all()
         )
 
+    def get_all_started_not_finished(
+            self, db: Session, *, skip: int = 0, limit: int = 100
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(
+                sa.and_(
+                    Cascade.task_id == 'DONE',
+                    sa.or_(
+                        Cascade.reg_ticket_txid.is_(None),
+                        Cascade.act_ticket_txid.is_(None),
+                    )
+                )
+            )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
     def get_multi_by_owner(
             self, db: Session, *, owner_id: int, skip: int = 0, limit: int = 100
     ) -> List[Cascade]:
