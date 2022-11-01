@@ -51,6 +51,7 @@ def assert_cascade_jobs(cascade_job_1: CascadeCreate, cascade_job_2: Cascade) ->
 def test_create_cascade_job(db: Session) -> None:
     new_cascade_task, created_cascade_task = create_cascade_task(db)
     assert_cascade_jobs(new_cascade_task, created_cascade_task)
+    crud.cascade.remove(db=db, id=created_cascade_task.id)
 
 
 # 2
@@ -58,6 +59,7 @@ def test_get_cascade_job_by_ticket_id(db: Session) -> None:
     new_cascade_task, created_cascade_task = create_cascade_task(db)
     stored_cascade_task = crud.cascade.get_by_ticket_id(db=db, ticket_id=new_cascade_task.ticket_id)
     assert_cascade_jobs(new_cascade_task, stored_cascade_task)
+    crud.cascade.remove(db=db, id=created_cascade_task.id)
 
 
 # 3
@@ -71,6 +73,8 @@ def test_get_cascade_job_by_work_id_and_name(db: Session) -> None:
     stored_cascade_task2 = crud.cascade.get_by_work_id_and_name(db=db, work_id=work_id,
                                                                 file_name=new_cascade_task2.original_file_name)
     assert_cascade_jobs(new_cascade_task2, stored_cascade_task2)
+    crud.cascade.remove(db=db, id=created_cascade_task1.id)
+    crud.cascade.remove(db=db, id=created_cascade_task2.id)
 
 
 # 4
@@ -81,6 +85,8 @@ def test_get_multiple_cascade_job(db: Session) -> None:
     stored_cascade_tasks = crud.cascade.get_all_in_work(db=db, work_id=work_id)
     assert_cascade_jobs(new_cascade_task1, stored_cascade_tasks[0])
     assert_cascade_jobs(new_cascade_task2, stored_cascade_tasks[1])
+    crud.cascade.remove(db=db, id=created_cascade_task1.id)
+    crud.cascade.remove(db=db, id=created_cascade_task2.id)
 
 
 # 5
@@ -91,6 +97,8 @@ def test_get_non_started(db: Session) -> None:
     stored_cascade_tasks = crud.cascade.get_all_in_work_not_started(db=db, work_id=work_id)
     assert_cascade_jobs(new_cascade_task1, stored_cascade_tasks[0])
     assert_cascade_jobs(new_cascade_task2, stored_cascade_tasks[1])
+    crud.cascade.remove(db=db, id=created_cascade_task1.id)
+    crud.cascade.remove(db=db, id=created_cascade_task2.id)
 
 
 def mark_prepaid(db: Session, new_job: CascadeCreate, created_job: Cascade) -> (CascadeCreate, Cascade):
@@ -142,3 +150,6 @@ def test_update_and_get(db: Session) -> None:
 
     non_started_cascade_tasks = crud.cascade.get_all_in_work_not_started(db=db, work_id=work_id)
     assert len(non_started_cascade_tasks) == 0
+
+    crud.cascade.remove(db=db, id=created_job.id)
+
