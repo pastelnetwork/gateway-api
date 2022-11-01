@@ -22,6 +22,7 @@ class BaseTask(Base):
     other_links = Column(JSONB)
 
     work_id = Column(String, index=True)
+    task_id = Column(String, index=True)
     ticket_id = Column(String, index=True)
     wn_file_id = Column(String, index=True)
     wn_task_id = Column(String, index=True)

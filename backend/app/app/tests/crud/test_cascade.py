@@ -26,6 +26,7 @@ def create_cascade_task(db: Session, *, work_id: str = None) -> (CascadeCreate, 
         original_file_local_path=local_file_path,
         work_id=work_id,
         ticket_id=ticket_id,
+        task_id=ticket_id,
         wn_file_id=file_id,
         wn_fee=100000,
         height=1000000,
@@ -93,12 +94,12 @@ def test_get_non_started(db: Session) -> None:
 
 
 def mark_prepaid(db: Session, new_job: CascadeCreate, created_job: Cascade) -> (CascadeCreate, Cascade):
-    ticket_id = random_lower_string()
-    print(f"ticket_id: {ticket_id}")
+    task_id = random_lower_string()
+    print(f"task_id: {task_id}")
     burn_txid = random_lower_string()
-    upd = {"burn_txid": burn_txid, "ticket_id": ticket_id}
+    upd = {"burn_txid": burn_txid, "task_id": task_id}
     updated_job = crud.cascade.update(db, db_obj=created_job, obj_in=upd)
-    new_job.ticket_id = ticket_id
+    new_job.task_id = task_id
     print(f"updated_job: {updated_job.ticket_id}; new_job: {new_job.ticket_id}")
     assert_cascade_jobs(new_job, updated_job)
     assert updated_job.burn_txid == burn_txid
@@ -112,11 +113,11 @@ def check_prepaid(db: Session, prepaid_job: CascadeCreate, work_id: str, num: in
 
 
 def mark_started(db: Session, new_job: CascadeCreate, created_job: Cascade) -> (CascadeCreate, Cascade):
-    ticket_id = random_lower_string()
+    task_id = random_lower_string()
     wn_task_id = random_lower_string()
-    upd = {"wn_task_id": wn_task_id, "ticket_id": ticket_id}
+    upd = {"wn_task_id": wn_task_id, "task_id": task_id}
     updated_job = crud.cascade.update(db, db_obj=created_job, obj_in=upd)
-    new_job.ticket_id = ticket_id
+    new_job.task_id = task_id
     assert_cascade_jobs(new_job, updated_job)
     assert updated_job.wn_task_id == wn_task_id
     return new_job, updated_job

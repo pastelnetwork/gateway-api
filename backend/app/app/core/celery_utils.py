@@ -1,5 +1,4 @@
 from celery import current_app as current_celery_app
-from celery.result import AsyncResult
 
 from .celery_config import settings
 import app.celery_tasks.scheduled   # MUST be here for beat to work
@@ -28,17 +27,3 @@ def create_celery():
     celery_app.conf.timezone = 'UTC'
 
     return celery_app
-
-
-def get_task_info(task_id):
-    """
-    return task info for the given task_id
-    """
-    task_result = AsyncResult(task_id)
-    result = {
-        "task_id": task_id,
-        "task_status": task_result.status,
-        "task_state": task_result.state,
-        "task_result": str(task_result.result)
-    }
-    return result

@@ -31,11 +31,6 @@ def create_api_key(
     return secrets.token_hex()
 
 
-def create_hex_id(
-) -> str:
-    return secrets.token_hex()
-
-
 def verify_hashed_secret(plain_secret: str, hashed_secret: str) -> bool:
     return hash_context.verify(plain_secret, hashed_secret)
 

@@ -8,15 +8,11 @@ services:
 
   ipfs:
     image: ipfs.07:latest
-#    image: ipfs/kubo:latest
-#    image: ipfs/go-ipfs:v0.7.0
     ports:
       - "4001:4001"
       - "4001:4001/udp"
       - "127.0.0.1:5001:5001"
       - "127.0.0.1:8082:8080"
-    env_file:
-      - .env
     volumes:
       - /tmp/ipfs-data:/data/ipfs
     build:

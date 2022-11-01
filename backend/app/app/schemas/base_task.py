@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Any
 
 from pydantic import BaseModel, Json
 
@@ -9,6 +9,7 @@ class BaseTaskBase(BaseModel):
     original_file_content_type: str
     original_file_local_path: str
     work_id: str
+    task_id: str
     ticket_id: str
     wn_file_id: str
     wn_fee: int
@@ -46,3 +47,20 @@ class BaseTask(BaseTaskInDBBase):
 # Properties stored in DB
 class BaseTaskInDB(BaseTaskInDBBase):
     pass
+
+
+class TaskResult(BaseModel):
+    file: str
+    ticket_id: str
+    status: str
+    reg_ticket_txid: Optional[str] = None
+    act_ticket_txid: Optional[str] = None
+    ipfs_link: Optional[str] = None
+    aws_link: Optional[str] = None
+    other_links: Optional[Json] = None
+    error: Optional[Any] = None
+
+
+class WorkResult(BaseModel):
+    work_id: str
+    tickets: List[TaskResult]

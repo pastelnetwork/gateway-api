@@ -12,6 +12,9 @@ def call(post, url_cmd, payload, files, headers, return_item1, return_item2):
     response.raise_for_status()
     upload_resp = response.json()
 
+    if not return_item1:
+        return upload_resp
+
     if not upload_resp or not upload_resp[return_item1]:
         raise WalletnodeException(f"Error, {return_item1} not found")
     if not return_item2:
