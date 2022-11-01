@@ -50,7 +50,7 @@ export const actions = {
             commitSetUserProfile(context, response.data);
             commitRemoveNotification(context, loadingNotification);
             commitAddNotification(context, { content: 'Profile successfully created', color: 'success' });
-
+            commitsetAcountCreationError(context, false);
         } catch (err) {
             commitsetAcountCreationError(context, true);
             await dispatchLogOut(context);
