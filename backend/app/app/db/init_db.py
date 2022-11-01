@@ -8,6 +8,7 @@ from app.db import base  # noqa: F401
 # otherwise, SQL Alchemy might fail to initialize relationships properly
 # for more details: https://github.com/tiangolo/full-stack-fastapi-postgresql/issues/28
 
+#JE: Should we import invite codes here when first initializing the db?
 
 def init_db(db: Session) -> None:
     # Tables should be created with Alembic migrations
@@ -23,3 +24,4 @@ def init_db(db: Session) -> None:
             is_superuser=True,
         )
         user = crud.user.create(db, obj_in=user_in)  # noqa: F841
+

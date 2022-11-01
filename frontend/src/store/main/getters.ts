@@ -9,6 +9,7 @@ export const getters = {
             state.userProfile.is_superuser && state.userProfile.is_active);
     },
     loginError: (state: MainState) => state.logInError,
+    accountCreationError: (state: MainState) => state.accountCreationError,
     dashboardShowDrawer: (state: MainState) => state.dashboardShowDrawer,
     dashboardMiniDrawer: (state: MainState) => state.dashboardMiniDrawer,
     userProfile: (state: MainState) => state.userProfile,

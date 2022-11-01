@@ -7,7 +7,7 @@ import { ActionContext } from 'vuex';
 import { State } from '../state';
 import {
     commitAddNotification,
-    commitRemoveNotification,
+    commitRemoveNotification, commitsetAcountCreationError,
     commitSetLoggedIn,
     commitSetLogInError,
     commitSetToken,
@@ -38,6 +38,26 @@ export const actions = {
             await dispatchLogOut(context);
         }
     },
+
+    async actionCreateAccount(context: MainContext, payload: { email: string; fullname: string; password: string; invitecode: string }) {
+        try {
+            const loadingNotification = { content: 'saving', showProgress: true };
+            commitAddNotification(context, loadingNotification);
+            const response = (await Promise.all([
+                api.createUser(context.state.token, payload),
+                await new Promise((resolve, reject) => setTimeout(() => resolve(), 500)),
+            ]))[0];
+            commitSetUserProfile(context, response.data);
+            commitRemoveNotification(context, loadingNotification);
+            commitAddNotification(context, { content: 'Profile successfully created', color: 'success' });
+
+        } catch (err) {
+            commitsetAcountCreationError(context, true);
+            await dispatchLogOut(context);
+        }
+    },
+
+
     async actionGetUserProfile(context: MainContext) {
         try {
             const response = await api.getMe(context.state.token);
@@ -171,3 +191,4 @@ export const dispatchUpdateUserProfile = dispatch(actions.actionUpdateUserProfil
 export const dispatchRemoveNotification = dispatch(actions.removeNotification);
 export const dispatchPasswordRecovery = dispatch(actions.passwordRecovery);
 export const dispatchResetPassword = dispatch(actions.resetPassword);
+export const dispatchCreateAccount = dispatch(actions.actionCreateAccount);

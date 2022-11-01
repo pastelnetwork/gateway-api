@@ -19,6 +19,8 @@
                 </v-alert>
               </div>
               <v-flex class="caption text-xs-right"><router-link to="/recover-password">Forgot your password?</router-link></v-flex>
+              <v-flex class="caption text-xs-right"><router-link to="/create-account">Don't have an account? Create one here.</router-link></v-flex>
+
             </v-card-text>
             <v-card-actions>
               <v-spacer></v-spacer>

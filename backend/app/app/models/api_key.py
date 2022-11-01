@@ -19,3 +19,9 @@ class ApiKey(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="api_keys")
+
+class InviteCode(Base):
+    id = Column(Integer, primary_key=True, index=True)
+    invite_code = Column(String, index=True)
+    already_used = Column(Boolean, default=False)
+    owner_id = Column(Integer, ForeignKey("user.id"))
