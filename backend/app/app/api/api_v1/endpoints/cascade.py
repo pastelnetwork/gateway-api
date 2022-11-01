@@ -62,7 +62,7 @@ async def get_work_status(
     stored_tasks = crud.cascade.get_all_in_work(db=db, work_id=work_id)
     for task in stored_tasks:
         if task.task_id:
-            if task.task_id == 'DONE':
+            if task.task_id == 'STARTED':
                 status = 'PENDING'
             else:
                 task_info = get_task_info(task.task_id)

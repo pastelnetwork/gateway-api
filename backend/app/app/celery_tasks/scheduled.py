@@ -69,12 +69,12 @@ def registration_finisher():
                         crud.cascade.update(session, db_obj=task, obj_in=upd)
                     act = status.split('Activated Cascade Action Ticket TXID: ', 1)
                     if len(act) == 2:
-                        upd = {"act_ticket_txid": act[2]}
+                        upd = {"act_ticket_txid": act[2], "task_id": "DONE"}
                         crud.cascade.update(session, db_obj=task, obj_in=upd)
                         break
                     elif task.reg_ticket_txid:
                         act_ticket = psl.call("tickets", ['find', 'action-act', task.reg_ticket_txid])
-                        if act_ticket and act_ticket.txid:
-                            upd = {"act_ticket_txid": act_ticket.txid}
+                        if act_ticket and act_ticket['txid']:
+                            upd = {"act_ticket_txid": act_ticket['txid'], "task_id": "DONE"}
                             crud.cascade.update(session, db_obj=task, obj_in=upd)
                         break
