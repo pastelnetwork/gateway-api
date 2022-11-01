@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
     USERS_OPEN_REGISTRATION: bool = False
-    RETURN_DETAILED_WN_ERROR: bool = False
+    RETURN_DETAILED_WN_ERROR: bool = True
 
     class Config:
         env_file = find_dotenv(usecwd=True)
