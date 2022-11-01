@@ -108,7 +108,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             db.query(self.model)
             .filter(
                 sa.and_(
-                    Cascade.task_id == 'STARTED',
+                    Cascade.ticket_status == 'STARTED',
                     sa.or_(
                         Cascade.reg_ticket_txid.is_(None),
                         Cascade.act_ticket_txid.is_(None),

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .user import User  # noqa: F401
 
 
-class BaseTask(Base):
+class BaseTicket(Base):
     __abstract__ = True
     id = Column(Integer, primary_key=True, index=True, default=gen_rand_id)
 
@@ -22,7 +22,7 @@ class BaseTask(Base):
     other_links = Column(JSONB)
 
     work_id = Column(String, index=True)
-    task_id = Column(String, index=True)
+    ticket_status = Column(String, index=True)
     ticket_id = Column(String, index=True)
     wn_file_id = Column(String, index=True)
     wn_task_id = Column(String, index=True)

@@ -59,8 +59,8 @@ def registration_finisher():
                 for step in wn_task_status:
                     status = step['status']
                     if status == 'Task Rejected':
-                        # mark task as failed, and requires reprocessing
-                        upd = {"task_id": "ERROR"}
+                        # mark ticket as failed, and requires reprocessing
+                        upd = {"ticket_status": "ERROR"}
                         crud.cascade.update(session, db_obj=task, obj_in=upd)
                         break
                     reg = status.split('Validated Cascade Reg TXID: ', 1)
@@ -69,12 +69,12 @@ def registration_finisher():
                         crud.cascade.update(session, db_obj=task, obj_in=upd)
                     act = status.split('Activated Cascade Action Ticket TXID: ', 1)
                     if len(act) == 2:
-                        upd = {"act_ticket_txid": act[2], "task_id": "DONE"}
+                        upd = {"act_ticket_txid": act[2], "ticket_status": "DONE"}
                         crud.cascade.update(session, db_obj=task, obj_in=upd)
                         break
                     elif task.reg_ticket_txid:
                         act_ticket = psl.call("tickets", ['find', 'action-act', task.reg_ticket_txid])
                         if act_ticket and act_ticket['txid']:
-                            upd = {"act_ticket_txid": act_ticket['txid'], "task_id": "DONE"}
+                            upd = {"act_ticket_txid": act_ticket['txid'], "ticket_status": "DONE"}
                             crud.cascade.update(session, db_obj=task, obj_in=upd)
                         break

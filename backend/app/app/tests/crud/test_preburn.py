@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app import crud, schemas
+from app import crud
 from app.tests.utils.utils import random_lower_string
 
 

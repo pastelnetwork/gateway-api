@@ -1,33 +1,33 @@
 from typing import Optional
 
-from .base_task import BaseTaskBase, BaseTaskCreate, BaseTaskUpdate, BaseTaskInDBBase, BaseTask, BaseTaskInDB
+from .base_ticket import BaseTicketBase, BaseTicketCreate, BaseTicketUpdate, BaseTicketInDBBase, BaseTicket, BaseTicketInDB
 
 
 # Shared properties
-class CascadeBase(BaseTaskBase):
+class CascadeBase(BaseTicketBase):
     pass
 
 
 # Properties to receive on Cascade creation
-class CascadeCreate(BaseTaskCreate, CascadeBase):
+class CascadeCreate(BaseTicketCreate, CascadeBase):
     burn_txid: Optional[int]
 
 
 # Properties to receive on Cascade update
-class CascadeUpdate(BaseTaskUpdate, CascadeBase):
+class CascadeUpdate(BaseTicketUpdate, CascadeBase):
     pass
 
 
 # Properties shared by models stored in DB
-class CascadeInDBBase(BaseTaskInDBBase, CascadeBase):
+class CascadeInDBBase(BaseTicketInDBBase, CascadeBase):
     pass
 
 
 # Properties to return to client
-class Cascade(BaseTask, CascadeInDBBase):
+class Cascade(BaseTicket, CascadeInDBBase):
     pass
 
 
 # Properties stored in DB
-class CascadeInDB(BaseTaskInDB, CascadeInDBBase):
+class CascadeInDB(BaseTicketInDB, CascadeInDBBase):
     pass

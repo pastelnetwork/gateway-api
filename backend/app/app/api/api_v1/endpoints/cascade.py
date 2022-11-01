@@ -3,11 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, UploadFile  # , HTTPException
 
 from typing import List
-from starlette.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 import app.celery_tasks.cascade as cascade
-from app.celery_tasks.base import get_task_info
+from app.celery_tasks.base import get_celery_task_info
 import app.db.session as session
 from app.utils.filestorage import LocalFile
 from app.api import deps
@@ -37,7 +36,7 @@ async def do_work(
                 cascade.preburn_fee.s() |
                 cascade.process.s()
         ).apply_async()
-        task_result = schemas.TaskResult(
+        task_result = schemas.TicketRegistrationResult(
             file=file.filename,
             ticket_id=ticket_id,
             status=res.status,
@@ -61,12 +60,12 @@ async def get_work_status(
     results = schemas.WorkResult(work_id=work_id, tickets=[])
     stored_tasks = crud.cascade.get_all_in_work(db=db, work_id=work_id)
     for task in stored_tasks:
-        if task.task_id:
-            if task.task_id == 'STARTED':
+        if task.ticket_status:
+            if task.ticket_status == 'STARTED':
                 status = 'PENDING'
             else:
-                task_info = get_task_info(task.task_id)
-                status = task_info['task_status']
+                task_info = get_celery_task_info(task.ticket_status)
+                status = task_info['celery_task_status']
         else:
             status = 'UNKNOWN'
 
@@ -84,7 +83,7 @@ async def get_work_status(
                 status = 'DONE'
                 break
 
-        task_result = schemas.TaskResult(
+        task_result = schemas.TicketRegistrationResult(
             file=task.original_file_name,
             ticket_id=task.ticket_id,
             status=status,
@@ -102,3 +101,14 @@ async def get_work_status(
         results.tickets.append(task_result)
 
     return results
+
+
+@router.get("/ticket/{ticket_id}", response_model=schemas.TicketRegistrationResult, response_model_exclude_none=True)
+async def get_work_status(
+        *,
+        work_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> schemas.TicketRegistrationResult:
+    pass

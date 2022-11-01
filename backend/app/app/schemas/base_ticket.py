@@ -4,12 +4,12 @@ from typing import Optional, List, Any
 from pydantic import BaseModel, Json
 
 
-class BaseTaskBase(BaseModel):
+class BaseTicketBase(BaseModel):
     original_file_name: str
     original_file_content_type: str
     original_file_local_path: str
     work_id: str
-    task_id: str
+    ticket_status: str
     ticket_id: str
     wn_file_id: str
     wn_fee: int
@@ -22,15 +22,15 @@ class BaseTaskBase(BaseModel):
     other_links: Optional[Json] = None
 
 
-class BaseTaskCreate(BaseTaskBase):
+class BaseTicketCreate(BaseTicketBase):
     pass
 
 
-class BaseTaskUpdate(BaseTaskBase):
+class BaseTicketUpdate(BaseTicketBase):
     updated_at: datetime = datetime.utcnow()
 
 
-class BaseTaskInDBBase(BaseTaskBase):
+class BaseTicketInDBBase(BaseTicketBase):
     id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
@@ -40,16 +40,16 @@ class BaseTaskInDBBase(BaseTaskBase):
         orm_mode = True
 
 
-class BaseTask(BaseTaskInDBBase):
+class BaseTicket(BaseTicketInDBBase):
     pass
 
 
 # Properties stored in DB
-class BaseTaskInDB(BaseTaskInDBBase):
+class BaseTicketInDB(BaseTicketInDBBase):
     pass
 
 
-class TaskResult(BaseModel):
+class TicketRegistrationResult(BaseModel):
     file: str
     ticket_id: str
     status: str
@@ -63,4 +63,4 @@ class TaskResult(BaseModel):
 
 class WorkResult(BaseModel):
     work_id: str
-    tickets: List[TaskResult]
+    tickets: List[TicketRegistrationResult]

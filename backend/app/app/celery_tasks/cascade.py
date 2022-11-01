@@ -37,7 +37,7 @@ def register_image(self, local_file, work_id, ticket_id, user_id) -> str:
                 original_file_content_type=local_file.type,
                 original_file_local_path=local_file.path,
                 work_id=work_id,
-                task_id=register_image.request.id,
+                ticket_status=register_image.request.id,
                 ticket_id=ticket_id,
                 wn_file_id=wn_file_id,
                 wn_fee=fee,
@@ -86,7 +86,7 @@ def preburn_fee(self, ticket_id) -> str:
                                f' [Ticket ID: {ticket_id}]'
                 preburn_fee.retry()
 
-            upd = {"burn_txid": burn_tx.txid, "task_id": preburn_fee.request.id}
+            upd = {"burn_txid": burn_tx.txid, "ticket_status": preburn_fee.request.id}
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
     else:
         self.message = f'Pre-burn tx [{cascade_task.burn_txid}] already associated with image ticket...' \
@@ -127,7 +127,7 @@ def process(self, ticket_id) -> str:
                              "task_id", "")
 
         with db_context() as session:
-            upd = {"wn_task_id": wn_task_id, "task_id": process.request.id}
+            upd = {"wn_task_id": wn_task_id, "ticket_status": process.request.id}
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
     else:
         self.message = f'"WN Start" already called... [Ticket ID: {ticket_id}; WN Task ID: {cascade_task.wn_task_id}]'
