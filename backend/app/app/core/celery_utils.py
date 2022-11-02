@@ -25,7 +25,7 @@ def create_celery():
         },
         'registration_finisher': {
             'task': 'registration_finisher',
-            'schedule': 60.0,
+            'schedule': 600.0,
         },
     }
     celery_app.conf.timezone = 'UTC'
