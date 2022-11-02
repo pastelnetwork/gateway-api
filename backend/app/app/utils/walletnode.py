@@ -2,14 +2,17 @@ import requests
 from app.core.config import settings
 
 
-def call(post, url_cmd, payload, files, headers, return_item1, return_item2):
+def call(post, url_cmd, payload, files, headers, return_item1, return_item2, no_throw=False):
     wn_url = f'{settings.BASE_CASCADE_URL}/{url_cmd}'
 
     if post:
         response = requests.post(wn_url, headers=headers, data=payload, files=files)
     else:
         response = requests.get(wn_url, headers=headers, data=payload, files=files)
-    response.raise_for_status()
+    if no_throw and response.status_code != 200:
+        return response
+    else:
+        response.raise_for_status()
     upload_resp = response.json()
 
     if not return_item1:

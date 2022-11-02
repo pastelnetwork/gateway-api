@@ -1,6 +1,11 @@
+import base64
+import logging
 import uuid
 
-from fastapi import APIRouter, Depends, UploadFile  # , HTTPException
+import requests
+import ipfshttpclient
+from fastapi import APIRouter, Depends, UploadFile, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from typing import List
 from sqlalchemy.orm import Session
@@ -46,8 +51,33 @@ async def do_work(
     return results
 
 
-@router.get("/{work_id}", response_model=schemas.WorkResult, response_model_exclude_none=True)
-async def get_work_status(
+@router.get("/works", response_model=List[schemas.WorkResult], response_model_exclude_none=True)
+async def get_works(
+        *,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> List[schemas.WorkResult]:
+    """
+    Return the status of the submitted Work
+    """
+    works = {}
+    tickets = crud.cascade.get_multi_by_owner(db=db, owner_id=current_user.id)
+    for ticket in tickets:
+        if ticket.work_id in works:
+            work = works[ticket.work_id]
+        else:
+            work = schemas.WorkResult(work_id=ticket.work_id, tickets=[])
+
+        ticket_result = await check_ticket_registration_status(ticket)
+        work.tickets.append(ticket_result)
+        works[ticket.work_id] = work
+
+    return list(works.values())
+
+
+@router.get("/works/{work_id}", response_model=schemas.WorkResult, response_model_exclude_none=True)
+async def get_work(
         *,
         work_id: str,
         db: Session = Depends(session.get_db_session),
@@ -58,57 +88,127 @@ async def get_work_status(
     Return the status of the submitted Work
     """
     results = schemas.WorkResult(work_id=work_id, tickets=[])
-    stored_tasks = crud.cascade.get_all_in_work(db=db, work_id=work_id)
-    for task in stored_tasks:
-        if task.ticket_status:
-            if task.ticket_status == 'STARTED':
-                status = 'PENDING'
-            else:
-                task_info = get_celery_task_info(task.ticket_status)
-                status = task_info['celery_task_status']
-        else:
-            status = 'UNKNOWN'
+    tickets_in_work = crud.cascade.get_all_in_work(db=db, work_id=work_id)
+    for ticket in tickets_in_work:
+        ticket_result = await check_ticket_registration_status(ticket)
+        results.tickets.append(ticket_result)
 
+    return results
+
+
+@router.get("/tickets", response_model=List[schemas.TicketRegistrationResult], response_model_exclude_none=True)
+async def get_tickets(
+        *,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> List[schemas.TicketRegistrationResult]:
+    results = []
+    tickets = crud.cascade.get_multi_by_owner(db=db, owner_id=current_user.id)
+    for ticket in tickets:
+        ticket_result = await check_ticket_registration_status(ticket)
+        results.append(ticket_result)
+    return results
+
+
+@router.get("/tickets/{ticket_id}", response_model=schemas.TicketRegistrationResult, response_model_exclude_none=True)
+async def get_ticket(
+        *,
+        ticket_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> schemas.TicketRegistrationResult:
+    ticket = crud.cascade.get_by_ticket_id(db=db, ticket_id=ticket_id)
+    ticket_result = await check_ticket_registration_status(ticket)
+    return ticket_result
+
+
+async def check_ticket_registration_status(ticket) -> schemas.TicketRegistrationResult:
+    if ticket.ticket_status:
+        if ticket.ticket_status == 'STARTED':
+            status = 'PENDING'
+        elif ticket.ticket_status == 'DONE':
+            status = 'SUCCESS'
+        else:
+            task_info = get_celery_task_info(ticket.ticket_status)
+            status = task_info['celery_task_status']
+    else:
+        status = 'UNKNOWN'
+    wn_task_status = ''
+    if ticket.ticket_status != 'DONE':
         wn_task_status = wn.call(False,
-                                 f'{task.wn_task_id}/history',
+                                 f'{ticket.wn_task_id}/history',
                                  {},
                                  [],
                                  {},
                                  "", "")
         for step in wn_task_status:
-            if step['status'] == 'Task Rejected':
+            if step['status'] == 'Registration Rejected':
                 status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
                 break
-            if step['status'] == 'Task Completed':
+            if step['status'] == 'Registration Completed':
                 status = 'DONE'
                 break
-
-        task_result = schemas.TicketRegistrationResult(
-            file=task.original_file_name,
-            ticket_id=task.ticket_id,
-            status=status,
-        )
-
-        if status != 'ERROR':
-            task_result.reg_ticket_txid = task.reg_ticket_txid
-            task_result.act_ticket_txid = task.act_ticket_txid
-            task_result.ipfs_link = task.ipfs_link
-            task_result.aws_link = task.aws_link
-            task_result.other_links = task.other_links
-        else:
-            task_result.error = wn_task_status
-
-        results.tickets.append(task_result)
-
-    return results
+    task_result = schemas.TicketRegistrationResult(
+        file=ticket.original_file_name,
+        ticket_id=ticket.ticket_id,
+        status=status,
+    )
+    if status != 'ERROR':
+        task_result.reg_ticket_txid = ticket.reg_ticket_txid
+        task_result.act_ticket_txid = ticket.act_ticket_txid
+        task_result.ipfs_link = f'https://ipfs.io/ipfs/{ticket.ipfs_link}'
+        task_result.aws_link = ticket.aws_link
+        task_result.other_links = ticket.other_links
+    else:
+        task_result.error = wn_task_status
+    return task_result
 
 
-@router.get("/ticket/{ticket_id}", response_model=schemas.TicketRegistrationResult, response_model_exclude_none=True)
-async def get_work_status(
+@router.get("/file/{ticket_id}", response_model_exclude_none=True)
+async def get_ticket(
         *,
-        work_id: str,
+        ticket_id: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> schemas.TicketRegistrationResult:
-    pass
+):
+    ticket = crud.cascade.get_by_ticket_id(db=db, ticket_id=ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    file_bytes = None
+    if ticket.pastel_id != settings.PASTEL_ID:
+        logging.error("Backend does not have correct Pastel ID")
+    else:
+        wn_resp = wn.call(False,
+                          f'download?pid={settings.PASTEL_ID}&txid={ticket.reg_ticket_txid}',
+                          {},
+                          [],
+                          {
+                              'Authorization': settings.PASSPHRASE,
+                          },
+                          "file", "", True)
+
+        if not isinstance(wn_resp, requests.models.Response):
+            file_bytes = base64.b64decode(wn_resp)
+            if not file_bytes:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Pastel file's incorrect")
+        else:
+            logging.error(wn_resp.text)
+
+    if not file_bytes:
+        if ticket.ipfs_link:
+            ipfs_client = ipfshttpclient.connect()
+            file_bytes = ipfs_client.cat(ticket.ipfs_link)
+            if not file_bytes:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
+
+    response = StreamingResponse(iter([file_bytes]),
+                                 media_type="application/x-binary"
+                                 )
+    response.headers["Content-Disposition"] = f"attachment; filename={ticket.reg_ticket_txid}"
+    return response

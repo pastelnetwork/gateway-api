@@ -127,7 +127,11 @@ def process(self, ticket_id) -> str:
                              "task_id", "")
 
         with db_context() as session:
-            upd = {"wn_task_id": wn_task_id, "ticket_status": process.request.id}
+            upd = {
+                "wn_task_id": wn_task_id,
+                "ticket_status": process.request.id,
+                "pastel_id": settings.PASTEL_ID,
+            }
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
     else:
         self.message = f'"WN Start" already called... [Ticket ID: {ticket_id}; WN Task ID: {cascade_task.wn_task_id}]'
@@ -137,10 +141,11 @@ def process(self, ticket_id) -> str:
 
         ipfs_client = ipfshttpclient.connect()
         res = ipfs_client.add(cascade_task.original_file_local_path)
-        ipfs_link = f'https://ipfs.io/ipfs/{res["Hash"]}'
+        ipfs_link = res["Hash"]
 
         if ipfs_link:
-            self.message = f'Updating DB with IPFS link... [Ticket ID: {ticket_id}; IPFS Link: {ipfs_link}]'
+            self.message = f'Updating DB with IPFS link... [Ticket ID: {ticket_id}; ' \
+                           f'IPFS Link: https://ipfs.io/ipfs/{ipfs_link}]'
             with db_context() as session:
                 upd = {"ipfs_link": ipfs_link}
                 crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)

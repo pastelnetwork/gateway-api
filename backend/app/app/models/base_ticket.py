@@ -31,6 +31,7 @@ class BaseTicket(Base):
 
     reg_ticket_txid = Column(String, index=True)
     act_ticket_txid = Column(String, index=True)
+    pastel_id = Column(String, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)

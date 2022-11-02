@@ -17,6 +17,7 @@ class BaseTicketBase(BaseModel):
     wn_task_id: Optional[str] = None
     reg_ticket_txid: Optional[str] = None
     act_ticket_txid: Optional[str] = None
+    pastel_id: Optional[str] = None
     ipfs_link: Optional[str] = None
     aws_link: Optional[str] = None
     other_links: Optional[Json] = None
