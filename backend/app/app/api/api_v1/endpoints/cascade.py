@@ -41,12 +41,12 @@ async def do_work(
                 cascade.preburn_fee.s() |
                 cascade.process.s()
         ).apply_async()
-        task_result = schemas.TicketRegistrationResult(
+        reg_result = schemas.TicketRegistrationResult(
             file=file.filename,
             ticket_id=ticket_id,
             status=res.status,
         )
-        results.tickets.append(task_result)
+        results.tickets.append(reg_result)
 
     return results
 
@@ -150,24 +150,24 @@ async def check_ticket_registration_status(ticket) -> schemas.TicketRegistration
             if step['status'] == 'Registration Completed':
                 status = 'DONE'
                 break
-    task_result = schemas.TicketRegistrationResult(
+    reg_result = schemas.TicketRegistrationResult(
         file=ticket.original_file_name,
         ticket_id=ticket.ticket_id,
         status=status,
     )
     if status != 'ERROR':
-        task_result.reg_ticket_txid = ticket.reg_ticket_txid
-        task_result.act_ticket_txid = ticket.act_ticket_txid
-        task_result.ipfs_link = f'https://ipfs.io/ipfs/{ticket.ipfs_link}'
-        task_result.aws_link = ticket.aws_link
-        task_result.other_links = ticket.other_links
+        reg_result.reg_ticket_txid = ticket.reg_ticket_txid
+        reg_result.act_ticket_txid = ticket.act_ticket_txid
+        reg_result.ipfs_link = f'https://ipfs.io/ipfs/{ticket.ipfs_link}'
+        reg_result.aws_link = ticket.aws_link
+        reg_result.other_links = ticket.other_links
     else:
-        task_result.error = wn_task_status
-    return task_result
+        reg_result.error = wn_task_status
+    return reg_result
 
 
-@router.get("/file/{ticket_id}", response_model_exclude_none=True)
-async def get_ticket(
+@router.get("/file/{ticket_id}")
+async def get_file(
         *,
         ticket_id: str,
         db: Session = Depends(session.get_db_session),
@@ -210,5 +210,5 @@ async def get_ticket(
     response = StreamingResponse(iter([file_bytes]),
                                  media_type="application/x-binary"
                                  )
-    response.headers["Content-Disposition"] = f"attachment; filename={ticket.reg_ticket_txid}"
+    response.headers["Content-Disposition"] = f"attachment; filename={ticket.original_file_name}"
     return response

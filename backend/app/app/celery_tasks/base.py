@@ -23,7 +23,7 @@ class PastelTask(celery.Task):
 
         with db_context() as session:
             task = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
-            upd = {"task_status": "STARTED"}
+            upd = {"ticket_status": "STARTED"}
             crud.cascade.update(session, db_obj=task, obj_in=upd)
 
     # def on_failure(self, exc, task_id, args, kwargs, einfo):
