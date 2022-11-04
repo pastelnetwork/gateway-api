@@ -21,11 +21,13 @@ services:
       args:
         INSTALL_DEV: ${INSTALL_DEV-false}
 
-  wn:
-    image: wn-testnet:latest
+  wn1:
+    image: wn-testnet:test
     ports:
       - "8181:8080"
       - "19932:19932"
+    env_file:
+      - .env
     build:
       context: ../backend
       dockerfile: wn-testnet.dockerfile
@@ -33,3 +35,13 @@ services:
         INSTALL_DEV: ${INSTALL_DEV-false}
 
 
+  test:
+    image: nginx
+    ports:
+        - 7777:80
+    volumes:
+        - ./:/usr/share/nginx/html
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    environment:
+          HOST_IP: ${DOCKER_GATEWAY_HOST:-host.docker.internal}
