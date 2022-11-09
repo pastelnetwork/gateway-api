@@ -21,6 +21,7 @@ class BaseTicketBase(BaseModel):
     ipfs_link: Optional[str] = None
     aws_link: Optional[str] = None
     other_links: Optional[Json] = None
+    retry_num: Optional[int] = None
 
 
 class BaseTicketCreate(BaseTicketBase):

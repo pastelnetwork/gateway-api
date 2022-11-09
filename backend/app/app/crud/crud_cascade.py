@@ -102,7 +102,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
         )
 
     def get_all_started_not_finished(
-            self, db: Session, *, skip: int = 0, limit: int = 100
+            self, db: Session, *, skip: int = 0, limit: int = 1000
     ) -> List[Cascade]:
         return (
             db.query(self.model)
@@ -115,6 +115,17 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
                     )
                 )
             )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def get_all_failed(
+            self, db: Session, *, skip: int = 0, limit: int = 1000
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.ticket_status == 'ERROR')
             .offset(skip)
             .limit(limit)
             .all()

@@ -8,6 +8,7 @@ import app.utils.pasteld as psl
 from app.core.config import settings
 from app import crud, schemas
 from app.db.session import db_context
+from app.utils.filestorage import LocalFile
 from .base import PastelTask
 
 
@@ -126,6 +127,8 @@ def process(self, ticket_id) -> str:
                              },
                              "task_id", "")
 
+        # TODO: check if wn_task_id is not empty!!
+
         with db_context() as session:
             upd = {
                 "wn_task_id": wn_task_id,
@@ -133,6 +136,7 @@ def process(self, ticket_id) -> str:
                 "pastel_id": settings.PASTEL_ID,
             }
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
+            crud.preburn_tx.mark_used(session, cascade_task.burn_txid)
     else:
         self.message = f'"WN Start" already called... [Ticket ID: {ticket_id}; WN Task ID: {cascade_task.wn_task_id}]'
 
@@ -153,19 +157,36 @@ def process(self, ticket_id) -> str:
     return ticket_id
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=30, max_retries=10,
-             name='cascade:track')
-def track(self, ticket_id):
-    self.message = f'Tracking cascade registration on the Pastel Network... [Ticket ID: {ticket_id}]'
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=30, max_retries=5,
+             name='cascade:re_register_image')
+def re_register_image(self, ticket_id) -> str:
+    self.message = f'Starting image re-registration... [Ticket ID: {ticket_id}]'
 
     with db_context() as session:
         cascade_task = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
 
     if not cascade_task:
-        raise CascadeException(f'No cascade task found for ticket_id {ticket_id}')
+        raise CascadeException(f'No cascade ticket found for ticket_id {ticket_id}')
+    else:
+        self.message = f'New image - calling WN... [Ticket ID: {ticket_id}]'
+        data = LocalFile.read_file(cascade_task.original_file_local_path)
+        wn_file_id, fee = wn.call(True,
+                                  'upload',
+                                  {},
+                                  [('file', (cascade_task.original_file_name, data,
+                                             cascade_task.original_file_content_type))],
+                                  {},
+                                  "file_id", "estimated_fee")
 
-    if not cascade_task.wn_task_id:
-        raise CascadeException(f'No walletnode work id for cascade ticket_id {ticket_id}')
+        with db_context() as session:
+            upd = {
+                "wn_file_id": wn_file_id,
+                "wn_fee": fee,
+                "ticket_status": re_register_image.request.id,
+            }
+            crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
+
+    return ticket_id
 
 
 @shared_task(bind=True, utoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 5},

@@ -19,12 +19,16 @@ def create_celery():
     celery_app.conf.update(celery_task_always_eager=True)
 
     celery_app.conf.beat_schedule = {
-        'preburn_fee': {
-            'task': 'preburn_fee',
+        'fee_pre_burner': {
+            'task': 'fee_pre_burner',
             'schedule': 600.0,
         },
         'registration_finisher': {
             'task': 'registration_finisher',
+            'schedule': 600.0,
+        },
+        'registration_re_processor': {
+            'task': 'registration_re_processor',
             'schedule': 600.0,
         },
     }

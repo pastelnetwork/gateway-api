@@ -52,23 +52,19 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def mark_non_used(self, db: Session, db_obj: PreBurnTx) -> PreBurnTx:
-        update_data = PreBurnTxUpdate(
-            fee=db_obj.fee,
-            height=db_obj.height,
-            txid=db_obj.txid,
-            status=PBTXStatus.NEW,
-        )
-        return super().update(db, db_obj=db_obj, obj_in=update_data)
+    def change_status(self, db: Session, preburn_id: str, status: PBTXStatus):
+        db_obj = db.query(self.model).filter(PreBurnTx.id == preburn_id).first()
+        update_data = {"status": status}
+        super().update(db, db_obj=db_obj, obj_in=update_data)
 
-    def mark_pending(self, db: Session, db_obj: PreBurnTx) -> PreBurnTx:
-        update_data = PreBurnTxUpdate(
-            fee=db_obj.fee,
-            height=db_obj.height,
-            txid=db_obj.txid,
-            status=PBTXStatus.PENDING,
-        )
-        return super().update(db, db_obj=db_obj, obj_in=update_data)
+    def mark_used(self, db: Session, preburn_id: str):
+        self.change_status(db, preburn_id, PBTXStatus.USED)
+
+    def mark_non_used(self, db: Session, preburn_id: str):
+        self.change_status(db, preburn_id, PBTXStatus.NEW)
+
+    def mark_pending(self, db: Session, preburn_id: str):
+        self.change_status(db, preburn_id, PBTXStatus.PENDING)
 
     def bind_pending_to_ticket(self, db: Session, db_obj: PreBurnTx, *, ticket_id: str) -> PreBurnTx:
         update_data = PreBurnTxUpdate(
@@ -82,15 +78,6 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
 
     def get_bound_to_ticket(self, db: Session, *, ticket_id: str) -> Optional[PreBurnTx]:
         return db.query(self.model).filter(PreBurnTx.ticket_id == ticket_id).first()
-
-    def mark_used(self, db: Session, db_obj: PreBurnTx) -> PreBurnTx:
-        update_data = PreBurnTxUpdate(
-            fee=db_obj.fee,
-            height=db_obj.height,
-            txid=db_obj.txid,
-            status=PBTXStatus.USED,
-        )
-        return super().update(db, db_obj=db_obj, obj_in=update_data)
 
     def get_number_non_used_by_fee(self, db: Session, *, fee: int) -> Optional[int]:
         return db.execute(

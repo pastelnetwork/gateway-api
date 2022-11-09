@@ -10,7 +10,7 @@ class CascadeBase(BaseTicketBase):
 
 # Properties to receive on Cascade creation
 class CascadeCreate(BaseTicketCreate, CascadeBase):
-    burn_txid: Optional[int]
+    burn_txid: Optional[str] = None
 
 
 # Properties to receive on Cascade update

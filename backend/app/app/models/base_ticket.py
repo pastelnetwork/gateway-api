@@ -22,12 +22,13 @@ class BaseTicket(Base):
     other_links = Column(JSONB)
 
     work_id = Column(String, index=True)
-    ticket_status = Column(String, index=True)
     ticket_id = Column(String, index=True)
     wn_file_id = Column(String, index=True)
     wn_task_id = Column(String, index=True)
     wn_fee = Column(Integer)
     height = Column(Integer, index=True)
+    ticket_status = Column(String, index=True)
+    retry_num = Column(Integer, default=0)
 
     reg_ticket_txid = Column(String, index=True)
     act_ticket_txid = Column(String, index=True)
