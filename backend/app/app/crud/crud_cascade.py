@@ -125,7 +125,12 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     ) -> List[Cascade]:
         return (
             db.query(self.model)
-            .filter(Cascade.ticket_status == 'ERROR')
+            .filter(
+                sa.or_(
+                    Cascade.ticket_status == 'ERROR',
+                    Cascade.ticket_status.is_(None),
+                )
+            )
             .offset(skip)
             .limit(limit)
             .all()

@@ -29,7 +29,7 @@ def create_celery():
         },
         'registration_re_processor': {
             'task': 'registration_re_processor',
-            'schedule': 600.0,
+            'schedule': 60.0,
         },
     }
     celery_app.conf.timezone = 'UTC'

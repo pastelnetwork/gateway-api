@@ -21,6 +21,3 @@ class LocalFile:
     def read(self):
         return open(self.path, 'rb')
 
-    @staticmethod
-    def read_file(path):
-        return open(path, 'rb')

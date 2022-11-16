@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import ipfshttpclient as ipfshttpclient
 from celery import shared_task
@@ -169,7 +170,20 @@ def re_register_image(self, ticket_id) -> str:
         raise CascadeException(f'No cascade ticket found for ticket_id {ticket_id}')
     else:
         self.message = f'New image - calling WN... [Ticket ID: {ticket_id}]'
-        data = LocalFile.read_file(cascade_task.original_file_local_path)
+
+        path = Path(cascade_task.original_file_local_path)
+        if not path.is_file():
+            if cascade_task.ipfs_link:
+                self.message = f'Image not found locally, downloading from IPFS... [Ticket ID: {ticket_id}]'
+                ipfs_client = ipfshttpclient.connect()
+                ipfs_client.get(cascade_task.ipfs_link, path.parent)
+                new_path = path.parent / cascade_task.ipfs_link
+                new_path.rename(path)
+            else:
+                raise CascadeException(f'Image not found locally and no IPFS link for ticket_id {ticket_id}')
+
+        data = open(path, 'rb')
+
         wn_file_id, fee = wn.call(True,
                                   'upload',
                                   {},
