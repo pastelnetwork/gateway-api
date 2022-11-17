@@ -38,9 +38,12 @@ class Settings(BaseSettings):
     BURN_ADDRESS = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u"     # Testnet
     # BURN_ADDRESS = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd"   # Mainnet
 
-    WN_BASE_URL: str = "http://127.0.0.1:8181"
+    # WN_BASE_URL: str = f"http://127.0.0.1:8181"
+    WN_BASE_URL: str = f"http://127.0.0.1:8080"
     BASE_CASCADE_URL = f"{WN_BASE_URL}/openapi/cascade"
     BASE_SENSE_URL = f"{WN_BASE_URL}/openapi/sense"
+
+    IPFS_URL: str = "/dns/localhost/tcp/5001/http"
 
     FILE_STORAGE: str
 

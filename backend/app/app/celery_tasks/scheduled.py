@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from celery import shared_task
 
@@ -66,9 +67,9 @@ def registration_finisher():
                     # check how old is the ticket, if height is more than 24 (1 h), then mark it as ERROR
                     height = psl.call("getblockcount", [])
                     if height - ticket.height > 24:
-                        upd = {"ticket_status": "ERROR"}
+                        upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
                         crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-                        crud.preburn_tx.mark_unused(session, ticket.preburn_txid)
+                        crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
                         logger.error(f"Ticket {ticket.ticket_id} failed")
                     continue
 
@@ -76,27 +77,35 @@ def registration_finisher():
                     status = step['status']
                     if status == 'Task Rejected':
                         # mark ticket as failed, and requires reprocessing
-                        upd = {"ticket_status": "ERROR"}
+                        upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
                         crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-                        crud.preburn_tx.mark_unused(session, ticket.preburn_txid)
+                        crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
                         logger.error(f"Ticket {ticket.ticket_id} failed")
                         break
+                    reg = status.split('Validating Cascade Reg TXID: ', 1)
+                    if len(reg) == 2:
+                        upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
+                        crud.cascade.update(session, db_obj=ticket, obj_in=upd)
                     reg = status.split('Validated Cascade Reg TXID: ', 1)
                     if len(reg) == 2:
-                        upd = {"reg_ticket_txid": reg[1]}
+                        upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
                         crud.cascade.update(session, db_obj=ticket, obj_in=upd)
                     act = status.split('Activated Cascade Action Ticket TXID: ', 1)
                     if len(act) == 2:
-                        upd = {"act_ticket_txid": act[2], "ticket_status": "DONE"}
+                        upd = {"act_ticket_txid": act[2], "ticket_status": "DONE", "updated_at": datetime.utcnow()}
                         crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-                        crud.preburn_tx.mark_used(session, ticket.preburn_txid)
+                        crud.preburn_tx.mark_used(session, ticket.burn_txid)
                         break
                     elif ticket.reg_ticket_txid:
                         act_ticket = psl.call("tickets", ['find', 'action-act', ticket.reg_ticket_txid])
                         if act_ticket and act_ticket['txid']:
-                            upd = {"act_ticket_txid": act_ticket['txid'], "ticket_status": "DONE"}
+                            upd = {
+                                "act_ticket_txid": act_ticket['txid'],
+                                "ticket_status": "DONE",
+                                "updated_at": datetime.utcnow(),
+                            }
                             crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-                            crud.preburn_tx.mark_used(session, ticket.preburn_txid)
+                            crud.preburn_tx.mark_used(session, ticket.burn_txid)
                         break
 
 
@@ -108,35 +117,45 @@ def registration_re_processor():
         for ticket in tickets:
             try:
                 if ticket.retry_num and ticket.retry_num > 10:
-                    upd = {"ticket_status": "DEAD"}
+                    upd = {"ticket_status": "DEAD", "updated_at": datetime.utcnow()}
                     crud.cascade.update(session, db_obj=ticket, obj_in=upd)
                     logger.error(f"Ticket {ticket.id} failed 10 times, marking as DEAD")
                     continue
+                if not ticket.ticket_status or ticket.ticket_status == "":
+                    if (not ticket.reg_ticket_txid and not ticket.act_ticket_txid) \
+                            or not ticket.pastel_id or not ticket.wn_task_id\
+                            or not ticket.burn_txid \
+                            or not ticket.wn_file_id:
+                        start_reprocess(session, ticket)
                 if ticket.ticket_status == "ERROR":
-                    if ticket.retry_num:
-                        retries = ticket.retry_num + 1
-                    else:
-                        retries = 1
-                    cleanup = {
-                        "wn_file_id": None,
-                        "wn_fee": 0,
-                        "burn_txid": None,
-                        "wn_task_id": None,
-                        "pastel_id": None,
-                        "reg_ticket_txid": None,
-                        "act_ticket_txid": None,
-                        "ticket_status": None,
-                        "retry_num": retries,
-                    }
-                    crud.cascade.update(session, db_obj=ticket, obj_in=cleanup)
-
-                    # reprocess ticket
-                    res = (
-                            cascade.re_register_image.s(ticket.ticket_id) |
-                            cascade.preburn_fee.s() |
-                            cascade.process.s()
-                    ).apply_async()
-                    logger.info(f"Registration restarted for ticket {ticket.ticket_id} with task id {res.task_id}")
+                    start_reprocess(session, ticket)
             except Exception as e:
                 logger.error(f"Registration reprocessing failed for ticket {ticket.ticket_id} with error {e}")
                 continue
+
+
+def start_reprocess(session, ticket):
+    if ticket.retry_num:
+        retries = ticket.retry_num + 1
+    else:
+        retries = 1
+    cleanup = {
+        "wn_file_id": None,
+        "wn_fee": 0,
+        "burn_txid": None,
+        "wn_task_id": None,
+        "pastel_id": None,
+        "reg_ticket_txid": None,
+        "act_ticket_txid": None,
+        "ticket_status": None,
+        "retry_num": retries,
+        "updated_at": datetime.utcnow(),
+    }
+    crud.cascade.update(session, db_obj=ticket, obj_in=cleanup)
+    # reprocess ticket
+    res = (
+            cascade.re_register_image.s(ticket.ticket_id) |
+            cascade.preburn_fee.s() |
+            cascade.process.s()
+    ).apply_async()
+    logger.info(f"Registration restarted for ticket {ticket.ticket_id} with task id {res.task_id}")

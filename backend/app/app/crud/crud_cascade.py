@@ -30,7 +30,10 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
         return db_obj
 
     def get_by_ticket_id(self, db: Session, *, ticket_id: str) -> Optional[Cascade]:
-        return db.query(self.model).filter(Cascade.ticket_id == ticket_id).first()
+        return (
+            db.query(self.model)
+            .filter(Cascade.ticket_id == ticket_id)
+            .first())
 
     def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str) -> Optional[Cascade]:
         return (

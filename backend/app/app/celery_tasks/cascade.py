@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from datetime import datetime
 
 import ipfshttpclient as ipfshttpclient
 from celery import shared_task
@@ -88,7 +89,11 @@ def preburn_fee(self, ticket_id) -> str:
                                f' [Ticket ID: {ticket_id}]'
                 preburn_fee.retry()
 
-            upd = {"burn_txid": burn_tx.txid, "ticket_status": preburn_fee.request.id}
+            upd = {
+                "burn_txid": burn_tx.txid,
+                "ticket_status": preburn_fee.request.id,
+                "updated_at": datetime.utcnow(),
+            }
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
     else:
         self.message = f'Pre-burn tx [{cascade_task.burn_txid}] already associated with image ticket...' \
@@ -111,6 +116,8 @@ def process(self, ticket_id) -> str:
     if not cascade_task.burn_txid:
         raise CascadeException(f'No burn txid for cascade ticket_id {ticket_id}')
 
+    task_ipfs_link = cascade_task.ipfs_link
+
     if not cascade_task.wn_task_id:
         self.message = f'Calling "WN Start"... [Ticket ID: {ticket_id}]'
         burn_txid = cascade_task.burn_txid
@@ -128,31 +135,35 @@ def process(self, ticket_id) -> str:
                              },
                              "task_id", "")
 
-        # TODO: check if wn_task_id is not empty!!
+        if not wn_task_id:
+            raise Exception(f'No wn_task_id returned from WN for ticket_id {ticket_id}')
 
+        upd = {
+            "wn_task_id": wn_task_id,
+            "pastel_id": settings.PASTEL_ID,
+            "ticket_status": process.request.id,
+            "updated_at": datetime.utcnow(),
+        }
         with db_context() as session:
-            upd = {
-                "wn_task_id": wn_task_id,
-                "ticket_status": process.request.id,
-                "pastel_id": settings.PASTEL_ID,
-            }
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
             crud.preburn_tx.mark_used(session, cascade_task.burn_txid)
     else:
         self.message = f'"WN Start" already called... [Ticket ID: {ticket_id}; WN Task ID: {cascade_task.wn_task_id}]'
 
-    if not cascade_task.ipfs_link:
-        self.message = f'Storing image into IPFS... [Ticket ID: {ticket_id}]'
+    if not task_ipfs_link:
+        with db_context() as session:
+            cascade_task = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
 
-        ipfs_client = ipfshttpclient.connect()
-        res = ipfs_client.add(cascade_task.original_file_local_path)
-        ipfs_link = res["Hash"]
+            self.message = f'Storing image into IPFS... [Ticket ID: {ticket_id}]'
 
-        if ipfs_link:
-            self.message = f'Updating DB with IPFS link... [Ticket ID: {ticket_id}; ' \
-                           f'IPFS Link: https://ipfs.io/ipfs/{ipfs_link}]'
-            with db_context() as session:
-                upd = {"ipfs_link": ipfs_link}
+            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+            res = ipfs_client.add(cascade_task.original_file_local_path)
+            ipfs_link = res["Hash"]
+
+            if ipfs_link:
+                self.message = f'Updating DB with IPFS link... [Ticket ID: {ticket_id}; ' \
+                               f'IPFS Link: https://ipfs.io/ipfs/{ipfs_link}]'
+                upd = {"ipfs_link": ipfs_link, "updated_at": datetime.utcnow()}
                 crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
 
     return ticket_id
@@ -175,7 +186,7 @@ def re_register_image(self, ticket_id) -> str:
         if not path.is_file():
             if cascade_task.ipfs_link:
                 self.message = f'Image not found locally, downloading from IPFS... [Ticket ID: {ticket_id}]'
-                ipfs_client = ipfshttpclient.connect()
+                ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
                 ipfs_client.get(cascade_task.ipfs_link, path.parent)
                 new_path = path.parent / cascade_task.ipfs_link
                 new_path.rename(path)
@@ -197,6 +208,7 @@ def re_register_image(self, ticket_id) -> str:
                 "wn_file_id": wn_file_id,
                 "wn_fee": fee,
                 "ticket_status": re_register_image.request.id,
+                "updated_at": datetime.utcnow(),
             }
             crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
 

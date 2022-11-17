@@ -200,7 +200,7 @@ async def get_file(
 
     if not file_bytes:
         if ticket.ipfs_link:
-            ipfs_client = ipfshttpclient.connect()
+            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
             file_bytes = ipfs_client.cat(ticket.ipfs_link)
             if not file_bytes:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")

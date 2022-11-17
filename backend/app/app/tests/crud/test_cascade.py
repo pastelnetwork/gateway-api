@@ -1,5 +1,5 @@
 # import random
-
+from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app import crud
@@ -105,7 +105,7 @@ def mark_prepaid(db: Session, new_job: CascadeCreate, created_job: Cascade) -> (
     task_id = random_lower_string()
     print(f"ticket_status: {task_id}")
     burn_txid = random_lower_string()
-    upd = {"burn_txid": burn_txid, "ticket_status": task_id}
+    upd = {"burn_txid": burn_txid, "ticket_status": task_id, "updated_at": datetime.utcnow()}
     updated_job = crud.cascade.update(db, db_obj=created_job, obj_in=upd)
     new_job.ticket_status = task_id
     print(f"updated_job: {updated_job.ticket_id}; new_job: {new_job.ticket_id}")
@@ -123,7 +123,7 @@ def check_prepaid(db: Session, prepaid_job: CascadeCreate, work_id: str, num: in
 def mark_started(db: Session, new_job: CascadeCreate, created_job: Cascade) -> (CascadeCreate, Cascade):
     task_id = random_lower_string()
     wn_task_id = random_lower_string()
-    upd = {"wn_task_id": wn_task_id, "ticket_status": task_id}
+    upd = {"wn_task_id": wn_task_id, "ticket_status": task_id, "updated_at": datetime.utcnow()}
     updated_job = crud.cascade.update(db, db_obj=created_job, obj_in=upd)
     new_job.ticket_status = task_id
     assert_cascade_jobs(new_job, updated_job)

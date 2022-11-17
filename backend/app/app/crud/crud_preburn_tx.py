@@ -3,6 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import asc
 from sqlalchemy.sql.expression import func
+import sqlalchemy as sa
 
 from app.crud.base import CRUDBase
 from app.models.preburn_tx import PreBurnTx, PBTXStatus
@@ -52,19 +53,19 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def change_status(self, db: Session, preburn_id: str, status: PBTXStatus):
-        db_obj = db.query(self.model).filter(PreBurnTx.id == preburn_id).first()
+    def change_status(self, db: Session, preburn_txid: str, status: PBTXStatus):
+        db_obj = db.query(self.model).filter(PreBurnTx.txid == preburn_txid).first()
         update_data = {"status": status}
         super().update(db, db_obj=db_obj, obj_in=update_data)
 
-    def mark_used(self, db: Session, preburn_id: str):
-        self.change_status(db, preburn_id, PBTXStatus.USED)
+    def mark_used(self, db: Session, preburn_txid: str):
+        self.change_status(db, preburn_txid, PBTXStatus.USED)
 
-    def mark_non_used(self, db: Session, preburn_id: str):
-        self.change_status(db, preburn_id, PBTXStatus.NEW)
+    def mark_non_used(self, db: Session, preburn_txid: str):
+        self.change_status(db, preburn_txid, PBTXStatus.NEW)
 
-    def mark_pending(self, db: Session, preburn_id: str):
-        self.change_status(db, preburn_id, PBTXStatus.PENDING)
+    def mark_pending(self, db: Session, preburn_txid: str):
+        self.change_status(db, preburn_txid, PBTXStatus.PENDING)
 
     def bind_pending_to_ticket(self, db: Session, db_obj: PreBurnTx, *, ticket_id: str) -> PreBurnTx:
         update_data = PreBurnTxUpdate(
@@ -77,7 +78,15 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
         return super().update(db, db_obj=db_obj, obj_in=update_data)
 
     def get_bound_to_ticket(self, db: Session, *, ticket_id: str) -> Optional[PreBurnTx]:
-        return db.query(self.model).filter(PreBurnTx.ticket_id == ticket_id).first()
+        return (
+            db.query(self.model)
+            .filter(
+                sa.and_(
+                    PreBurnTx.ticket_id == ticket_id,
+                    PreBurnTx.status != "USED"
+                )
+            )
+            .first())
 
     def get_number_non_used_by_fee(self, db: Session, *, fee: int) -> Optional[int]:
         return db.execute(
