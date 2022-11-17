@@ -82,31 +82,32 @@ def registration_finisher():
                         crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
                         logger.error(f"Ticket {ticket.ticket_id} failed")
                         break
-                    reg = status.split('Validating Cascade Reg TXID: ', 1)
-                    if len(reg) == 2:
-                        upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
-                        crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-                    reg = status.split('Validated Cascade Reg TXID: ', 1)
-                    if len(reg) == 2:
-                        upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
-                        crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-                    act = status.split('Activated Cascade Action Ticket TXID: ', 1)
-                    if len(act) == 2:
-                        upd = {"act_ticket_txid": act[2], "ticket_status": "DONE", "updated_at": datetime.utcnow()}
-                        crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-                        crud.preburn_tx.mark_used(session, ticket.burn_txid)
-                        break
-                    elif ticket.reg_ticket_txid:
-                        act_ticket = psl.call("tickets", ['find', 'action-act', ticket.reg_ticket_txid])
-                        if act_ticket and act_ticket['txid']:
-                            upd = {
-                                "act_ticket_txid": act_ticket['txid'],
-                                "ticket_status": "DONE",
-                                "updated_at": datetime.utcnow(),
-                            }
+                    if not ticket.reg_ticket_txid:
+                        reg = status.split('Validating Cascade Reg TXID: ', 1)
+                        if len(reg) != 2:
+                            reg = status.split('Validated Cascade Reg TXID: ', 1)
+                        if len(reg) == 2:
+                            upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
+                            crud.cascade.update(session, db_obj=ticket, obj_in=upd)
+                            continue
+                    if not ticket.act_ticket_txid:
+                        if ticket.reg_ticket_txid:
+                            act_ticket = psl.call("tickets", ['find', 'action-act', ticket.reg_ticket_txid])
+                            if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
+                                upd = {
+                                    "act_ticket_txid": act_ticket['txid'],
+                                    "ticket_status": "DONE",
+                                    "updated_at": datetime.utcnow(),
+                                }
+                                crud.cascade.update(session, db_obj=ticket, obj_in=upd)
+                                crud.preburn_tx.mark_used(session, ticket.burn_txid)
+                                break
+                        act = status.split('Activated Cascade Action Ticket TXID: ', 1)
+                        if len(act) == 2:
+                            upd = {"act_ticket_txid": act[2], "ticket_status": "DONE", "updated_at": datetime.utcnow()}
                             crud.cascade.update(session, db_obj=ticket, obj_in=upd)
                             crud.preburn_tx.mark_used(session, ticket.burn_txid)
-                        break
+                            break
 
 
 @shared_task(name="registration_re_processor")

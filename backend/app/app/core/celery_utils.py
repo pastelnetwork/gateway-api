@@ -21,7 +21,7 @@ def create_celery():
     celery_app.conf.beat_schedule = {
         'fee_pre_burner': {
             'task': 'fee_pre_burner',
-            'schedule': 600.0,
+            'schedule': 500.0,
         },
         'registration_finisher': {
             'task': 'registration_finisher',
@@ -29,7 +29,7 @@ def create_celery():
         },
         'registration_re_processor': {
             'task': 'registration_re_processor',
-            'schedule': 60.0,
+            'schedule': 700.0,
         },
     }
     celery_app.conf.timezone = 'UTC'

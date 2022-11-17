@@ -65,6 +65,10 @@ def preburn_fee(self, ticket_id) -> str:
     if not cascade_task:
         raise CascadeException(f'No cascade task found for ticket_id {ticket_id}')
 
+    if cascade_task.ticket_status == "STARTED":
+        self.message = f'Image registration (preburn_fee) already started... [Ticket ID: {ticket_id}]'
+        return ticket_id
+
     burn_amount = cascade_task.wn_fee / 5
     height = psl.call("getblockcount", [])
 
@@ -112,6 +116,10 @@ def process(self, ticket_id) -> str:
 
     if not cascade_task:
         raise CascadeException(f'No cascade task found for ticket_id {ticket_id}')
+
+    if cascade_task.ticket_status == "STARTED":
+        self.message = f'Image registration (process) already started... [Ticket ID: {ticket_id}]'
+        return ticket_id
 
     if not cascade_task.burn_txid:
         raise CascadeException(f'No burn txid for cascade ticket_id {ticket_id}')
@@ -179,38 +187,42 @@ def re_register_image(self, ticket_id) -> str:
 
     if not cascade_task:
         raise CascadeException(f'No cascade ticket found for ticket_id {ticket_id}')
-    else:
-        self.message = f'New image - calling WN... [Ticket ID: {ticket_id}]'
 
-        path = Path(cascade_task.original_file_local_path)
-        if not path.is_file():
-            if cascade_task.ipfs_link:
-                self.message = f'Image not found locally, downloading from IPFS... [Ticket ID: {ticket_id}]'
-                ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                ipfs_client.get(cascade_task.ipfs_link, path.parent)
-                new_path = path.parent / cascade_task.ipfs_link
-                new_path.rename(path)
-            else:
-                raise CascadeException(f'Image not found locally and no IPFS link for ticket_id {ticket_id}')
+    if cascade_task.ticket_status == "STARTED":
+        self.message = f'Image registration (re_register_image) already started... [Ticket ID: {ticket_id}]'
+        return ticket_id
 
-        data = open(path, 'rb')
+    self.message = f'New image - calling WN... [Ticket ID: {ticket_id}]'
 
-        wn_file_id, fee = wn.call(True,
-                                  'upload',
-                                  {},
-                                  [('file', (cascade_task.original_file_name, data,
-                                             cascade_task.original_file_content_type))],
-                                  {},
-                                  "file_id", "estimated_fee")
+    path = Path(cascade_task.original_file_local_path)
+    if not path.is_file():
+        if cascade_task.ipfs_link:
+            self.message = f'Image not found locally, downloading from IPFS... [Ticket ID: {ticket_id}]'
+            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+            ipfs_client.get(cascade_task.ipfs_link, path.parent)
+            new_path = path.parent / cascade_task.ipfs_link
+            new_path.rename(path)
+        else:
+            raise CascadeException(f'Image not found locally and no IPFS link for ticket_id {ticket_id}')
 
-        with db_context() as session:
-            upd = {
-                "wn_file_id": wn_file_id,
-                "wn_fee": fee,
-                "ticket_status": re_register_image.request.id,
-                "updated_at": datetime.utcnow(),
-            }
-            crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
+    data = open(path, 'rb')
+
+    wn_file_id, fee = wn.call(True,
+                              'upload',
+                              {},
+                              [('file', (cascade_task.original_file_name, data,
+                                         cascade_task.original_file_content_type))],
+                              {},
+                              "file_id", "estimated_fee")
+
+    with db_context() as session:
+        upd = {
+            "wn_file_id": wn_file_id,
+            "wn_fee": fee,
+            "ticket_status": re_register_image.request.id,
+            "updated_at": datetime.utcnow(),
+        }
+        crud.cascade.update(session, db_obj=cascade_task, obj_in=upd)
 
     return ticket_id
 
