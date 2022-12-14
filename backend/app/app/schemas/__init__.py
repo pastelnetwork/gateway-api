@@ -5,3 +5,4 @@ from .user import User, UserCreate, UserInDB, UserUpdate
 
 from .base_ticket import TicketRegistrationResult, WorkResult
 from .cascade import Cascade, CascadeCreate, CascadeInDB, CascadeUpdate
+from .sense import Sense, SenseCreate, SenseInDB, SenseUpdate

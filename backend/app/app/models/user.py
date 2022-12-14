@@ -18,3 +18,4 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
     api_keys = relationship("ApiKey", back_populates="owner")
     cascade_tasks = relationship("Cascade", back_populates="owner")
+    sense_tasks = relationship("Sense", back_populates="owner")
