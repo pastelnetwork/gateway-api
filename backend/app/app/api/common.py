@@ -7,7 +7,7 @@ from typing import List
 # import app.schemas
 from app.utils.filestorage import LocalFile
 from app import models, schemas
-from app.celery_tasks.base import get_celery_task_info
+from app.celery_tasks.pastel_tasks import get_celery_task_info
 from app.core.config import settings
 from app.utils import walletnode as wn
 

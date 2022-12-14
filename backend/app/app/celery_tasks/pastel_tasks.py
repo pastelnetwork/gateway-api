@@ -16,30 +16,33 @@ class PastelAPITask(celery.Task):
     def run(self, *args, **kwargs):
         pass
 
-    def on_success(self, retval, task_id, args, kwargs):
-
-        ticket_id = ''
+    @staticmethod
+    def get_ticket_id_from_args(args) -> str:
         if args:
-            if len(args) == 1:
-                ticket_id = args[0]
-            elif len(args) == 4:
-                ticket_id = args[2]
+            if len(args) == 1:      # preburn_fee, process, re_register_file
+                return args[0]
+            elif len(args) == 4:    # register_file
+                return args[2]
+        raise Exception("Invalid args")
 
-        if not ticket_id:
-            raise Exception("Invalid args")
-
+    @staticmethod
+    def update_ticket_status(ticket_id, status, get_by_ticket_id_func, update_func):
         with db_context() as session:
-            ticket = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
-            upd = {"ticket_status": "STARTED", "updated_at": datetime.utcnow()}
-            crud.cascade.update(session, db_obj=ticket, obj_in=upd)
+            ticket = get_by_ticket_id_func(session, ticket_id=ticket_id)
+            if not ticket:
+                raise Exception("Ticket not found")
+            upd = {"ticket_status": status, "updated_at": datetime.utcnow()}
+            update_func(session, db_obj=ticket, obj_in=upd)
 
-    def on_failure(self, exc, ticket_id, args, kwargs, einfo):
+    @staticmethod
+    def on_success_base(args, get_by_ticket_id_func, update_func):
+        ticket_id = PastelAPITask.get_ticket_id_from_args(args)
+        PastelAPITask.update_ticket_status(ticket_id, "SUCCESS", get_by_ticket_id_func, update_func)
 
-        with db_context() as session:
-            ticket = crud.cascade.get_by_ticket_id(session, ticket_id=ticket_id)
-            upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
-            crud.cascade.update(session, db_obj=ticket, obj_in=upd)
-            crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
+    @staticmethod
+    def on_failure_base(args, get_by_ticket_id_func, update_func):
+        ticket_id = PastelAPITask.get_ticket_id_from_args(args)
+        PastelAPITask.update_ticket_status(ticket_id, "FAILURE", get_by_ticket_id_func, update_func)
 
     # def on_retry(self, exc, task_id, args, kwargs, einfo):
     #     print(f'{task_id} retrying: {exc}')
@@ -286,6 +289,14 @@ class PastelAPITask(celery.Task):
             update_func(session, db_obj=task, obj_in=upd)
 
         return ticket_id
+
+
+class CascadeAPITask(PastelAPITask):
+    def on_success(self, retval, task_id, args, kwargs):
+        PastelAPITask.on_success_base(args, crud.cascade.get_by_ticket_id, crud.cascade.update)
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        PastelAPITask.on_failure_base(args, crud.cascade.get_by_ticket_id, crud.cascade.update)
 
 
 def get_celery_task_info(celery_task_id):
