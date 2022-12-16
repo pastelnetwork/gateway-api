@@ -112,7 +112,8 @@ class PastelAPITask(celery.Task):
         if not task:
             raise PastelAPIException(f'{service_name}: No task found for ticket_id {ticket_id}')
 
-        if task.ticket_status == "PREBURN_FEE":
+        if task.ticket_status == "PREBURN_FEE" or \
+                task.ticket_status == "STARTED":
             self.message = f'{service_name}: Registration (preburn_fee) already started... [Ticket ID: {ticket_id}]'
             return ticket_id
 
@@ -247,7 +248,9 @@ class PastelAPITask(celery.Task):
         if not task:
             raise PastelAPIException(f'{service_name}: No cascade ticket found for ticket_id {ticket_id}')
 
-        if task.ticket_status == "UPLOADED":
+        if task.ticket_status == "UPLOADED" or \
+                task.ticket_status == "PREBURN_FEE" or \
+                task.ticket_status == "STARTED":
             self.message = f'{service_name}: File registration (re_register_file) already started...' \
                            f' [Ticket ID: {ticket_id}]'
             return ticket_id
