@@ -150,5 +150,11 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             .all()
         )
 
+    def get_by_preburn_txid(self, db: Session, *, txid: str) -> Optional[Sense]:
+        return (
+            db.query(self.model)
+            .filter(Sense.txid == txid)
+            .first())
+
 
 sense = CRUDSense(Sense)

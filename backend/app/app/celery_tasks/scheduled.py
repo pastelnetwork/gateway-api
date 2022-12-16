@@ -50,13 +50,14 @@ def registration_finisher():
     _registration_finisher(
         crud.cascade.get_all_started_not_finished,
         crud.cascade.update,
+        crud.cascade.get_by_preburn_txid,
         wn.WalletNodeService.CASCADE,
         "Cascade"
     )
-
     _registration_finisher(
         crud.sense.get_all_started_not_finished,
         crud.sense.update,
+        crud.sense.get_by_preburn_txid,
         wn.WalletNodeService.SENSE,
         "Sense"
     )
@@ -65,6 +66,7 @@ def registration_finisher():
 def _registration_finisher(
         started_not_finished_func,
         update_func,
+        get_by_preburn_txid_func,
         wn_service: wn.WalletNodeService,
         service_name: str):
     logger.info(f"registration_finisher started")
@@ -85,20 +87,14 @@ def _registration_finisher(
                     # check how old is the ticket, if height is more than 24 (1 h), then mark it as ERROR
                     height = psl.call("getblockcount", [])
                     if height - ticket.height > 24:
-                        upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
-                        update_func(session, db_obj=ticket, obj_in=upd)
-                        crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
-                        logger.error(f"Ticket {ticket.ticket_id} failed")
+                        mark_failed(session, ticket, update_func, get_by_preburn_txid_func)
                     continue
 
                 for step in wn_task_status:
                     status = step['status']
                     if status == 'Task Rejected':
                         # mark ticket as failed, and requires reprocessing
-                        upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
-                        update_func(session, db_obj=ticket, obj_in=upd)
-                        crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
-                        logger.error(f"Ticket {ticket.ticket_id} failed")
+                        mark_failed(session, ticket, update_func, get_by_preburn_txid_func)
                         break
                     if not ticket.reg_ticket_txid:
                         reg = status.split(f'Validating {service_name} Reg TXID: ', 1)
@@ -128,8 +124,21 @@ def _registration_finisher(
                             break
 
 
+def mark_failed(session,
+                ticket,
+                update_func,
+                get_by_preburn_txid_func):
+    upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
+    update_func(session, db_obj=ticket, obj_in=upd)
+    t = get_by_preburn_txid_func(session, ticket.burn_txid)
+    if not t:
+        crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
+    logger.error(f"Ticket {ticket.ticket_id} failed")
+
+
 @shared_task(name="registration_re_processor")
 def registration_re_processor():
+
     _registration_re_processor(
         crud.cascade.get_all_failed,
         crud.cascade.update,

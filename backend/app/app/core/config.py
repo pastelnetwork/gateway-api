@@ -40,9 +40,9 @@ class Settings(BaseSettings):
 
     # WN_BASE_URL: str = f"http://127.0.0.1:8181"
     WN_BASE_URL: str = f"http://127.0.0.1:8080"
-    BASE_CASCADE_URL = f"{WN_BASE_URL}/openapi/cascade"
-    BASE_SENSE_URL = f"{WN_BASE_URL}/openapi/sense"
-    BASE_NFT_URL = f"{WN_BASE_URL}/openapi/nft"
+    WN_BASE_CASCADE_URL = f"{WN_BASE_URL}/openapi/cascade"
+    WN_BASE_SENSE_URL = f"{WN_BASE_URL}/openapi/sense"
+    WN_BASE_NFT_URL = f"{WN_BASE_URL}/openapi/nft"
 
     IPFS_URL: str = "/dns/localhost/tcp/5001/http"
 

@@ -29,20 +29,19 @@ class PastelAPITask(celery.Task):
     def update_ticket_status(ticket_id, status, get_by_ticket_id_func, update_func):
         with db_context() as session:
             ticket = get_by_ticket_id_func(session, ticket_id=ticket_id)
-            if not ticket:
-                raise Exception("Ticket not found")
-            upd = {"ticket_status": status, "updated_at": datetime.utcnow()}
-            update_func(session, db_obj=ticket, obj_in=upd)
+            if ticket:
+                upd = {"ticket_status": status, "updated_at": datetime.utcnow()}
+                update_func(session, db_obj=ticket, obj_in=upd)
 
     @staticmethod
     def on_success_base(args, get_by_ticket_id_func, update_func):
         ticket_id = PastelAPITask.get_ticket_id_from_args(args)
-        PastelAPITask.update_ticket_status(ticket_id, "SUCCESS", get_by_ticket_id_func, update_func)
+        PastelAPITask.update_ticket_status(ticket_id, "STARTED", get_by_ticket_id_func, update_func)
 
     @staticmethod
     def on_failure_base(args, get_by_ticket_id_func, update_func):
         ticket_id = PastelAPITask.get_ticket_id_from_args(args)
-        PastelAPITask.update_ticket_status(ticket_id, "FAILURE", get_by_ticket_id_func, update_func)
+        PastelAPITask.update_ticket_status(ticket_id, "ERROR", get_by_ticket_id_func, update_func)
 
     # def on_retry(self, exc, task_id, args, kwargs, einfo):
     #     print(f'{task_id} retrying: {exc}')
