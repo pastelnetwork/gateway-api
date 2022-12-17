@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, UploadFile, HTTPException
 
 from typing import List
 from sqlalchemy.orm import Session
@@ -78,3 +78,14 @@ async def get_ticket(
     ticket = crud.sense.get_by_ticket_id(db=db, ticket_id=ticket_id)
     ticket_result = await common.check_ticket_registration_status(ticket, wn.WalletNodeService.SENSE)
     return ticket_result
+
+
+@router.get("/data/{ticket_id}", response_model=schemas.TicketRegistrationResult, response_model_exclude_none=True)
+async def get_data(
+        *,
+        ticket_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    return await common.get_file(ticket_id=ticket_id, db=db, service=wn.WalletNodeService.SENSE)

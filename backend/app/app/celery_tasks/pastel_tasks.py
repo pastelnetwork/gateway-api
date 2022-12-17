@@ -64,13 +64,14 @@ class PastelAPITask(celery.Task):
 
         self.message = f'{service_name}: New file - calling WN... [Ticket ID: {ticket_id}]'
         data = local_file.read()
+        id_field_name = "image_id" if service == wn.WalletNodeService.SENSE else "file_id"
         wn_file_id, fee = wn.call(True,
                                   service,
                                   'upload',
                                   {},
                                   [('file', (local_file.name, data, local_file.type))],
                                   {},
-                                  "file_id", "estimated_fee")
+                                  id_field_name, "estimated_fee")
 
         if not wn_file_id:
             self.message = f'{service_name}: Upload call failed for file {local_file.name}, retrying...'
@@ -272,13 +273,14 @@ class PastelAPITask(celery.Task):
 
         data = open(path, 'rb')
 
+        id_field_name = "image_id" if service == wn.WalletNodeService.SENSE else "file_id"
         wn_file_id, fee = wn.call(True,
                                   service,
                                   'upload',
                                   {},
                                   [('file', (task.original_file_name, data, task.original_file_content_type))],
                                   {},
-                                  "file_id", "estimated_fee")
+                                  id_field_name, "estimated_fee")
 
         with db_context() as session:
             upd = {

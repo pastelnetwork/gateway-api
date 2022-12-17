@@ -84,9 +84,9 @@ def _registration_finisher(
                     wn_task_status = []
 
                 if not wn_task_status:
-                    # check how old is the ticket, if height is more than 24 (1 h), then mark it as ERROR
+                    # check how old is the ticket, if height is more than 48 (2 h), then mark it as ERROR
                     height = psl.call("getblockcount", [])
-                    if height - ticket.height > 24:
+                    if height - ticket.height > 48:
                         mark_failed(session, ticket, update_func, get_by_preburn_txid_func)
                     continue
 
@@ -130,7 +130,7 @@ def mark_failed(session,
                 get_by_preburn_txid_func):
     upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
     update_func(session, db_obj=ticket, obj_in=upd)
-    t = get_by_preburn_txid_func(session, ticket.burn_txid)
+    t = get_by_preburn_txid_func(session, txid=ticket.burn_txid)
     if not t:
         crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
     logger.error(f"Ticket {ticket.ticket_id} failed")

@@ -1,12 +1,19 @@
 import uuid
-
-from fastapi import UploadFile
-
+import base64
+import logging
 from typing import List
 
-# import app.schemas
+import requests
+import ipfshttpclient
+
+from fastapi import Depends, UploadFile, HTTPException, status
+from fastapi.responses import StreamingResponse
+
+from sqlalchemy.orm import Session
+
+import app.db.session as session
 from app.utils.filestorage import LocalFile
-from app import models, schemas
+from app import crud, models, schemas
 from app.celery_tasks.pastel_tasks import get_celery_task_info
 from app.core.config import settings
 from app.utils import walletnode as wn
@@ -39,12 +46,14 @@ async def do_works(
     return results
 
 
-async def check_ticket_registration_status(ticket, service) -> schemas.TicketRegistrationResult:
+async def check_ticket_registration_status(ticket, service: wn.WalletNodeService) -> schemas.TicketRegistrationResult:
     if ticket.ticket_status:
         if ticket.ticket_status == 'STARTED':
             status = 'PENDING'
         elif ticket.ticket_status == 'DONE':
             status = 'SUCCESS'
+        elif ticket.ticket_status == 'DEAD':
+            status = 'FAILED'
         else:
             task_info = get_celery_task_info(ticket.ticket_status)
             status = task_info['celery_task_status']
@@ -69,12 +78,13 @@ async def check_ticket_registration_status(ticket, service) -> schemas.TicketReg
         ticket_id=ticket.ticket_id,
         status=status,
     )
-    if status != 'ERROR':
+    if status != 'ERROR' and status != 'FAILED':
         reg_result.reg_ticket_txid = ticket.reg_ticket_txid
         reg_result.act_ticket_txid = ticket.act_ticket_txid
-        reg_result.ipfs_link = f'https://ipfs.io/ipfs/{ticket.ipfs_link}'
-        reg_result.aws_link = ticket.aws_link
-        reg_result.other_links = ticket.other_links
+        if service != wn.WalletNodeService.SENSE:
+            reg_result.ipfs_link = f'https://ipfs.io/ipfs/{ticket.ipfs_link}'
+            reg_result.aws_link = ticket.aws_link
+            reg_result.other_links = ticket.other_links
     else:
         reg_result.error = wn_task_status
     return reg_result
@@ -100,3 +110,54 @@ async def parse_user_work(tickets_in_work, work_id, service: wn.WalletNodeServic
         ticket_result = await check_ticket_registration_status(ticket, service)
         results.tickets.append(ticket_result)
     return results
+
+
+async def get_file(
+        *,
+        ticket_id: str,
+        db: Session = Depends(session.get_db_session),
+        service: wn.WalletNodeService,
+):
+    ticket = crud.cascade.get_by_ticket_id(db=db, ticket_id=ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    file_bytes = None
+    if service == wn.WalletNodeService.CASCADE and ticket.pastel_id != settings.PASTEL_ID:
+        logging.error("Backend does not have correct Pastel ID")
+    else:
+        wn_resp = wn.call(False,
+                          service,
+                          f'download?pid={settings.PASTEL_ID}&txid={ticket.reg_ticket_txid}',
+                          {},
+                          [],
+                          { 'Authorization': settings.PASSPHRASE,},
+                          "file", "", True)
+
+        if not wn_resp:
+            if service == wn.WalletNodeService.SENSE:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
+        elif not isinstance(wn_resp, requests.models.Response):
+            file_bytes = base64.b64decode(wn_resp)
+            if not file_bytes:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Pastel file's incorrect")
+        else:
+            logging.error(wn_resp.text)
+
+    if service == wn.WalletNodeService.CASCADE and not file_bytes:
+        if ticket.ipfs_link:
+            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+            file_bytes = ipfs_client.cat(ticket.ipfs_link)
+            if not file_bytes:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
+
+    if not file_bytes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
+
+    response = StreamingResponse(iter([file_bytes]),
+                                 media_type="application/x-binary"
+                                 )
+    response.headers["Content-Disposition"] = f"attachment; filename={ticket.original_file_name}"
+    return response

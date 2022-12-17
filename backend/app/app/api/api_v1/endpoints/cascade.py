@@ -1,11 +1,4 @@
-import base64
-import logging
-
-import requests
-import ipfshttpclient
-
-from fastapi import APIRouter, Depends, UploadFile, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, UploadFile
 
 from typing import List
 from sqlalchemy.orm import Session
@@ -15,7 +8,7 @@ import app.db.session as session
 from app.api import deps, common
 from app import models, crud, schemas
 import app.utils.walletnode as wn
-from app.core.config import settings
+
 
 router = APIRouter()
 
@@ -96,40 +89,4 @@ async def get_file(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    ticket = crud.cascade.get_by_ticket_id(db=db, ticket_id=ticket_id)
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-
-    file_bytes = None
-    if ticket.pastel_id != settings.PASTEL_ID:
-        logging.error("Backend does not have correct Pastel ID")
-    else:
-        wn_resp = wn.call(False,
-                          wn.WalletNodeService.CASCADE,
-                          f'download?pid={settings.PASTEL_ID}&txid={ticket.reg_ticket_txid}',
-                          {},
-                          [],
-                          { 'Authorization': settings.PASSPHRASE,},
-                          "file", "", True)
-
-        if not isinstance(wn_resp, requests.models.Response):
-            file_bytes = base64.b64decode(wn_resp)
-            if not file_bytes:
-                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Pastel file's incorrect")
-        else:
-            logging.error(wn_resp.text)
-
-    if not file_bytes:
-        if ticket.ipfs_link:
-            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-            file_bytes = ipfs_client.cat(ticket.ipfs_link)
-            if not file_bytes:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
-        else:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
-
-    response = StreamingResponse(iter([file_bytes]),
-                                 media_type="application/x-binary"
-                                 )
-    response.headers["Content-Disposition"] = f"attachment; filename={ticket.original_file_name}"
-    return response
+    return await common.get_file(ticket_id=ticket_id, db=db, service=wn.WalletNodeService.CASCADE)

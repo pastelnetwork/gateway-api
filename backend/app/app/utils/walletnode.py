@@ -34,12 +34,15 @@ def call(post, service: WalletNodeService, url_cmd, payload, files, headers, ret
     if not return_item1:
         return upload_resp
 
-    if not upload_resp or not upload_resp[return_item1]:
-        raise WalletnodeException(f"Error, {return_item1} not found")
+    if not upload_resp or return_item1 not in upload_resp:
+        raise WalletnodeException(f"Error, field '{return_item1}' not found")
+
     if not return_item2:
         return upload_resp[return_item1]
-    if not upload_resp[return_item2]:
-        raise WalletnodeException(f"Error, {return_item2} not found")
+
+    if return_item1 not in upload_resp:
+        raise WalletnodeException(f"Error, field '{return_item2}' not found")
+
     return upload_resp[return_item1], upload_resp[return_item2]
 
 

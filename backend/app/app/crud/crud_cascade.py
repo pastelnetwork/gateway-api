@@ -153,7 +153,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     def get_by_preburn_txid(self, db: Session, *, txid: str) -> Optional[Cascade]:
         return (
             db.query(self.model)
-            .filter(Cascade.txid == txid)
+            .filter(Cascade.burn_txid == txid)
             .first())
 
 
