@@ -1,8 +1,8 @@
-version: "3.3"
+version: "3.5"
 services:
 
   proxy:
-    image: traefik:v2.2
+    image: traefik:latest
     networks:
       - ${TRAEFIK_PUBLIC_NETWORK?Variable not set}
       - default
@@ -73,10 +73,9 @@ services:
         - traefik.http.routers.${STACK_NAME?Variable not set}-proxy-http.middlewares=${STACK_NAME?Variable not set}-www-redirect,${STACK_NAME?Variable not set}-https-redirect
 
   queue:
-#    image: rabbitmq:3-management
-    image: rabbitmq:3
+    image: redis:alpine
     ports:
-      - "15673:15672"
+      - "6379:6379"
 
   flower:
     image: mher/flower
@@ -86,12 +85,7 @@ services:
     env_file:
       - .env
     environment:
-#      - CELERY_BROKER_URL=amqp://guest:guest@queue:5672//
-#      - CELERY_RESULT_BACKEND=rpc://
       - FLOWER_PORT=5555
-#    command:
-#      - "--broker=amqp://guest@queue:5672//"
-#      - "--broker_api=http://guest:guest@queue:15672/api//"
     deploy:
       labels:
         - traefik.enable=true
@@ -107,6 +101,34 @@ services:
         - traefik.http.services.${STACK_NAME?Variable not set}-flower.loadbalancer.server.port=5555
     depends_on:
       - queue
+
+  ipfs:
+    image: ipfs.07:latest
+    ports:
+      - "4001:4001"
+      - "4001:4001/udp"
+      - "127.0.0.1:5001:5001"
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - /tmp/ipfs-data:/data/ipfs
+    build:
+      context: ./backend
+      dockerfile: ipfs.07.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
+
+  wn:
+    image: wn-testnet:test
+    ports:
+      - "8181:8080"
+      - "19932:19932"
+    env_file:
+      - .env
+    build:
+      context: ./backend
+      dockerfile: wn-testnet.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
 
   backend:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
@@ -128,6 +150,45 @@ services:
         - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
         - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`)
         - traefik.http.services.${STACK_NAME?Variable not set}-backend.loadbalancer.server.port=80
+    depends_on:
+      - queue
+      - ipfs
+      - wn
+
+  celeryworker:
+    image: '${DOCKER_IMAGE_CELERYWORKER?Variable not set}:${TAG-latest}'
+    env_file:
+      - .env
+    environment:
+      - SERVER_NAME=${DOMAIN?Variable not set}
+      - SERVER_HOST=https://${DOMAIN?Variable not set}
+      # Allow explicit env var override for tests
+      - SMTP_HOST=${SMTP_HOST?Variable not set}
+    build:
+      context: ./backend
+      dockerfile: celeryworker.dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV-false}
+    depends_on:
+      - queue
+      - ipfs
+
+  celerybeat:
+      image: '${DOCKER_IMAGE_CELERYBEAT?Variable not set}:${TAG-latest}'
+      env_file:
+          - .env
+      environment:
+          - SERVER_NAME=${DOMAIN?Variable not set}
+          - SERVER_HOST=https://${DOMAIN?Variable not set}
+          # Allow explicit env var override for tests
+          - SMTP_HOST=${SMTP_HOST?Variable not set}
+      build:
+          context: ./backend
+          dockerfile: celerybeat.dockerfile
+          args:
+            INSTALL_DEV: ${INSTALL_DEV-false}
+      depends_on:
+          - queue
 
 volumes:
   # Create a volume to store the certificates, there is a constraint to make sure

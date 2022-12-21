@@ -89,3 +89,14 @@ async def get_data(
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     return await common.get_file(ticket_id=ticket_id, db=db, service=wn.WalletNodeService.SENSE)
+
+
+@router.get("/data/regtxid/{txid_id}", response_model=schemas.TicketRegistrationResult, response_model_exclude_none=True)
+async def get_data_by_reg_txid(
+        *,
+        txid_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    return await common.get_file(ticket_id=txid_id, db=db, service=wn.WalletNodeService.SENSE)
