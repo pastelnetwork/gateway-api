@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 from kombu import Queue
+from app.core.config import settings
 
 
 def route_task(name, args, kwargs, options, task=None, **kw):
@@ -11,8 +12,8 @@ def route_task(name, args, kwargs, options, task=None, **kw):
 
 
 class BaseConfig:
-    broker_url: str = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
-    result_backend: str = os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/0")
+    broker_url: str = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
+    result_backend: str = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
 
     task_queues: list = (
         # default queue

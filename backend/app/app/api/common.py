@@ -6,14 +6,11 @@ from typing import List
 import requests
 import ipfshttpclient
 
-from fastapi import Depends, UploadFile, HTTPException, status
+from fastapi import UploadFile, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from sqlalchemy.orm import Session
-
-import app.db.session as session
 from app.utils.filestorage import LocalFile
-from app import crud, models, schemas
+from app import schemas
 from app.celery_tasks.pastel_tasks import get_celery_task_info
 from app.core.config import settings
 from app.utils import walletnode as wn
@@ -23,7 +20,7 @@ async def do_works(
         *,
         worker,
         files: List[UploadFile],
-        current_user: models.User
+        user_id: int
 ) -> schemas.WorkResult:
     work_id = str(uuid.uuid4())
     results = schemas.WorkResult(work_id=work_id, tickets=[])
@@ -32,7 +29,7 @@ async def do_works(
         ticket_id = str(uuid.uuid4())
         await lf.save(file)
         res = (
-                worker.register_file.s(lf, work_id, ticket_id, current_user.id) |
+                worker.register_file.s(lf, work_id, ticket_id, user_id) |
                 worker.preburn_fee.s() |
                 worker.process.s()
         ).apply_async()
@@ -49,16 +46,16 @@ async def do_works(
 async def check_ticket_registration_status(ticket, service: wn.WalletNodeService) -> schemas.TicketRegistrationResult:
     if ticket.ticket_status:
         if ticket.ticket_status == 'STARTED':
-            status = 'PENDING'
+            ticket_status = 'PENDING'
         elif ticket.ticket_status == 'DONE':
-            status = 'SUCCESS'
+            ticket_status = 'SUCCESS'
         elif ticket.ticket_status == 'DEAD':
-            status = 'FAILED'
+            ticket_status = 'FAILED'
         else:
             task_info = get_celery_task_info(ticket.ticket_status)
-            status = task_info['celery_task_status']
+            ticket_status = task_info['celery_task_status']
     else:
-        status = 'UNKNOWN'
+        ticket_status = 'UNKNOWN'
     wn_task_status = ''
     if ticket.ticket_status != 'DONE':
         wn_task_status = wn.call(False,
@@ -68,17 +65,17 @@ async def check_ticket_registration_status(ticket, service: wn.WalletNodeService
                                  "", "")
         for step in wn_task_status:
             if step['status'] == 'Registration Rejected':
-                status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
+                ticket_status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
                 break
             if step['status'] == 'Registration Completed':
-                status = 'DONE'
+                ticket_status = 'DONE'
                 break
     reg_result = schemas.TicketRegistrationResult(
         file=ticket.original_file_name,
         ticket_id=ticket.ticket_id,
-        status=status,
+        status=ticket_status,
     )
-    if status != 'ERROR' and status != 'FAILED':
+    if ticket_status != 'ERROR' and ticket_status != 'FAILED':
         reg_result.reg_ticket_txid = ticket.reg_ticket_txid
         reg_result.act_ticket_txid = ticket.act_ticket_txid
         if service != wn.WalletNodeService.SENSE:
@@ -114,14 +111,9 @@ async def parse_user_work(tickets_in_work, work_id, service: wn.WalletNodeServic
 
 async def get_file(
         *,
-        ticket_id: str,
-        db: Session = Depends(session.get_db_session),
+        ticket,
         service: wn.WalletNodeService,
 ):
-    ticket = crud.cascade.get_by_ticket_id(db=db, ticket_id=ticket_id)
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-
     file_bytes = None
     if service == wn.WalletNodeService.CASCADE and ticket.pastel_id != settings.PASTEL_ID:
         logging.error("Backend does not have correct Pastel ID")

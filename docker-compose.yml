@@ -74,6 +74,7 @@ services:
 
   queue:
     image: redis:alpine
+    hostname: ${STACK_NAME?Variable not set}-queue
     ports:
       - "6379:6379"
 
@@ -104,11 +105,12 @@ services:
 
   ipfs:
     image: ipfs.07:latest
+    hostname: ${STACK_NAME?Variable not set}-ipfs
     ports:
       - "4001:4001"
       - "4001:4001/udp"
-      - "127.0.0.1:5001:5001"
-      - "127.0.0.1:8082:8080"
+      - "5001:5001"
+      - "8082:8080"
     volumes:
       - /tmp/ipfs-data:/data/ipfs
     build:
@@ -119,6 +121,7 @@ services:
 
   wn:
     image: wn-testnet:test
+    hostname: ${STACK_NAME?Variable not set}-wn
     ports:
       - "8181:8080"
       - "19932:19932"

@@ -30,21 +30,48 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
 
-    PASTEL_RPC_URL: str = "http://127.0.0.1:19932"
+    PASTEL_RPC_HOST: str
+    PASTEL_RPC_PORT: str
+    PASTEL_RPC_URL: Optional[str] = None
+
+    @validator("PASTEL_RPC_URL", pre=True)
+    def assemble_pastel_rpc_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+        if isinstance(v, str):
+            return v
+        else:
+            return f"http://{values.get('PASTEL_RPC_HOST', 'localhost')}:{values.get('PASTEL_RPC_PORT', '19932')}"
+
     PASTEL_RPC_USER: str
     PASTEL_RPC_PWD: str
+
     PASTEL_ID: str
     PASSPHRASE: str
-    BURN_ADDRESS = "tPpasteLBurnAddressXXXXXXXXXXX3wy7u"     # Testnet
-    # BURN_ADDRESS = "PtpasteLBurnAddressXXXXXXXXXXbJ5ndd"   # Mainnet
 
-    # WN_BASE_URL: str = f"http://127.0.0.1:8181"
-    WN_BASE_URL: str = f"http://127.0.0.1:8080"
-    WN_BASE_CASCADE_URL = f"{WN_BASE_URL}/openapi/cascade"
-    WN_BASE_SENSE_URL = f"{WN_BASE_URL}/openapi/sense"
-    WN_BASE_NFT_URL = f"{WN_BASE_URL}/openapi/nft"
+    BURN_ADDRESS: str
 
-    IPFS_URL: str = "/dns/localhost/tcp/5001/http"
+    WN_HOST: str
+    WN_BASE_PORT: str
+    WN_BASE_URL: Optional[str] = None
+
+    @validator("WN_BASE_URL", pre=True)
+    def assemble_wn_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+        if isinstance(v, str):
+            return v
+        else:
+            return f"http://{values.get('WN_HOST', 'localhost')}:{values.get('WN_BASE_PORT', '8080')}"
+
+    IPFS_HOST: str
+    IPFS_URL: Optional[str] = None
+
+    @validator("IPFS_URL", pre=True)
+    def assemble_ipfs_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+        if isinstance(v, str):
+            return v
+        else:
+            return f"/dns/{values.get('IPFS_HOST', 'localhost')}/tcp/5001/http"
+
+    REDIS_HOST: str
+    REDIS_PORT: str
 
     FILE_STORAGE: str
 

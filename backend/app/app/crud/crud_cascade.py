@@ -35,19 +35,27 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             .filter(Cascade.ticket_id == ticket_id)
             .first())
 
-    def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str) -> Optional[Cascade]:
+    def get_by_ticket_id_and_owner(self, db: Session, *, ticket_id: str, owner_id) -> Optional[Cascade]:
         return (
             db.query(self.model)
+            .filter(Cascade.owner_id == owner_id)
+            .filter(Cascade.ticket_id == ticket_id)
+            .first())
+
+    def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str, owner_id) -> Optional[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.owner_id == owner_id)
             .filter(Cascade.work_id == work_id)
             .filter(Cascade.original_file_name == file_name)
             .first()
         )
 
-    def get_all_in_work(
-            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
-    ) -> List[Cascade]:
+    def get_all_in_work(self, db: Session, *, work_id: str, owner_id: int, skip: int = 0, limit: int = 100) \
+            -> List[Cascade]:
         return (
             db.query(self.model)
+            .filter(Cascade.owner_id == owner_id)
             .filter(Cascade.work_id == work_id)
             .offset(skip)
             .limit(limit)
@@ -154,6 +162,20 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
         return (
             db.query(self.model)
             .filter(Cascade.burn_txid == txid)
+            .first())
+
+    def get_by_reg_txid_and_owner(self, db: Session, *, reg_txid: str, owner_id: int) -> Optional[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.owner_id == owner_id)
+            .filter(Cascade.reg_ticket_txid == reg_txid)
+            .first())
+
+    def get_by_act_txid_and_owner(self, db: Session, *, act_txid: str, owner_id: int) -> Optional[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.owner_id == owner_id)
+            .filter(Cascade.act_ticket_txid == act_txid)
             .first())
 
 

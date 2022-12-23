@@ -45,12 +45,12 @@ class PastelAPITask(celery.Task):
     # def on_retry(self, exc, task_id, args, kwargs, einfo):
     #     print(f'{task_id} retrying: {exc}')
 
-    def register_file_task(self, local_file, work_id, ticket_id, user_id,
+    def register_file_task(self,
+                           local_file, work_id, ticket_id, user_id,
                            create_klass,
                            get_by_ticket_id_func,
                            create_with_owner_func,
                            retry_func,
-                           celery_task_id,
                            service: wn.WalletNodeService,
                            service_name: str):
         self.message = f'{service_name}: Starting file registration... [Ticket ID: {ticket_id}]'
@@ -98,12 +98,11 @@ class PastelAPITask(celery.Task):
 
         return ticket_id
 
-    def preburn_fee_task(self, ticket_id,
+    def preburn_fee_task(self,
+                         ticket_id,
                          get_by_ticket_id_func,
                          update_func,
                          retry_func,
-                         celery_task_id,
-                         service: wn.WalletNodeService,
                          service_name: str) -> str:
         self.message = f'{service_name}: Searching for pre-burn tx for registration... [Ticket ID: {ticket_id}]'
 
@@ -155,11 +154,10 @@ class PastelAPITask(celery.Task):
 
         return ticket_id
 
-    def process_task(self, ticket_id,
+    def process_task(self,
+                     ticket_id,
                      get_by_ticket_id_func,
                      update_func,
-                     retry_func,
-                     celery_task_id,
                      service: wn.WalletNodeService,
                      service_name: str) -> str:
         self.message = f'{service_name}: Register file in the Pastel Network... [Ticket ID: {ticket_id}]'
@@ -234,11 +232,10 @@ class PastelAPITask(celery.Task):
 
         return ticket_id
 
-    def re_register_file_task(self, ticket_id,
+    def re_register_file_task(self,
+                              ticket_id,
                               get_by_ticket_id_func,
                               update_func,
-                              retry_func,
-                              celery_task_id,
                               service: wn.WalletNodeService,
                               service_name: str) -> str:
         self.message = f'{service_name}: Starting file re-registration... [Ticket ID: {ticket_id}]'

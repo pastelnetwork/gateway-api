@@ -18,7 +18,6 @@ def register_file(self, local_file, work_id, ticket_id, user_id) -> str:
         crud.sense.get_by_ticket_id,
         crud.sense.create_with_owner,
         register_file.retry,
-        register_file.request.id,
         WalletNodeService.SENSE,
         "Sense")
 
@@ -32,7 +31,6 @@ def preburn_fee(self, ticket_id) -> str:
                                  crud.sense.get_by_ticket_id,
                                  crud.sense.update,
                                  preburn_fee.retry,
-                                 preburn_fee.request.id,
                                  WalletNodeService.SENSE,
                                  "Sense")
 
@@ -45,8 +43,6 @@ def process(self, ticket_id) -> str:
     return self.process_task(ticket_id,
                              crud.sense.get_by_ticket_id,
                              crud.sense.update,
-                             process.retry,
-                             process.request.id,
                              WalletNodeService.SENSE,
                              "Sense")
 
@@ -59,7 +55,5 @@ def re_register_file(self, ticket_id) -> str:
     return self.re_register_file_task(ticket_id,
                                       crud.sense.get_by_ticket_id,
                                       crud.sense.update,
-                                      re_register_file.retry,
-                                      re_register_file.request.id,
                                       WalletNodeService.SENSE,
                                       "Sense")

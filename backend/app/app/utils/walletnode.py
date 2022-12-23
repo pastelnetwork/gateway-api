@@ -14,12 +14,7 @@ class WalletNodeService(Enum):
 
 
 def call(post, service: WalletNodeService, url_cmd, payload, files, headers, return_item1, return_item2, no_throw=False):
-    if service == WalletNodeService.NFT:
-        wn_url = f'{settings.WN_BASE_NFT_URL}/{url_cmd}'
-    elif service == WalletNodeService.CASCADE:
-        wn_url = f'{settings.WN_BASE_CASCADE_URL}/{url_cmd}'
-    elif service == WalletNodeService.SENSE:
-        wn_url = f'{settings.WN_BASE_SENSE_URL}/{url_cmd}'
+    wn_url = f'{settings.WN_BASE_URL}/{service.value}/{url_cmd}'
 
     if post:
         response = requests.post(wn_url, headers=headers, data=payload, files=files)

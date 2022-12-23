@@ -44,10 +44,11 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
         )
 
     def get_all_in_work(
-            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+            self, db: Session, *, work_id: str, owner_id: int, skip: int = 0, limit: int = 100
     ) -> List[Sense]:
         return (
             db.query(self.model)
+            .filter(Sense.owner_id == owner_id)
             .filter(Sense.work_id == work_id)
             .offset(skip)
             .limit(limit)
@@ -154,6 +155,18 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
         return (
             db.query(self.model)
             .filter(Sense.burn_txid == txid)
+            .first())
+
+    def get_by_reg_txid(self, db: Session, *, reg_txid: str) -> Optional[Sense]:
+        return (
+            db.query(self.model)
+            .filter(Sense.reg_ticket_txid == reg_txid)
+            .first())
+
+    def get_by_act_txid(self, db: Session, *, act_txid: str) -> Optional[Sense]:
+        return (
+            db.query(self.model)
+            .filter(Sense.act_ticket_txid == act_txid)
             .first())
 
 

@@ -18,7 +18,6 @@ def register_file(self, local_file, work_id, ticket_id, user_id) -> str:
         crud.cascade.get_by_ticket_id,
         crud.cascade.create_with_owner,
         register_file.retry,
-        register_file.request.id,
         WalletNodeService.CASCADE,
         "Cascade")
 
@@ -32,8 +31,6 @@ def preburn_fee(self, ticket_id) -> str:
                                  crud.cascade.get_by_ticket_id,
                                  crud.cascade.update,
                                  preburn_fee.retry,
-                                 preburn_fee.request.id,
-                                 WalletNodeService.CASCADE,
                                  "Cascade")
 
 
@@ -45,8 +42,6 @@ def process(self, ticket_id) -> str:
     return self.process_task(ticket_id,
                              crud.cascade.get_by_ticket_id,
                              crud.cascade.update,
-                             process.retry,
-                             process.request.id,
                              WalletNodeService.CASCADE,
                              "Cascade")
 
@@ -59,7 +54,5 @@ def re_register_file(self, ticket_id) -> str:
     return self.re_register_file_task(ticket_id,
                                       crud.cascade.get_by_ticket_id,
                                       crud.cascade.update,
-                                      re_register_file.retry,
-                                      re_register_file.request.id,
                                       WalletNodeService.CASCADE,
                                       "Cascade")
