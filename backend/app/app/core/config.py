@@ -30,8 +30,8 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
 
-    PASTEL_RPC_HOST: str
-    PASTEL_RPC_PORT: str
+    PASTEL_RPC_HOST: Optional[str] = None
+    PASTEL_RPC_PORT: Optional[str] = None
     PASTEL_RPC_URL: Optional[str] = None
 
     @validator("PASTEL_RPC_URL", pre=True)
@@ -49,8 +49,8 @@ class Settings(BaseSettings):
 
     BURN_ADDRESS: str
 
-    WN_HOST: str
-    WN_BASE_PORT: str
+    WN_HOST: Optional[str] = None
+    WN_BASE_PORT: Optional[str] = None
     WN_BASE_URL: Optional[str] = None
 
     @validator("WN_BASE_URL", pre=True)
@@ -60,7 +60,7 @@ class Settings(BaseSettings):
         else:
             return f"http://{values.get('WN_HOST', 'localhost')}:{values.get('WN_BASE_PORT', '8080')}"
 
-    IPFS_HOST: str
+    IPFS_HOST: Optional[str] = None
     IPFS_URL: Optional[str] = None
 
     @validator("IPFS_URL", pre=True)
@@ -70,8 +70,16 @@ class Settings(BaseSettings):
         else:
             return f"/dns/{values.get('IPFS_HOST', 'localhost')}/tcp/5001/http"
 
-    REDIS_HOST: str
-    REDIS_PORT: str
+    REDIS_HOST: Optional[str] = None
+    REDIS_PORT: Optional[str] = None
+    REDIS_URL: Optional[str] = None
+
+    @validator("REDIS_URL", pre=True)
+    def assemble_redis_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+        if isinstance(v, str):
+            return v
+        else:
+            return f"redis://{values.get('REDIS_HOST', 'localhost')}:{values.get('REDIS_PORT', '6379')}/0"
 
     FILE_STORAGE: str
 
