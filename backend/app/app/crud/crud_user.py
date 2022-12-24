@@ -14,7 +14,11 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return db.query(User).filter(User.email == email).first()
 
     def get_by_api_key(self, db: Session, *, api_key: str) -> Optional[User]:
-        return db.query(User).join(ApiKey).first()
+        return (
+            db.query(User)
+            .join(ApiKey)
+            .filter(ApiKey.api_key == api_key)
+            .first())
 
     def create(self, db: Session, *, obj_in: UserCreate) -> User:
         db_obj = User(
