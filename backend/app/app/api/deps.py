@@ -113,12 +113,14 @@ class APIKeyAuth:
         return apikey
 
     @staticmethod
-    def get_user_by_apikey(
+    async def get_user_by_apikey(
             db: Session = Depends(get_db_session),
-            api_key: str = Depends(api_key_header)
+            api_key: str = Security(api_key_header)
     ) -> models.User:
         print(api_key)
         user = crud.user.get_by_api_key(db=db, api_key=api_key)
         if not user:
             raise HTTPException(status_code=404, detail="Unknown API Key")
         return user
+
+

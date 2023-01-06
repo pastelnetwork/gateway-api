@@ -22,7 +22,7 @@ services:
         INSTALL_DEV: ${INSTALL_DEV-false}
 
   wn:
-    image: wn-testnet:test
+    image: wn-testnet:latest
     ports:
       - "8181:8080"
       - "19932:19932"

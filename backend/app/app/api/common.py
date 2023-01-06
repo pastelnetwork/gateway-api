@@ -57,7 +57,7 @@ async def check_ticket_registration_status(ticket, service: wn.WalletNodeService
     else:
         ticket_status = 'UNKNOWN'
     wn_task_status = ''
-    if ticket.ticket_status != 'DONE':
+    if ticket.ticket_status != 'DONE' and ticket.ticket_status != 'DEAD':
         wn_task_status = wn.call(False,
                                  service,
                                  f'{ticket.wn_task_id}/history',
@@ -123,7 +123,7 @@ async def get_file(
                           f'download?pid={settings.PASTEL_ID}&txid={ticket.reg_ticket_txid}',
                           {},
                           [],
-                          { 'Authorization': settings.PASSPHRASE,},
+                          {'Authorization': settings.PASSPHRASE, },
                           "file", "", True)
 
         if not wn_resp:

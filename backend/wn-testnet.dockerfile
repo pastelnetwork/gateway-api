@@ -15,6 +15,9 @@ RUN sed -i -e '/hostname/s/localhost/0.0.0.0/' ~/.pastel/walletnode.yml && \
     sed -i -e 's/rpcuser=.*/rpcuser=rpc_user/' ~/.pastel/pastel.conf && \
     sed -i -e 's/rpcpassword=.*/rpcpassword=rpc_pwd/' ~/.pastel/pastel.conf
 
+ARG PASTELID_FILE
+ADD ./docker/$PASTELID_FILE /root/.pastel/testnet3/pastelkeys/$PASTELID_FILE
+
 CMD /start-wn.sh
 
 EXPOSE 8080 19332

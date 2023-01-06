@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query
 
 from typing import List
 from sqlalchemy.orm import Session
@@ -128,3 +130,41 @@ async def get_data_by_reg_txid(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return await common.get_file(ticket=ticket, service=wn.WalletNodeService.CASCADE)
+
+
+@router.websocket("/status/work")
+async def work_status(
+        websocket: WebSocket,
+        api_key: str = Query(default=None),
+        db: Session = Depends(session.get_db_session),
+):
+    await websocket.accept()
+
+    apikey = await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
+
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message received: {data}")
+
+
+@router.websocket("/status/ticket")
+async def ticket_status(
+        websocket: WebSocket,
+        ticket_id: str = Query(default=None),
+        api_key: str = Query(default=None),
+        db: Session = Depends(session.get_db_session),
+):
+    await websocket.accept()
+
+    await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
+    current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
+
+    ticket = crud.cascade.get_by_ticket_id_and_owner(db=db, ticket_id=ticket_id, owner_id=current_user.id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    while True:
+        result = await common.check_ticket_registration_status(ticket, wn.WalletNodeService.CASCADE)
+        if result is not None:
+            await websocket.send_text(f"Ticket {result.ticket_id} status: {result.status}")
+        await asyncio.sleep(150)    # 2.5 minutes

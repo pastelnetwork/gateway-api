@@ -120,7 +120,7 @@ services:
         INSTALL_DEV: ${INSTALL_DEV-false}
 
   wn:
-    image: wn-testnet:test
+    image: wn-testnet:latest
     hostname: ${STACK_NAME?Variable not set}-wn
     ports:
       - "8181:8080"
@@ -132,6 +132,7 @@ services:
       dockerfile: wn-testnet.dockerfile
       args:
         INSTALL_DEV: ${INSTALL_DEV-false}
+        PASTELID_FILE: ${PASTEL_ID} # File name IS the PastelID
 
   backend:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
@@ -156,7 +157,6 @@ services:
     depends_on:
       - queue
       - ipfs
-      - wn
 
   celeryworker:
     image: '${DOCKER_IMAGE_CELERYWORKER?Variable not set}:${TAG-latest}'
