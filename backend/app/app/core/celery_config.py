@@ -12,8 +12,8 @@ def route_task(name, args, kwargs, options, task=None, **kw):
 
 
 class BaseConfig:
-    broker_url: settings.REDIS_URL
-    result_backend: settings.REDIS_URL
+    broker_url: str = settings.REDIS_URL
+    result_backend: str = settings.REDIS_URL
 
     task_queues: list = (
         # default queue
