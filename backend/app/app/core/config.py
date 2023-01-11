@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v
         else:
-            return f"http://{values.get('PASTEL_RPC_HOST', 'localhost')}:{values.get('PASTEL_RPC_PORT', '19932')}"
+            return f"http://{values.get('PASTEL_RPC_HOST') or 'localhost'}:{values.get('PASTEL_RPC_PORT') or '19932'}"
 
     PASTEL_RPC_USER: str
     PASTEL_RPC_PWD: str
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v
         else:
-            return f"http://{values.get('WN_HOST', 'localhost')}:{values.get('WN_BASE_PORT', '8080')}"
+            return f"http://{values.get('WN_HOST') or 'localhost'}:{values.get('WN_BASE_PORT') or '8080'}"
 
     IPFS_HOST: Optional[str] = None
     IPFS_URL: Optional[str] = None
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v
         else:
-            return f"/dns/{values.get('IPFS_HOST', 'localhost')}/tcp/5001/http"
+            return f"/dns/{values.get('IPFS_HOST') or 'localhost'}/tcp/5001/http"
 
     REDIS_HOST: Optional[str] = None
     REDIS_PORT: Optional[str] = None
@@ -79,7 +79,9 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v
         else:
-            return f"redis://{values.get('REDIS_HOST', 'localhost')}:{values.get('REDIS_PORT', '6379')}/0"
+            h = values.get('REDIS_HOST') or 'localhost'
+            p = values.get('REDIS_PORT') or '6379'
+            return f"redis://{h}:{p}/0"
 
     FILE_STORAGE: str
 
