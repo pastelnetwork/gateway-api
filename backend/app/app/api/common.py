@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import base64
 import logging
@@ -46,16 +47,16 @@ async def do_works(
 async def check_ticket_registration_status(ticket, service: wn.WalletNodeService) -> schemas.TicketRegistrationResult:
     if ticket.ticket_status:
         if ticket.ticket_status == 'STARTED':
-            ticket_status = 'PENDING'
+            registration_status = 'PENDING'
         elif ticket.ticket_status == 'DONE':
-            ticket_status = 'SUCCESS'
+            registration_status = 'SUCCESS'
         elif ticket.ticket_status == 'DEAD':
-            ticket_status = 'FAILED'
+            registration_status = 'FAILED'
         else:
             task_info = get_celery_task_info(ticket.ticket_status)
-            ticket_status = task_info['celery_task_status']
+            registration_status = task_info['celery_task_status']
     else:
-        ticket_status = 'UNKNOWN'
+        registration_status = 'UNKNOWN'
     wn_task_status = ''
     if ticket.ticket_status != 'DONE' and ticket.ticket_status != 'DEAD' and ticket.wn_task_id:
         wn_task_status = wn.call(False,
@@ -65,17 +66,17 @@ async def check_ticket_registration_status(ticket, service: wn.WalletNodeService
                                  "", "")
         for step in wn_task_status:
             if step['status'] == 'Registration Rejected':
-                ticket_status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
+                registration_status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
                 break
             if step['status'] == 'Registration Completed':
-                ticket_status = 'DONE'
+                registration_status = 'SUCCESS'
                 break
     reg_result = schemas.TicketRegistrationResult(
         file=ticket.original_file_name,
         ticket_id=ticket.ticket_id,
-        status=ticket_status,
+        status=registration_status,
     )
-    if ticket_status != 'ERROR' and ticket_status != 'FAILED':
+    if registration_status != 'ERROR' and registration_status != 'FAILED':
         reg_result.reg_ticket_txid = ticket.reg_ticket_txid
         reg_result.act_ticket_txid = ticket.act_ticket_txid
         if service != wn.WalletNodeService.SENSE:
@@ -138,8 +139,12 @@ async def get_file(
 
     if service == wn.WalletNodeService.CASCADE and not file_bytes:
         if ticket.ipfs_link:
-            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-            file_bytes = ipfs_client.cat(ticket.ipfs_link)
+            try:
+                ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+                file_bytes = ipfs_client.cat(ticket.ipfs_link)
+            except Exception as e:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
+
             if not file_bytes:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
         else:
@@ -153,3 +158,37 @@ async def get_file(
                                  )
     response.headers["Content-Disposition"] = f"attachment; filename={ticket.original_file_name}"
     return response
+
+
+async def process_websocket_for_tickets(websocket, tickets, service: wn.WalletNodeService, work_id: str = None):
+
+    while True:
+        all_failed = True
+        all_success = True
+        tickets_json = []
+        for ticket in tickets:
+            result = await check_ticket_registration_status(ticket, service)
+            if result is not None:
+                tickets_json.append(
+                    {
+                        'ticket_id': result.ticket_id,
+                        'status': result.status,
+                    }
+                )
+            all_failed &= result.status == "FAILED"
+            all_success &= result.status == "SUCCESS"
+
+        if work_id:
+            result_json = {
+                'work_id': work_id,
+                'work_status': 'FAILED' if all_failed else 'SUCCESS' if all_success else 'PENDING',
+                'tickets': tickets_json,
+            }
+        else:
+            result_json = tickets_json[0]
+
+        await websocket.send_json(result_json)
+        if all_failed or all_success:
+            break
+
+        await asyncio.sleep(150)    # 2.5 minutes

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query
 
 from typing import List
 from sqlalchemy.orm import Session
@@ -127,3 +127,41 @@ async def get_data_by_reg_txid(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return await common.get_file(ticket=ticket, service=wn.WalletNodeService.SENSE)
+
+
+@router.websocket("/status/work")
+async def work_status(
+        websocket: WebSocket,
+        work_id: str = Query(default=None),
+        api_key: str = Query(default=None),
+        db: Session = Depends(session.get_db_session),
+):
+    await websocket.accept()
+
+    apikey = await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
+    current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
+
+    tickets = crud.sense.get_all_in_work(db=db, work_id=work_id, owner_id=current_user.id)
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No tickets or work found")
+
+    await common.process_websocket_for_tickets(websocket, tickets, wn.WalletNodeService.SENSE, work_id)
+
+
+@router.websocket("/status/ticket")
+async def ticket_status(
+        websocket: WebSocket,
+        ticket_id: str = Query(default=None),
+        api_key: str = Query(default=None),
+        db: Session = Depends(session.get_db_session),
+):
+    await websocket.accept()
+
+    await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
+    current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
+
+    tickets = [crud.sense.get_by_ticket_id_and_owner(db=db, ticket_id=ticket_id, owner_id=current_user.id)]
+    if not tickets or not tickets[0]:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    await common.process_websocket_for_tickets(websocket, tickets, wn.WalletNodeService.SENSE)

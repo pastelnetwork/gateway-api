@@ -220,9 +220,12 @@ class PastelAPITask(celery.Task):
 
                 self.message = f'{service_name}: Storing file into IPFS... [Ticket ID: {ticket_id}]'
 
-                ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                res = ipfs_client.add(task.original_file_local_path)
-                ipfs_link = res["Hash"]
+                try:
+                    ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+                    res = ipfs_client.add(task.original_file_local_path)
+                    ipfs_link = res["Hash"]
+                except Exception as e:
+                    self.message = f'{service_name}: Error while storing file into IPFS... [Ticket ID: {ticket_id}]'
 
                 if ipfs_link:
                     self.message = f'{service_name}: Updating DB with IPFS link... [Ticket ID: {ticket_id}; ' \
@@ -258,10 +261,13 @@ class PastelAPITask(celery.Task):
         path = Path(task.original_file_local_path)
         if not path.is_file():
             if task.ipfs_link:
-                self.message = f'{service_name}: File not found locally, downloading from IPFS... ' \
-                               f'[Ticket ID: {ticket_id}]'
-                ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                ipfs_client.get(task.ipfs_link, path.parent)
+                try:
+                    self.message = f'{service_name}: File not found locally, downloading from IPFS... ' \
+                                   f'[Ticket ID: {ticket_id}]'
+                    ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+                    ipfs_client.get(task.ipfs_link, path.parent)
+                except Exception as e:
+                    raise PastelAPIException(f'{service_name}: File not found locally and nor in IPFS: {e}')
                 new_path = path.parent / task.ipfs_link
                 new_path.rename(path)
             else:

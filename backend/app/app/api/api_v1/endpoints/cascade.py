@@ -135,16 +135,20 @@ async def get_data_by_reg_txid(
 @router.websocket("/status/work")
 async def work_status(
         websocket: WebSocket,
+        work_id: str = Query(default=None),
         api_key: str = Query(default=None),
         db: Session = Depends(session.get_db_session),
 ):
     await websocket.accept()
 
     apikey = await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
+    current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
-    while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(f"Message received: {data}")
+    tickets = crud.cascade.get_all_in_work(db=db, work_id=work_id, owner_id=current_user.id)
+    if not tickets:
+        raise HTTPException(status_code=404, detail="No tickets or work found")
+
+    await common.process_websocket_for_tickets(websocket, tickets, wn.WalletNodeService.CASCADE, work_id)
 
 
 @router.websocket("/status/ticket")
@@ -159,12 +163,9 @@ async def ticket_status(
     await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
-    ticket = crud.cascade.get_by_ticket_id_and_owner(db=db, ticket_id=ticket_id, owner_id=current_user.id)
-    if not ticket:
+    tickets = [crud.cascade.get_by_ticket_id_and_owner(db=db, ticket_id=ticket_id, owner_id=current_user.id)]
+    if not tickets or not tickets[0]:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    while True:
-        result = await common.check_ticket_registration_status(ticket, wn.WalletNodeService.CASCADE)
-        if result is not None:
-            await websocket.send_text(f"Ticket {result.ticket_id} status: {result.status}")
-        await asyncio.sleep(150)    # 2.5 minutes
+    await common.process_websocket_for_tickets(websocket, tickets, wn.WalletNodeService.CASCADE)
+
