@@ -35,17 +35,24 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             .filter(Sense.ticket_id == ticket_id)
             .first())
 
-    def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str) -> Optional[Sense]:
+    def get_by_ticket_id_and_owner(self, db: Session, *, ticket_id: str, owner_id) -> Optional[Sense]:
         return (
             db.query(self.model)
+            .filter(Sense.owner_id == owner_id)
+            .filter(Sense.ticket_id == ticket_id)
+            .first())
+
+    def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str, owner_id) -> Optional[Sense]:
+        return (
+            db.query(self.model)
+            .filter(Sense.owner_id == owner_id)
             .filter(Sense.work_id == work_id)
             .filter(Sense.original_file_name == file_name)
             .first()
         )
 
-    def get_all_in_work(
-            self, db: Session, *, work_id: str, owner_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Sense]:
+    def get_all_in_work(self, db: Session, *, work_id: str, owner_id: int, skip: int = 0, limit: int = 100)\
+            -> List[Sense]:
         return (
             db.query(self.model)
             .filter(Sense.owner_id == owner_id)

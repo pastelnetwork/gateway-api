@@ -89,7 +89,7 @@ class PastelAPITask(celery.Task):
                 original_file_local_path=local_file.path,
                 work_id=work_id,
                 ticket_id=ticket_id,
-                ticket_status="UPLOADED",
+                ticket_status='UPLOADED',
                 wn_file_id=wn_file_id,
                 wn_fee=fee,
                 height=height,
@@ -112,8 +112,8 @@ class PastelAPITask(celery.Task):
         if not task:
             raise PastelAPIException(f'{service_name}: No task found for ticket_id {ticket_id}')
 
-        if task.ticket_status == "PREBURN_FEE" or \
-                task.ticket_status == "STARTED":
+        if task.ticket_status == 'PREBURN_FEE' or \
+                task.ticket_status == 'STARTED':
             self.message = f'{service_name}: Registration (preburn_fee) already started... [Ticket ID: {ticket_id}]'
             return ticket_id
 
@@ -147,7 +147,7 @@ class PastelAPITask(celery.Task):
 
             upd = {
                 "burn_txid": burn_tx.txid,
-                "ticket_status": "PREBURN_FEE",
+                "ticket_status": 'PREBURN_FEE',
                 "updated_at": datetime.utcnow(),
             }
             update_func(session, db_obj=task, obj_in=upd)
@@ -174,7 +174,7 @@ class PastelAPITask(celery.Task):
         if not task.wn_file_id:
             raise PastelAPIException(f'{service_name}: Wrong WN file ID for ticket_id {ticket_id}')
 
-        if task.ticket_status == "STARTED":
+        if task.ticket_status == 'STARTED':
             self.message = f'{service_name}: File registration (process) already started... [Ticket ID: {ticket_id}]'
             return ticket_id
 
@@ -204,7 +204,7 @@ class PastelAPITask(celery.Task):
             upd = {
                 "wn_task_id": wn_task_id,
                 "pastel_id": settings.PASTEL_ID,
-                "ticket_status": "STARTED",
+                "ticket_status": 'STARTED',
                 "updated_at": datetime.utcnow(),
             }
             with db_context() as session:
@@ -246,9 +246,9 @@ class PastelAPITask(celery.Task):
         if not task:
             raise PastelAPIException(f'{service_name}: No cascade ticket found for ticket_id {ticket_id}')
 
-        if task.ticket_status == "UPLOADED" or \
-                task.ticket_status == "PREBURN_FEE" or \
-                task.ticket_status == "STARTED":
+        if task.ticket_status == 'UPLOADED' or \
+                task.ticket_status == 'PREBURN_FEE' or \
+                task.ticket_status == 'STARTED':
             self.message = f'{service_name}: File registration (re_register_file) already started...' \
                            f' [Ticket ID: {ticket_id}]'
             return ticket_id
@@ -283,7 +283,7 @@ class PastelAPITask(celery.Task):
             upd = {
                 "wn_file_id": wn_file_id,
                 "wn_fee": fee,
-                "ticket_status": "UPLOADED",
+                "ticket_status": 'UPLOADED',
                 "updated_at": datetime.utcnow(),
             }
             update_func(session, db_obj=task, obj_in=upd)

@@ -5,9 +5,9 @@ from app.core.config import settings
 
 
 class WalletNodeService(Enum):
-    NFT = 'nft'
-    CASCADE = 'cascade'
-    SENSE = 'sense'
+    NFT = 'nfts'
+    CASCADE = 'openapi/cascade'
+    SENSE = 'openapi/sense'
 
     def __str__(self):
         return self.value

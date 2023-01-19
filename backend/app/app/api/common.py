@@ -57,7 +57,7 @@ async def check_ticket_registration_status(ticket, service: wn.WalletNodeService
     else:
         ticket_status = 'UNKNOWN'
     wn_task_status = ''
-    if ticket.ticket_status != 'DONE' and ticket.ticket_status != 'DEAD':
+    if ticket.ticket_status != 'DONE' and ticket.ticket_status != 'DEAD' and ticket.wn_task_id:
         wn_task_status = wn.call(False,
                                  service,
                                  f'{ticket.wn_task_id}/history',
@@ -117,7 +117,7 @@ async def get_file(
     file_bytes = None
     if service == wn.WalletNodeService.CASCADE and ticket.pastel_id != settings.PASTEL_ID:
         logging.error("Backend does not have correct Pastel ID")
-    else:
+    elif ticket.ticket_status == 'DONE' or ticket.ticket_status == 'SUCCESS':
         wn_resp = wn.call(False,
                           service,
                           f'download?pid={settings.PASTEL_ID}&txid={ticket.reg_ticket_txid}',
