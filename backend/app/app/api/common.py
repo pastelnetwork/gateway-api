@@ -208,8 +208,7 @@ import app.utils.pasteld as psl
 async def create_offer_ticket(
         ticket,
         pastel_id,
-        service: wn.WalletNodeService
-) -> schemas.WorkResult:
+        service: wn.WalletNodeService):
     offer_ticket = psl.call('tickets', ['register', 'offer',
                                         ticket.act_ticket_txid,
                                         1,

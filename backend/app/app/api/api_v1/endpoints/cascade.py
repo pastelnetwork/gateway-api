@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Qu
 
 from typing import List
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 import app.celery_tasks.cascade as cascade
 import app.db.session as session
@@ -182,6 +183,14 @@ async def transfer_ticket_to_another_pastelid(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    return await common.create_offer_ticket(ticket,
-                                            pastel_id,
-                                            wn.WalletNodeService.CASCADE,)
+    offer_ticket = await common.create_offer_ticket(ticket,
+                                                    pastel_id,
+                                                    wn.WalletNodeService.CASCADE,)
+
+    if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
+        upd = {"offer_ticket_txid": offer_ticket['txid'],
+               "offer_ticket_intended_rcpt_pastel_id": pastel_id,
+               "updated_at": datetime.utcnow()}
+        crud.cascade.update(db=db, db_obj=ticket, obj_in=upd)
+
+    return offer_ticket
