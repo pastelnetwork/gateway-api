@@ -64,13 +64,16 @@ async def check_ticket_registration_status(ticket, service: wn.WalletNodeService
                                  f'{ticket.wn_task_id}/history',
                                  {}, [], {},
                                  "", "")
-        for step in wn_task_status:
-            if step['status'] == 'Registration Rejected':
-                registration_status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
-                break
-            if step['status'] == 'Registration Completed':
-                registration_status = 'SUCCESS'
-                break
+        if wn_task_status and 'message' in wn_task_status:
+            registration_status = wn_task_status['message']
+        else:
+            for step in wn_task_status:
+                if step['status'] == 'Registration Rejected':
+                    registration_status = 'ERROR' if settings.RETURN_DETAILED_WN_ERROR else 'PENDING'
+                    break
+                if step['status'] == 'Registration Completed':
+                    registration_status = 'SUCCESS'
+                    break
     reg_result = schemas.TicketRegistrationResult(
         file=ticket.original_file_name,
         ticket_id=ticket.ticket_id,
@@ -110,12 +113,45 @@ async def parse_user_work(tickets_in_work, work_id, service: wn.WalletNodeServic
     return results
 
 
+async def process_websocket_for_tickets(websocket, tickets, service: wn.WalletNodeService, work_id: str = None):
+    while True:
+        all_failed = True
+        all_success = True
+        tickets_json = []
+        for ticket in tickets:
+            result = await check_ticket_registration_status(ticket, service)
+            if result is not None:
+                tickets_json.append(
+                    {
+                        'ticket_id': result.ticket_id,
+                        'status': result.status,
+                    }
+                )
+            all_failed &= result.status == "FAILED"
+            all_success &= result.status == "SUCCESS"
+
+        if work_id:
+            result_json = {
+                'work_id': work_id,
+                'work_status': 'FAILED' if all_failed else 'SUCCESS' if all_success else 'PENDING',
+                'tickets': tickets_json,
+            }
+        else:
+            result_json = tickets_json[0]
+
+        await websocket.send_json(result_json)
+        if all_failed or all_success:
+            break
+
+        await asyncio.sleep(150)  # 2.5 minutes
+
+
 async def get_file(
         *,
         ticket,
         service: wn.WalletNodeService,
+        file_bytes=None
 ):
-    file_bytes = None
     if service == wn.WalletNodeService.CASCADE and ticket.pastel_id != settings.PASTEL_ID:
         logging.error("Backend does not have correct Pastel ID")
     elif ticket.ticket_status == 'DONE' or ticket.ticket_status == 'SUCCESS':
@@ -156,39 +192,30 @@ async def get_file(
     response = StreamingResponse(iter([file_bytes]),
                                  media_type="application/x-binary"
                                  )
-    response.headers["Content-Disposition"] = f"attachment; filename={ticket.original_file_name}"
+
+    if service == wn.WalletNodeService.SENSE:
+        file_name = f"{ticket.original_file_name}.json"
+    else:
+        file_name = ticket.original_file_name
+
+    response.headers["Content-Disposition"] = f"attachment; filename={file_name}"
     return response
 
 
-async def process_websocket_for_tickets(websocket, tickets, service: wn.WalletNodeService, work_id: str = None):
+import app.utils.pasteld as psl
 
-    while True:
-        all_failed = True
-        all_success = True
-        tickets_json = []
-        for ticket in tickets:
-            result = await check_ticket_registration_status(ticket, service)
-            if result is not None:
-                tickets_json.append(
-                    {
-                        'ticket_id': result.ticket_id,
-                        'status': result.status,
-                    }
-                )
-            all_failed &= result.status == "FAILED"
-            all_success &= result.status == "SUCCESS"
 
-        if work_id:
-            result_json = {
-                'work_id': work_id,
-                'work_status': 'FAILED' if all_failed else 'SUCCESS' if all_success else 'PENDING',
-                'tickets': tickets_json,
-            }
-        else:
-            result_json = tickets_json[0]
-
-        await websocket.send_json(result_json)
-        if all_failed or all_success:
-            break
-
-        await asyncio.sleep(150)    # 2.5 minutes
+async def create_offer_ticket(
+        ticket,
+        pastel_id,
+        service: wn.WalletNodeService
+) -> schemas.WorkResult:
+    offer_ticket = psl.call('tickets', ['register', 'offer',
+                                        ticket.act_ticket_txid,
+                                        1,
+                                        settings.PASTEL_ID,
+                                        settings.PASSPHRASE,
+                                        0, 0, 1, "",
+                                        pastel_id],
+                            )
+    return offer_ticket

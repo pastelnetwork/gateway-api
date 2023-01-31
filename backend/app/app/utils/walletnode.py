@@ -22,6 +22,8 @@ def call(post, service: WalletNodeService, url_cmd, payload, files, headers, ret
         response = requests.get(wn_url, headers=headers, data=payload, files=files)
     if no_throw and response.status_code != 200:
         return response
+    elif response.status_code != 404:
+        return response
     else:
         response.raise_for_status()
     upload_resp = response.json()

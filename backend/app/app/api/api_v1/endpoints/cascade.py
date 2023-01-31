@@ -169,3 +169,19 @@ async def ticket_status(
 
     await common.process_websocket_for_tickets(websocket, tickets, wn.WalletNodeService.CASCADE)
 
+
+@router.get("/ticket/transfer_ticket")
+async def transfer_ticket_to_another_pastelid(
+        *,
+        ticket_id: str = Query(),
+        pastel_id: str = Query(),
+        db: Session = Depends(session.get_db_session),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    ticket = crud.cascade.get_by_ticket_id_and_owner(db=db, ticket_id=ticket_id, owner_id=current_user.id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    return await common.create_offer_ticket(ticket,
+                                            pastel_id,
+                                            wn.WalletNodeService.CASCADE,)

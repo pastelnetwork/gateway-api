@@ -105,9 +105,9 @@ async def get_data(
 async def get_data_by_reg_txid(
         *,
         txid_id: str,
-        db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
-        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+        db: Session = Depends(session.get_db_session)
+        # api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        # current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     ticket = crud.sense.get_by_reg_txid(db=db, reg_txid=txid_id)  # anyone can call it
     if not ticket:
@@ -119,9 +119,9 @@ async def get_data_by_reg_txid(
 async def get_data_by_reg_txid(
         *,
         txid_id: str,
-        db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
-        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+        db: Session = Depends(session.get_db_session)
+        # api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        # current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     ticket = crud.sense.get_by_act_txid(db=db, act_txid=txid_id)  # anyone can call it
     if not ticket:
