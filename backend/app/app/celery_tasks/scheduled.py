@@ -96,7 +96,7 @@ def _registration_finisher(
                         # mark ticket as failed, and requires reprocessing
                         mark_failed(session, ticket, update_func, get_by_preburn_txid_func)
                         break
-                    if not ticket.reg_ticket_txid:
+                    if not ticket.registration_ticket_txid:
                         reg = status.split(f'Validating {service_name} Reg TXID: ', 1)
                         if len(reg) != 2:
                             reg = status.split(f'Validated {service_name} Reg TXID: ', 1)
@@ -104,9 +104,9 @@ def _registration_finisher(
                             upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
                             update_func(session, db_obj=ticket, obj_in=upd)
                             continue
-                    if not ticket.act_ticket_txid:
-                        if ticket.reg_ticket_txid:
-                            act_ticket = psl.call("tickets", ['find', 'action-act', ticket.reg_ticket_txid])
+                    if not ticket.activation_ticket_txid:
+                        if ticket.registration_ticket_txid:
+                            act_ticket = psl.call("tickets", ['find', 'action-act', ticket.registration_ticket_txid])
                             if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                                 upd = {
                                     "act_ticket_txid": act_ticket['txid'],
@@ -133,7 +133,7 @@ def mark_failed(session,
     t = get_by_preburn_txid_func(session, txid=ticket.burn_txid)
     if not t:
         crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
-    logger.error(f"Ticket {ticket.ticket_id} failed")
+    logger.error(f"Ticket {ticket.result_id} failed")
 
 
 @shared_task(name="registration_re_processor")
@@ -164,7 +164,7 @@ def _registration_re_processor(all_failed_func, update_func, reprocess_func):
                     logger.error(f"Ticket {ticket.id} failed 10 times, marking as DEAD")
                     continue
                 if not ticket.ticket_status or ticket.ticket_status == "":
-                    if (not ticket.reg_ticket_txid and not ticket.act_ticket_txid) \
+                    if (not ticket.registration_ticket_txid and not ticket.activation_ticket_txid) \
                             or not ticket.pastel_id or not ticket.wn_task_id\
                             or not ticket.burn_txid \
                             or not ticket.wn_file_id:
@@ -174,7 +174,7 @@ def _registration_re_processor(all_failed_func, update_func, reprocess_func):
                     clear_ticket(session, ticket, update_func)
                     reprocess_func(ticket)
             except Exception as e:
-                logger.error(f"Registration reprocessing failed for ticket {ticket.ticket_id} with error {e}")
+                logger.error(f"Registration reprocessing failed for ticket {ticket.result_id} with error {e}")
                 continue
 
 
@@ -200,17 +200,17 @@ def clear_ticket(session, ticket, update_func):
 
 def start_reprocess_cascade(ticket):
     res = (
-            cascade.re_register_file.s(ticket.ticket_id) |
+            cascade.re_register_file.s(ticket.result_id) |
             cascade.preburn_fee.s() |
             cascade.process.s()
     ).apply_async()
-    logger.info(f"Cascade Registration restarted for ticket {ticket.ticket_id} with task id {res.task_id}")
+    logger.info(f"Cascade Registration restarted for ticket {ticket.result_id} with task id {res.task_id}")
 
 
 def start_reprocess_sense(ticket):
     res = (
-            sense.re_register_file.s(ticket.ticket_id) |
+            sense.re_register_file.s(ticket.result_id) |
             sense.preburn_fee.s() |
             sense.process.s()
     ).apply_async()
-    logger.info(f"Sense Registration restarted for ticket {ticket.ticket_id} with task id {res.task_id}")
+    logger.info(f"Sense Registration restarted for ticket {ticket.result_id} with task id {res.task_id}")

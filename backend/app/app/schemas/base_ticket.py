@@ -51,18 +51,18 @@ class BaseTicketInDB(BaseTicketInDBBase):
     pass
 
 
-class TicketRegistrationResult(BaseModel):
-    file: str
-    ticket_id: str
-    status: str
-    reg_ticket_txid: Optional[str] = None
-    act_ticket_txid: Optional[str] = None
+class ResultRegistrationResult(BaseModel):
+    file_name: str
+    result_id: str
+    result_status: str
+    registration_ticket_txid: Optional[str] = None
+    activation_ticket_txid: Optional[str] = None
     ipfs_link: Optional[str] = None
     aws_link: Optional[str] = None
     other_links: Optional[Json] = None
     error: Optional[Any] = None
 
 
-class WorkResult(BaseModel):
-    work_id: str
-    tickets: List[TicketRegistrationResult]
+class RequestResult(BaseModel):
+    request_id: str
+    results: List[ResultRegistrationResult]

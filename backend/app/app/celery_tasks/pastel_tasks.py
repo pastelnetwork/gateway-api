@@ -299,10 +299,10 @@ class PastelAPITask(celery.Task):
 
 class CascadeAPITask(PastelAPITask):
     def on_success(self, retval, task_id, args, kwargs):
-        PastelAPITask.on_success_base(args, crud.cascade.get_by_ticket_id, crud.cascade.update)
+        PastelAPITask.on_success_base(args, crud.cascade.get_by_result_id, crud.cascade.update)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        PastelAPITask.on_failure_base(args, crud.cascade.get_by_ticket_id, crud.cascade.update)
+        PastelAPITask.on_failure_base(args, crud.cascade.get_by_result_id, crud.cascade.update)
 
 
 def get_celery_task_info(celery_task_id):

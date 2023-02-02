@@ -57,7 +57,7 @@ def test_create_cascade_job(db: Session) -> None:
 # 2
 def test_get_cascade_job_by_ticket_id(db: Session) -> None:
     new_cascade_task, created_cascade_task = create_cascade_task(db)
-    stored_cascade_task = crud.cascade.get_by_ticket_id(db=db, ticket_id=new_cascade_task.ticket_id)
+    stored_cascade_task = crud.cascade.get_by_result_id(db=db, ticket_id=new_cascade_task.result_id)
     assert_cascade_jobs(new_cascade_task, stored_cascade_task)
     crud.cascade.remove(db=db, id=created_cascade_task.id)
 
@@ -67,11 +67,11 @@ def test_get_cascade_job_by_work_id_and_name(db: Session) -> None:
     work_id = random_lower_string()
     new_cascade_task1, created_cascade_task1 = create_cascade_task(db, work_id=work_id)
     new_cascade_task2, created_cascade_task2 = create_cascade_task(db, work_id=work_id)
-    stored_cascade_task1 = crud.cascade.get_by_work_id_and_name(db=db, work_id=work_id,
-                                                                file_name=new_cascade_task1.original_file_name)
+    stored_cascade_task1 = crud.cascade.get_by_request_id_and_name(db=db, work_id=work_id,
+                                                                   file_name=new_cascade_task1.original_file_name)
     assert_cascade_jobs(new_cascade_task1, stored_cascade_task1)
-    stored_cascade_task2 = crud.cascade.get_by_work_id_and_name(db=db, work_id=work_id,
-                                                                file_name=new_cascade_task2.original_file_name)
+    stored_cascade_task2 = crud.cascade.get_by_request_id_and_name(db=db, work_id=work_id,
+                                                                   file_name=new_cascade_task2.original_file_name)
     assert_cascade_jobs(new_cascade_task2, stored_cascade_task2)
     crud.cascade.remove(db=db, id=created_cascade_task1.id)
     crud.cascade.remove(db=db, id=created_cascade_task2.id)
@@ -94,7 +94,7 @@ def test_get_non_started(db: Session) -> None:
     work_id = random_lower_string()
     new_cascade_task1, created_cascade_task1 = create_cascade_task(db, work_id=work_id)
     new_cascade_task2, created_cascade_task2 = create_cascade_task(db, work_id=work_id)
-    stored_cascade_tasks = crud.cascade.get_all_in_work_not_started(db=db, work_id=work_id)
+    stored_cascade_tasks = crud.cascade.get_all_in_request_not_started(db=db, work_id=work_id)
     assert_cascade_jobs(new_cascade_task1, stored_cascade_tasks[0])
     assert_cascade_jobs(new_cascade_task2, stored_cascade_tasks[1])
     crud.cascade.remove(db=db, id=created_cascade_task1.id)
@@ -108,14 +108,14 @@ def mark_prepaid(db: Session, new_job: CascadeCreate, created_job: Cascade) -> (
     upd = {"burn_txid": burn_txid, "ticket_status": task_id, "updated_at": datetime.utcnow()}
     updated_job = crud.cascade.update(db, db_obj=created_job, obj_in=upd)
     new_job.ticket_status = task_id
-    print(f"updated_job: {updated_job.ticket_id}; new_job: {new_job.ticket_id}")
+    print(f"updated_job: {updated_job.result_id}; new_job: {new_job.ticket_id}")
     assert_cascade_jobs(new_job, updated_job)
     assert updated_job.burn_txid == burn_txid
     return new_job, updated_job
 
 
 def check_prepaid(db: Session, prepaid_job: CascadeCreate, work_id: str, num: int):
-    prepaid_cascade_tasks = crud.cascade.get_all_in_work_prepaid(db=db, work_id=work_id)
+    prepaid_cascade_tasks = crud.cascade.get_all_in_request_prepaid(db=db, work_id=work_id)
     assert len(prepaid_cascade_tasks) == num
     assert_cascade_jobs(prepaid_job, prepaid_cascade_tasks[0])
 
@@ -132,7 +132,7 @@ def mark_started(db: Session, new_job: CascadeCreate, created_job: Cascade) -> (
 
 
 def check_started(db: Session, started_job: CascadeCreate, work_id: str, num: int):
-    prepaid_cascade_tasks = crud.cascade.get_all_in_work_started(db=db, work_id=work_id)
+    prepaid_cascade_tasks = crud.cascade.get_all_in_request_started(db=db, work_id=work_id)
     assert len(prepaid_cascade_tasks) == num
     assert_cascade_jobs(started_job, prepaid_cascade_tasks[0])
 
@@ -148,7 +148,7 @@ def test_update_and_get(db: Session) -> None:
     started_job, updated_job = mark_started(db, prepaid_job, updated_job)
     check_started(db, started_job, work_id, 1)
 
-    non_started_cascade_tasks = crud.cascade.get_all_in_work_not_started(db=db, work_id=work_id)
+    non_started_cascade_tasks = crud.cascade.get_all_in_request_not_started(db=db, work_id=work_id)
     assert len(non_started_cascade_tasks) == 0
 
     crud.cascade.remove(db=db, id=created_job.id)

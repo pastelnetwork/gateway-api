@@ -15,7 +15,7 @@ def register_file(self, local_file, work_id, ticket_id, user_id) -> str:
     return self.register_file_task(
         local_file, work_id, ticket_id, user_id,
         schemas.CascadeCreate,
-        crud.cascade.get_by_ticket_id,
+        crud.cascade.get_by_result_id,
         crud.cascade.create_with_owner,
         register_file.retry,
         WalletNodeService.CASCADE,
@@ -28,7 +28,7 @@ def register_file(self, local_file, work_id, ticket_id, user_id) -> str:
              name='cascade:preburn_fee', base=CascadeAPITask)
 def preburn_fee(self, ticket_id) -> str:
     return self.preburn_fee_task(ticket_id,
-                                 crud.cascade.get_by_ticket_id,
+                                 crud.cascade.get_by_result_id,
                                  crud.cascade.update,
                                  preburn_fee.retry,
                                  "Cascade")
@@ -40,7 +40,7 @@ def preburn_fee(self, ticket_id) -> str:
              name='cascade:process', base=CascadeAPITask)
 def process(self, ticket_id) -> str:
     return self.process_task(ticket_id,
-                             crud.cascade.get_by_ticket_id,
+                             crud.cascade.get_by_result_id,
                              crud.cascade.update,
                              WalletNodeService.CASCADE,
                              "Cascade")
@@ -52,7 +52,7 @@ def process(self, ticket_id) -> str:
              name='cascade:re_register_file', base=CascadeAPITask)
 def re_register_file(self, ticket_id) -> str:
     return self.re_register_file_task(ticket_id,
-                                      crud.cascade.get_by_ticket_id,
+                                      crud.cascade.get_by_result_id,
                                       crud.cascade.update,
                                       WalletNodeService.CASCADE,
                                       "Cascade")

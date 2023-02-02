@@ -29,45 +29,45 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def get_by_ticket_id(self, db: Session, *, ticket_id: str) -> Optional[Sense]:
+    def get_by_result_id(self, db: Session, *, result_id: str) -> Optional[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.ticket_id == ticket_id)
+            .filter(Sense.ticket_id == result_id)
             .first())
 
-    def get_by_ticket_id_and_owner(self, db: Session, *, ticket_id: str, owner_id) -> Optional[Sense]:
+    def get_by_result_id_and_owner(self, db: Session, *, result_id: str, owner_id) -> Optional[Sense]:
         return (
             db.query(self.model)
             .filter(Sense.owner_id == owner_id)
-            .filter(Sense.ticket_id == ticket_id)
+            .filter(Sense.ticket_id == result_id)
             .first())
 
-    def get_by_work_id_and_name(self, db: Session, *, work_id: str, file_name: str, owner_id) -> Optional[Sense]:
+    def get_by_request_id_and_name(self, db: Session, *, request_id: str, file_name: str, owner_id) -> Optional[Sense]:
         return (
             db.query(self.model)
             .filter(Sense.owner_id == owner_id)
-            .filter(Sense.work_id == work_id)
+            .filter(Sense.work_id == request_id)
             .filter(Sense.original_file_name == file_name)
             .first()
         )
 
-    def get_all_in_work(self, db: Session, *, work_id: str, owner_id: int, skip: int = 0, limit: int = 100)\
+    def get_all_in_request(self, db: Session, *, request_id: str, owner_id: int, skip: int = 0, limit: int = 100)\
             -> List[Sense]:
         return (
             db.query(self.model)
             .filter(Sense.owner_id == owner_id)
-            .filter(Sense.work_id == work_id)
+            .filter(Sense.work_id == request_id)
             .offset(skip)
             .limit(limit)
             .all()
         )
 
-    def get_all_in_work_not_started(
-            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+    def get_all_in_request_not_started(
+            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
     ) -> List[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.work_id == work_id)
+            .filter(Sense.work_id == request_id)
             .filter(
                 sa.and_(
                     Sense.burn_txid.is_(None),
@@ -78,12 +78,12 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             .all()
         )
 
-    def get_all_in_work_prepaid(
-            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+    def get_all_in_request_prepaid(
+            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
     ) -> List[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.work_id == work_id)
+            .filter(Sense.work_id == request_id)
             .filter(
                 sa.and_(
                     Sense.burn_txid.isnot(None),
@@ -96,11 +96,11 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
         )
 
     def get_all_in_work_started(
-            self, db: Session, *, work_id: str, skip: int = 0, limit: int = 100
+            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
     ) -> List[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.work_id == work_id)
+            .filter(Sense.work_id == request_id)
             .filter(
                 sa.and_(
                     Sense.burn_txid.isnot(None),
