@@ -253,16 +253,16 @@ async def transfer_pastel_ticket_to_another_pastelid(
         db: Session = Depends(session.get_db_session),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    result = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
-    if not result:
+    task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+    if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
 
-    offer_ticket = await common.create_offer_ticket(result, pastel_id, wn.WalletNodeService.CASCADE)
+    offer_ticket = await common.create_offer_ticket(task_from_db, pastel_id, wn.WalletNodeService.CASCADE)
 
     if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
         upd = {"offer_ticket_txid": offer_ticket['txid'],
                "offer_ticket_intended_rcpt_pastel_id": pastel_id,
                "updated_at": datetime.utcnow()}
-        crud.cascade.update(db=db, db_obj=result, obj_in=upd)
+        crud.cascade.update(db=db, db_obj=task_from_db, obj_in=upd)
 
     return offer_ticket

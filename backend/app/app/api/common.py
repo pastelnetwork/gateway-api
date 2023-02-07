@@ -231,9 +231,9 @@ async def stream_file(*, file_bytes, original_file_name: str):
     return response
 
 
-async def create_offer_ticket(result, pastel_id, service: wn.WalletNodeService):
+async def create_offer_ticket(task_from_db, pastel_id, service: wn.WalletNodeService):
     offer_ticket = psl.call('tickets', ['register', 'offer',
-                                        result.activation_ticket_txid,
+                                        task_from_db.act_ticket_txid,
                                         1,
                                         settings.PASTEL_ID,
                                         settings.PASSPHRASE,
