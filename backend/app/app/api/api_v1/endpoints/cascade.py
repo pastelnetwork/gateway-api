@@ -38,10 +38,10 @@ async def get_all_requests(
     """
     Return the status of the submitted request
     """
-    tasks_in_db = crud.cascade.get_multi_by_owner(db=db, owner_id=current_user.id)
-    if not tasks_in_db:
+    tasks_from_db = crud.cascade.get_multi_by_owner(db=db, owner_id=current_user.id)
+    if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_requests found")
-    return await common.parse_users_requests(tasks_in_db, wn.WalletNodeService.CASCADE)
+    return await common.parse_users_requests(tasks_from_db, wn.WalletNodeService.CASCADE)
 
 
 # Get an individual Cascade gateway_request by its gateway_request_id
@@ -123,12 +123,12 @@ async def get_stored_file(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    result = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
-    if not result:
+    task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+    if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.CASCADE)
+    file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.CASCADE)
     return await common.stream_file(file_bytes=file_bytes,
-                                    original_file_name=f"{result.original_file_name}")
+                                    original_file_name=f"{task_from_db.original_file_name}")
 
 
 # Get the underlying Cascade stored_file from the corresponding Cascade Registration Ticket Transaction ID
@@ -144,12 +144,12 @@ async def get_file_from_reg_txid(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    result = crud.cascade.get_by_reg_txid_and_owner(db=db, owner_id=current_user.id, reg_txid=registration_ticket_txid)
-    if not result:
+    task_from_db = crud.cascade.get_by_reg_txid_and_owner(db=db, owner_id=current_user.id, reg_txid=registration_ticket_txid)
+    if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.CASCADE)
+    file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.CASCADE)
     return await common.stream_file(file_bytes=file_bytes,
-                                    original_file_name=f"{result.original_file_name}")
+                                    original_file_name=f"{task_from_db.original_file_name}")
 
 
 @router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}")
@@ -160,12 +160,12 @@ async def get_file_from_act_txid(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    result = crud.cascade.get_by_act_txid_and_owner(db=db, owner_id=current_user.id, act_txid=activation_ticket_txid)
-    if not result:
+    task_from_db = crud.cascade.get_by_act_txid_and_owner(db=db, owner_id=current_user.id, act_txid=activation_ticket_txid)
+    if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.CASCADE)
+    file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.CASCADE)
     return await common.stream_file(file_bytes=file_bytes,
-                                    original_file_name=f"{result.original_file_name}")
+                                    original_file_name=f"{task_from_db.original_file_name}")
 
 
 # Get the Pastel Cascade ticket from the blockchain corresponding to a particular gateway_request_id

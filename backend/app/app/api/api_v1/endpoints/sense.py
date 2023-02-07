@@ -134,12 +134,12 @@ async def get_raw_output_file(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    result = crud.sense.get_by_result_id(db=db, result_id=gateway_result_id)  # anyone can call it
-    if not result:
+    task_from_db = crud.sense.get_by_result_id(db=db, result_id=gateway_result_id)  # anyone can call it
+    if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    raw_file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.SENSE)
+    raw_file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.SENSE)
     return await common.stream_file(file_bytes=raw_file_bytes,
-                                    original_file_name=f"{result.original_file_name}.json")
+                                    original_file_name=f"{task_from_db.original_file_name}.json")
 
 
 @router.get("/parsed_output_file/{gateway_result_id}")
@@ -150,14 +150,14 @@ async def get_parsed_output_file(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    result = crud.sense.get_by_result_id(db=db, result_id=gateway_result_id)  # anyone can call it
-    if not result:
+    task_from_db = crud.sense.get_by_result_id(db=db, result_id=gateway_result_id)  # anyone can call it
+    if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    raw_file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.SENSE)
+    raw_file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.SENSE)
     # TODO: parse file_bytes
     parsed_file_bytes = raw_file_bytes
     return await common.stream_file(file_bytes=parsed_file_bytes,
-                                    original_file_name=f"{result.original_file_name}.json")
+                                    original_file_name=f"{task_from_db.original_file_name}.json")
 
 
 # Get the underlying Sense raw_output_file from the corresponding Sense Registration Ticket Transaction ID
@@ -168,10 +168,10 @@ async def get_raw_output_file_by_reg_ticket(
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
 ):
-    result = crud.sense.get_by_reg_txid(db=db, reg_txid=registration_ticket_txid)  # anyone can call it
-    if result:
-        raw_file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.SENSE)
-        file_name = f"{result.original_file_name}.json"
+    task_from_db = crud.sense.get_by_reg_txid(db=db, reg_txid=registration_ticket_txid)  # anyone can call it
+    if task_from_db:
+        raw_file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.SENSE)
+        file_name = f"{task_from_db.original_file_name}.json"
     else:
         raw_file_bytes = await common.get_file_from_pastel(reg_ticket_txid=registration_ticket_txid,
                                                            service=wn.WalletNodeService.SENSE)
@@ -188,10 +188,10 @@ async def get_parsed_output_file_by_reg_ticket(
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
 ):
-    result = crud.sense.get_by_reg_txid(db=db, reg_txid=registration_ticket_txid)  # anyone can call it
-    if result:
-        raw_file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.SENSE)
-        file_name = f"{result.original_file_name}.json"
+    task_from_db = crud.sense.get_by_reg_txid(db=db, reg_txid=registration_ticket_txid)  # anyone can call it
+    if task_from_db:
+        raw_file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.SENSE)
+        file_name = f"{task_from_db.original_file_name}.json"
     else:
         raw_file_bytes = await common.get_file_from_pastel(reg_ticket_txid=registration_ticket_txid,
                                                            service=wn.WalletNodeService.SENSE)
@@ -210,10 +210,10 @@ async def get_raw_output_file_by_act_txid(
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
 ):
-    result = crud.sense.get_by_act_txid(db=db, act_txid=activation_ticket_txid)  # anyone can call it
-    if result:
-        raw_file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.SENSE)
-        file_name = f"{result.original_file_name}.json"
+    task_from_db = crud.sense.get_by_act_txid(db=db, act_txid=activation_ticket_txid)  # anyone can call it
+    if task_from_db:
+        raw_file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.SENSE)
+        file_name = f"{task_from_db.original_file_name}.json"
     else:
         # TODO: Implement
         # registration_ticket_txid =
@@ -234,10 +234,10 @@ async def get_raw_output_file_by_act_txid(
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
 ):
-    result = crud.sense.get_by_act_txid(db=db, act_txid=activation_ticket_txid)  # anyone can call it
-    if result:
-        raw_file_bytes = await common.search_file(result=result, service=wn.WalletNodeService.SENSE)
-        file_name = f"{result.original_file_name}.json"
+    task_from_db = crud.sense.get_by_act_txid(db=db, act_txid=activation_ticket_txid)  # anyone can call it
+    if task_from_db:
+        raw_file_bytes = await common.search_file(task_from_db=task_from_db, service=wn.WalletNodeService.SENSE)
+        file_name = f"{task_from_db.original_file_name}.json"
     else:
         # TODO: Implement
         # registration_ticket_txid =

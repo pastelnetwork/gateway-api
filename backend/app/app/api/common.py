@@ -13,7 +13,6 @@ from fastapi.responses import StreamingResponse
 
 from app.utils.filestorage import LocalFile
 from app import schemas
-from app.celery_tasks.pastel_tasks import get_celery_task_info
 from app.core.config import settings
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
@@ -26,7 +25,7 @@ async def process_request(
         user_id: int
 ) -> schemas.RequestResult:
     request_id = str(uuid.uuid4())
-    results = schemas.RequestResult(
+    request_result = schemas.RequestResult(
         request_id=request_id,
         request_status=schemas.Status.PENDING,
         results=[]
@@ -48,9 +47,9 @@ async def process_request(
             created_at=datetime.utcnow(),
             last_updated_at=datetime.utcnow(),
         )
-        results.results.append(reg_result)
+        request_result.results.append(reg_result)
 
-    return results
+    return request_result
 
 
 async def check_result_registration_status(task_from_db, service: wn.WalletNodeService) \
@@ -117,10 +116,10 @@ async def parse_users_requests(tasks_from_db, service: wn.WalletNodeService) -> 
             all_failed_map[task_from_db.work_id] = True
             all_success_map[task_from_db.work_id] = True
 
-        task_registration_result = await check_result_registration_status(task_from_db, service)
-        request.results.append(task_registration_result)
-        all_failed_map[task_from_db.work_id] &= task_registration_result.result_status == schemas.Status.FAILED
-        all_success_map[task_from_db.work_id] &= task_registration_result.result_status == schemas.Status.SUCCESS
+        result_registration_result = await check_result_registration_status(task_from_db, service)
+        request.results.append(result_registration_result)
+        all_failed_map[task_from_db.work_id] &= result_registration_result.result_status == schemas.Status.FAILED
+        all_success_map[task_from_db.work_id] &= result_registration_result.result_status == schemas.Status.SUCCESS
         request.request_status = schemas.Status.FAILED if all_failed_map[task_from_db.work_id] \
             else schemas.Status.SUCCESS if all_success_map[task_from_db.work_id] \
             else schemas.Status.PENDING
@@ -142,31 +141,31 @@ async def parse_user_request(results_in_request, request_id, service: wn.WalletN
     return request
 
 
-async def process_websocket_for_result(websocket, tasks_in_db, service: wn.WalletNodeService, request_id: str = None):
+async def process_websocket_for_result(websocket, tasks_from_db, service: wn.WalletNodeService, request_id: str = None):
     while True:
         all_failed = True
         all_success = True
-        results_json = []
-        for task_in_db in tasks_in_db:
-            result = await check_result_registration_status(task_in_db, service)
-            if result is not None:
-                results_json.append(
+        request_results_json = []
+        for task_from_db in tasks_from_db:
+            result_registration_result = await check_result_registration_status(task_from_db, service)
+            if result_registration_result is not None:
+                request_results_json.append(
                     {
-                        'result_id': result.result_id,
-                        'status': result.result_status,
+                        'result_id': result_registration_result.result_id,
+                        'status': result_registration_result.result_status,
                     }
                 )
-            all_failed &= result.result_status == schemas.Status.FAILED
-            all_success &= result.result_status == schemas.Status.SUCCESS
+            all_failed &= result_registration_result.result_status == schemas.Status.FAILED
+            all_success &= result_registration_result.result_status == schemas.Status.SUCCESS
 
         if request_id:
             result_json = {
                 'request_id': request_id,
                 'request_status': 'FAILED' if all_failed else 'SUCCESS' if all_success else 'PENDING',
-                'results': results_json,
+                'results': request_results_json,
             }
         else:
-            result_json = results_json[0]
+            result_json = request_results_json[0]
 
         await websocket.send_json(result_json)
         if all_failed or all_success:
@@ -197,17 +196,17 @@ async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService
     return file_bytes
 
 
-async def search_file(*, result, service: wn.WalletNodeService):
+async def search_file(*, task_from_db, service: wn.WalletNodeService):
     file_bytes = None
-    if service == wn.WalletNodeService.CASCADE and result.pastel_id != settings.PASTEL_ID:
+    if service == wn.WalletNodeService.CASCADE and task_from_db.pastel_id != settings.PASTEL_ID:
         logging.error("Backend does not have correct Pastel ID")
-    elif result.ticket_status == 'DONE' or result.ticket_status == 'SUCCESS':
-        file_bytes = await get_file_from_pastel(reg_ticket_txid=result.reg_ticket_txid, service=service)
+    elif task_from_db.ticket_status == 'DONE' or task_from_db.ticket_status == 'SUCCESS':
+        file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
     if service == wn.WalletNodeService.CASCADE and not file_bytes:
-        if result.ipfs_link:
+        if task_from_db.ipfs_link:
             try:
                 ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                file_bytes = ipfs_client.cat(result.ipfs_link)
+                file_bytes = ipfs_client.cat(task_from_db.ipfs_link)
             except Exception as e:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
 

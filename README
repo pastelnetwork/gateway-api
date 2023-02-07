@@ -1,3 +1,33 @@
+## Install poetry
+```
+curl -sSL https://install.python-poetry.org | python3 -
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## Install dependencies
+```
+poetry install
+```
+
+## Set python module path
+```
+export PYTHONPATH=$PYTHONPATH:/<path>/openapi/backend/app
+```
+
+## dotenv
+```
+cp .env.example .env
+```
+
+## To start application
+```
+poetry run python main.py
+```
+
+
+
+
+
 
 ## ONLY ONCE AT NEW LOCATION OR AFTER DB SCHEMA UPDATED
 --export PYTHONPATH=$PYTHONPATH:/Users/alexey/Work/Pastel/webpastelapi/openapi && poetry run ./prestart.sh--
