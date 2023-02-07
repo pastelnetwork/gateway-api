@@ -71,69 +71,69 @@ def _registration_finisher(
         service_name: str):
     logger.info(f"registration_finisher started")
     with db_context() as session:
-        tickets = started_not_finished_func(session)
-        for ticket in tickets:
-            if ticket.wn_task_id:
+        results = started_not_finished_func(session)
+        for result in results:
+            if result.wn_task_id:
                 try:
                     wn_task_status = wn.call(False,
                                              wn_service,
-                                             f'{ticket.wn_task_id}/history',
+                                             f'{result.wn_task_id}/history',
                                              {}, [], {}, "", "")
                 except Exception as e:
                     logger.error(f"Call to WalletNode : {e}")
                     wn_task_status = []
 
                 if not wn_task_status:
-                    # check how old is the ticket, if height is more than 48 (2 h), then mark it as ERROR
+                    # check how old is the result, if height is more than 48 (2 h), then mark it as ERROR
                     height = psl.call("getblockcount", [])
-                    if height - ticket.height > 48:
-                        mark_failed(session, ticket, update_func, get_by_preburn_txid_func)
+                    if height - result.height > 48:
+                        mark_failed(session, result, update_func, get_by_preburn_txid_func)
                     continue
 
                 for step in wn_task_status:
                     status = step['status']
                     if status == 'Task Rejected':
-                        # mark ticket as failed, and requires reprocessing
-                        mark_failed(session, ticket, update_func, get_by_preburn_txid_func)
+                        # mark result as failed, and requires reprocessing
+                        mark_failed(session, result, update_func, get_by_preburn_txid_func)
                         break
-                    if not ticket.registration_ticket_txid:
+                    if not result.registration_ticket_txid:
                         reg = status.split(f'Validating {service_name} Reg TXID: ', 1)
                         if len(reg) != 2:
                             reg = status.split(f'Validated {service_name} Reg TXID: ', 1)
                         if len(reg) == 2:
                             upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
-                            update_func(session, db_obj=ticket, obj_in=upd)
+                            update_func(session, db_obj=result, obj_in=upd)
                             continue
-                    if not ticket.activation_ticket_txid:
-                        if ticket.registration_ticket_txid:
-                            act_ticket = psl.call("tickets", ['find', 'action-act', ticket.registration_ticket_txid])
+                    if not result.activation_ticket_txid:
+                        if result.registration_ticket_txid:
+                            act_ticket = psl.call("tickets", ['find', 'action-act', result.registration_ticket_txid])
                             if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                                 upd = {
                                     "act_ticket_txid": act_ticket['txid'],
                                     "ticket_status": "DONE",
                                     "updated_at": datetime.utcnow(),
                                 }
-                                update_func(session, db_obj=ticket, obj_in=upd)
-                                crud.preburn_tx.mark_used(session, ticket.burn_txid)
+                                update_func(session, db_obj=result, obj_in=upd)
+                                crud.preburn_tx.mark_used(session, result.burn_txid)
                                 break
                         act = status.split(f'Activated {service_name} Action Ticket TXID: ', 1)
                         if len(act) == 2:
                             upd = {"act_ticket_txid": act[2], "ticket_status": "DONE", "updated_at": datetime.utcnow()}
-                            update_func(session, db_obj=ticket, obj_in=upd)
-                            crud.preburn_tx.mark_used(session, ticket.burn_txid)
+                            update_func(session, db_obj=result, obj_in=upd)
+                            crud.preburn_tx.mark_used(session, result.burn_txid)
                             break
 
 
 def mark_failed(session,
-                ticket,
+                result,
                 update_func,
                 get_by_preburn_txid_func):
     upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
-    update_func(session, db_obj=ticket, obj_in=upd)
-    t = get_by_preburn_txid_func(session, txid=ticket.burn_txid)
+    update_func(session, db_obj=result, obj_in=upd)
+    t = get_by_preburn_txid_func(session, txid=result.burn_txid)
     if not t:
-        crud.preburn_tx.mark_non_used(session, ticket.burn_txid)
-    logger.error(f"Ticket {ticket.result_id} failed")
+        crud.preburn_tx.mark_non_used(session, result.burn_txid)
+    logger.error(f"Result {result.result_id} failed")
 
 
 @shared_task(name="registration_re_processor")
@@ -155,32 +155,32 @@ def registration_re_processor():
 def _registration_re_processor(all_failed_func, update_func, reprocess_func):
     logger.info(f"registration_re_processor started")
     with db_context() as session:
-        tickets = all_failed_func(session)
-        for ticket in tickets:
+        results = all_failed_func(session)
+        for result in results:
             try:
-                if ticket.retry_num and ticket.retry_num > 10:
+                if result.retry_num and result.retry_num > 10:
                     upd = {"ticket_status": "DEAD", "updated_at": datetime.utcnow()}
-                    update_func(session, db_obj=ticket, obj_in=upd)
-                    logger.error(f"Ticket {ticket.id} failed 10 times, marking as DEAD")
+                    update_func(session, db_obj=result, obj_in=upd)
+                    logger.error(f"Result {result.id} failed 10 times, marking as DEAD")
                     continue
-                if not ticket.ticket_status or ticket.ticket_status == "":
-                    if (not ticket.registration_ticket_txid and not ticket.activation_ticket_txid) \
-                            or not ticket.pastel_id or not ticket.wn_task_id\
-                            or not ticket.burn_txid \
-                            or not ticket.wn_file_id:
-                        clear_ticket(session, ticket, update_func)
-                        reprocess_func(ticket)
-                if ticket.ticket_status == "ERROR":
-                    clear_ticket(session, ticket, update_func)
-                    reprocess_func(ticket)
+                if not result.ticket_status or result.ticket_status == "":
+                    if (not result.registration_ticket_txid and not result.activation_ticket_txid) \
+                            or not result.pastel_id or not result.wn_task_id\
+                            or not result.burn_txid \
+                            or not result.wn_file_id:
+                        clear_result(session, result, update_func)
+                        reprocess_func(result)
+                if result.ticket_status == "ERROR":
+                    clear_result(session, result, update_func)
+                    reprocess_func(result)
             except Exception as e:
-                logger.error(f"Registration reprocessing failed for ticket {ticket.result_id} with error {e}")
+                logger.error(f"Registration reprocessing failed for ticket {result.result_id} with error {e}")
                 continue
 
 
-def clear_ticket(session, ticket, update_func):
-    if ticket.retry_num:
-        retries = ticket.retry_num + 1
+def clear_result(session, result, update_func):
+    if result.retry_num:
+        retries = result.retry_num + 1
     else:
         retries = 1
     cleanup = {
@@ -195,22 +195,22 @@ def clear_ticket(session, ticket, update_func):
         "retry_num": retries,
         "updated_at": datetime.utcnow(),
     }
-    update_func(session, db_obj=ticket, obj_in=cleanup)
+    update_func(session, db_obj=result, obj_in=cleanup)
 
 
-def start_reprocess_cascade(ticket):
+def start_reprocess_cascade(result):
     res = (
-            cascade.re_register_file.s(ticket.result_id) |
+            cascade.re_register_file.s(result.result_id) |
             cascade.preburn_fee.s() |
             cascade.process.s()
     ).apply_async()
-    logger.info(f"Cascade Registration restarted for ticket {ticket.result_id} with task id {res.task_id}")
+    logger.info(f"Cascade Registration restarted for result {result.result_id} with task id {res.task_id}")
 
 
-def start_reprocess_sense(ticket):
+def start_reprocess_sense(result):
     res = (
-            sense.re_register_file.s(ticket.result_id) |
+            sense.re_register_file.s(result.result_id) |
             sense.preburn_fee.s() |
             sense.process.s()
     ).apply_async()
-    logger.info(f"Sense Registration restarted for ticket {ticket.result_id} with task id {res.task_id}")
+    logger.info(f"Sense Registration restarted for result {result.result_id} with task id {res.task_id}")

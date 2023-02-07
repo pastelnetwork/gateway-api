@@ -19,7 +19,7 @@ def test_create_cascade_job(db: Session) -> None:
     assert burn_tx.result_id == ticket_id
 
     # Get bound by ticket_id
-    burn_tx_from_db = crud.preburn_tx.get_bound_to_ticket(db, ticket_id=ticket_id)
+    burn_tx_from_db = crud.preburn_tx.get_bound_to_result(db, result_id=ticket_id)
     assert burn_tx_from_db.fee == 11111
     assert burn_tx_from_db.height == 1000000
     assert burn_tx_from_db.txid == burn_txid

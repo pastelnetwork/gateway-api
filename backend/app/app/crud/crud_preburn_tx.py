@@ -67,22 +67,22 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
     def mark_pending(self, db: Session, preburn_txid: str):
         self.change_status(db, preburn_txid, PBTXStatus.PENDING)
 
-    def bind_pending_to_ticket(self, db: Session, db_obj: PreBurnTx, *, ticket_id: str) -> PreBurnTx:
+    def bind_pending_to_result(self, db: Session, db_obj: PreBurnTx, *, result_id: str) -> PreBurnTx:
         update_data = PreBurnTxUpdate(
             fee=db_obj.fee,
             height=db_obj.height,
             txid=db_obj.txid,
             status=db_obj.status,
-            ticket_id=ticket_id,
+            ticket_id=result_id,
         )
         return super().update(db, db_obj=db_obj, obj_in=update_data)
 
-    def get_bound_to_ticket(self, db: Session, *, ticket_id: str) -> Optional[PreBurnTx]:
+    def get_bound_to_result(self, db: Session, *, result_id: str) -> Optional[PreBurnTx]:
         return (
             db.query(self.model)
             .filter(
                 sa.and_(
-                    PreBurnTx.ticket_id == ticket_id,
+                    PreBurnTx.ticket_id == result_id,
                     PreBurnTx.status != "USED"
                 )
             )
