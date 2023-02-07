@@ -228,8 +228,8 @@ async def get_raw_output_file_by_act_txid(
 
 # Get the underlying Sense parsed_output_file from the corresponding Sense Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_output_file_by_activation_txid/{activation_ticket_txid}")
-async def get_raw_output_file_by_act_txid(
+@router.get("/parsed_output_file_by_activation_txid/{activation_ticket_txid}")
+async def parsed_raw_output_file_by_act_txid(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
