@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 
+import ipfshttpclient
 from celery import shared_task
 
 import app.utils.pasteld as psl
@@ -108,20 +109,31 @@ def _registration_finisher(
                         if task_from_db.reg_ticket_txid:
                             act_ticket = psl.call("tickets", ['find', 'action-act', task_from_db.reg_ticket_txid])
                             if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
-                                upd = {
-                                    "act_ticket_txid": act_ticket['txid'],
-                                    "ticket_status": "DONE",
-                                    "updated_at": datetime.utcnow(),
-                                }
-                                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
-                                crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+                                finalize_registration(session, task_from_db,
+                                                            act_ticket['txid'], update_task_in_db_func)
                                 break
                         act = status.split(f'Activated {service_name} Action Ticket TXID: ', 1)
                         if len(act) == 2:
-                            upd = {"act_ticket_txid": act[2], "ticket_status": "DONE", "updated_at": datetime.utcnow()}
-                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
-                            crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+                            finalize_registration(session, task_from_db, act[2], update_task_in_db_func)
                             break
+
+
+def finalize_registration(session, task_from_db, act_txid, update_task_in_db_func):
+    ipfs_link = task_from_db.ipfs_link
+    upd = {
+        "act_ticket_txid": act_txid,
+        "ticket_status": "DONE",
+        "ipfs_link": "",
+        "updated_at": datetime.utcnow()
+    }
+    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+    crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+    # remove file from IPFS
+    try:
+        ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+        ipfs_client.pin.rm(ipfs_link)
+    except Exception as e:
+        logger.error(f"Error removing file from IPFS: {e}")
 
 
 def mark_task_in_db_as_failed(session,

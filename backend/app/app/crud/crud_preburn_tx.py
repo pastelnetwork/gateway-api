@@ -25,13 +25,13 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
         return db_obj
 
     @staticmethod
-    def create_new_bound(db: Session, *, fee: int, height: int, txid: str, ticket_id: str) -> PreBurnTx:
+    def create_new_bound(db: Session, *, fee: int, height: int, txid: str, result_id: str) -> PreBurnTx:
         db_obj = PreBurnTx(
             fee=fee,
             height=height,
             txid=txid,
             status=PBTXStatus.PENDING,
-            ticket_id=ticket_id,
+            ticket_id=result_id,
         )
         db.add(db_obj)
         db.commit()

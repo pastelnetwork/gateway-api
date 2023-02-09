@@ -90,6 +90,8 @@ class Settings(BaseSettings):
             return f"redis://{h}:{p}/0"
 
     FILE_STORAGE: str
+    FILE_STORAGE_FOR_RESULTS_SUFFIX: str = "results"
+    FILE_STORAGE_FOR_PARSED_RESULTS_SUFFIX: str = "parsed_results"
 
     POSTGRES_SERVER: str
     POSTGRES_USER: str

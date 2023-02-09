@@ -1,4 +1,5 @@
 import asyncio
+import os
 import uuid
 import base64
 import logging
@@ -16,6 +17,7 @@ from app import schemas
 from app.core.config import settings
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
+from app.db.session import db_context
 
 
 async def process_request(
@@ -152,6 +154,7 @@ async def process_websocket_for_result(websocket, tasks_from_db, service: wn.Wal
                 request_results_json.append(
                     {
                         'result_id': result_registration_result.result_id,
+                        'file_name': result_registration_result.file_name,
                         'status': result_registration_result.result_status,
                     }
                 )
@@ -196,35 +199,70 @@ async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService
     return file_bytes
 
 
-async def search_file(*, task_from_db, service: wn.WalletNodeService):
-    file_bytes = None
-    if service == wn.WalletNodeService.CASCADE and task_from_db.pastel_id != settings.PASTEL_ID:
-        logging.error("Backend does not have correct Pastel ID")
-    elif task_from_db.ticket_status == 'DONE' or task_from_db.ticket_status == 'SUCCESS':
-        file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
-    if service == wn.WalletNodeService.CASCADE and not file_bytes:
-        if task_from_db.ipfs_link:
-            try:
-                ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                file_bytes = ipfs_client.cat(task_from_db.ipfs_link)
-            except Exception as e:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
+async def search_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func):
 
-            if not file_bytes:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"IPFS file not found")
-        else:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
+    if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in ['DONE', 'SUCCESS']:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
+
+    file_bytes = None
+    if service == wn.WalletNodeService.CASCADE \
+            and task_from_db.pastel_id != settings.PASTEL_ID:  # and not task_from_db.public:
+        logging.error("Backend does not have correct Pastel ID")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail=f"Only owner can download cascade file")
+
+    cached_result_file = f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.ticket_id}"
+    try:
+        with open(cached_result_file, 'rb') as f:
+            file_bytes = f.read()
+    except Exception as e:
+        logging.error(f"File not found in the local storage - {e}")
+    not_locally_cached = not file_bytes
+
+    if not file_bytes and task_from_db.ipfs_link:
+        try:
+            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+            file_bytes = ipfs_client.cat(task_from_db.ipfs_link)
+        except Exception as e:
+            logging.error(f"File not found in the IPFS - {e}")
+
+    if not file_bytes and task_from_db.ticket_status in ['DONE', 'SUCCESS']:
+        file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
 
     if not file_bytes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
+    # cache file in local storage and IPFS
+    if not_locally_cached:
+        try:
+            if not os.path.exists(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}"):
+                os.makedirs(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}")
+
+            with open(cached_result_file, 'wb') as f:
+                f.write(file_bytes)
+        except Exception as e:
+            logging.error(f"File not saved in the local storage - {e}")
+
+    if not task_from_db.ipfs_link:
+        ipfs_link = None
+        try:
+            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+            res = ipfs_client.add(cached_result_file)
+            ipfs_link = res["Hash"]
+        except Exception as e:
+            logging.error(f"File not saved in the IPFS - {e}")
+
+        if ipfs_link:
+            upd = {"ipfs_link": ipfs_link, "updated_at": datetime.utcnow()}
+            update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
+
     return file_bytes
 
 
-async def stream_file(*, file_bytes, original_file_name: str):
+async def stream_file(*, file_bytes, original_file_name: str, content_type: str = "application/x-binary"):
 
     response = StreamingResponse(iter([file_bytes]),
-                                 media_type="application/x-binary"
+                                 media_type=content_type
                                  )
     response.headers["Content-Disposition"] = f"attachment; filename={original_file_name}"
     return response
