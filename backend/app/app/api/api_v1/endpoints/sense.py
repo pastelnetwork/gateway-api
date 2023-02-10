@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query
-
 from typing import List
 from sqlalchemy.orm import Session
 
@@ -170,7 +169,7 @@ async def get_parsed_output_file(
 # Get the underlying Sense raw_output_file from the corresponding Sense Registration Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/raw_output_file_by_registration_ticket/{registration_ticket_txid}")
-async def get_raw_output_file_by_reg_ticket(
+async def get_raw_output_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
@@ -193,7 +192,7 @@ async def get_raw_output_file_by_reg_ticket(
 # Get the underlying Sense parsed_output_file from the corresponding Sense Registration Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/parsed_output_file_by_registration_ticket/{registration_ticket_txid}")
-async def get_parsed_output_file_by_reg_ticket(
+async def get_parsed_output_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
@@ -217,8 +216,8 @@ async def get_parsed_output_file_by_reg_ticket(
 
 # Get the underlying Sense raw_output_file from the corresponding Sense Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_output_file_by_activation_txid/{activation_ticket_txid}")
-async def get_raw_output_file_by_act_txid(
+@router.get("/raw_output_file_by_activation_ticket/{activation_ticket_txid}")
+async def get_raw_output_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
@@ -311,44 +310,78 @@ async def parsed_raw_output_file_by_pastel_id(
                                     original_file_name=file_name)
 
 
-# Get ALL Pastel Sense ticket from the blockchain corresponding to a particular gateway_request_id.
+# Get ALL Pastel Sense registration tickets from the blockchain corresponding to a particular gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_tickets/{gateway_request_id}")
-async def get_pastel_ticket(
+@router.get("/pastel_registration_tickets/{gateway_request_id}")
+async def get_all_pastel_sense_registration_tickets_from_request(
         *,
         gateway_request_id: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    # TODO: Implement
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    tasks_from_db = crud.sense.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
+
+    return await common.get_all_reg_ticket_from_request(gateway_request_id, tasks_from_db,
+                                                        "sense", wn.WalletNodeService.SENSE)
 
 
-# Get Pastel Sense ticket from the blockchain corresponding to a particular gateway_result_id.
+# Get Pastel Sense registration ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_ticket/{gateway_result_id}")
-async def get_pastel_ticket(
+@router.get("/pastel_registration_ticket/{gateway_result_id}")
+async def get_pastel_sense_registration_ticket_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    # TODO: Implement
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    task_from_db = crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+    if not task_from_db:
+        raise HTTPException(status_code=404, detail="gateway_result not found")
+
+    return await common.get_registration_action_ticket(task_from_db.reg_ticket_txid, wn.WalletNodeService.SENSE)
 
 
-# Get the Pastel Ticket metadata corresponding to a Sense Registration Ticket Transaction ID
+# Get Pastel Sense activation ticket from the blockchain corresponding to a particular gateway_result_id.
+# Note: Only authenticated user with API key
+@router.get("/pastel_activation_ticket/{gateway_result_id}")
+async def get_pastel_sense_activation_ticket_by_result_id(
+        *,
+        gateway_result_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    task_from_db = crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+    if not task_from_db:
+        raise HTTPException(status_code=404, detail="gateway_result not found")
+
+    return await common.get_activation_action_ticket(task_from_db.act_ticket_txid, wn.WalletNodeService.SENSE)
+
+
+# Get the Pastel Sense Registration Ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_ticket_by_registration_ticket/{registration_ticket_txid}")
-async def get_pastel_ticket_by_reg_ticket(
+@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}")
+async def get_pastel_registration_ticket_by_its_txid(
         *,
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
 ):
-    # TODO: Implement
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    return await common.get_registration_action_ticket(registration_ticket_txid, wn.WalletNodeService.SENSE)
+
+
+# Get the Pastel Sense Activation Ticket from the blockchain from its Transaction ID
+# Note: Available to any user and also visible on the Pastel Explorer site
+@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}")
+async def get_pastel_activation_ticket_by_its_txid(
+        *,
+        activation_ticket_txid: str,
+        db: Session = Depends(session.get_db_session),
+):
+    return await common.get_activation_action_ticket(activation_ticket_txid, wn.WalletNodeService.SENSE)
 
 
 # Get the set of Pastel Sense ticket from the blockchain corresponding to a particular media_file_sha256_hash;

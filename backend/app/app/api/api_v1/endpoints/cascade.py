@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query
-
+import json
+import zipfile
+import io
 from typing import List
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -47,7 +49,7 @@ async def get_all_requests(
 # Get an individual Cascade gateway_request by its gateway_request_id
 # Note: Only authenticated user with API key
 @router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult, response_model_exclude_none=True)
-async def get_request(
+async def get_request_by_request_id(
         *,
         gateway_request_id: str,
         db: Session = Depends(session.get_db_session),
@@ -66,7 +68,7 @@ async def get_request(
 # Get all Cascade gateway_results for the current user
 # Note: Only authenticated user with API key
 @router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
-async def get_results(
+async def get_all_results(
         *,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
@@ -86,7 +88,7 @@ async def get_results(
 # Note: Only authenticated user with API key
 @router.get("/gateway_results/{gateway_result_id}",
             response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
-async def get_ticket(
+async def get_result_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -99,7 +101,6 @@ async def get_ticket(
     return await common.check_result_registration_status(task_from_db, wn.WalletNodeService.CASCADE)
 
 
-import zipfile, io
 # Get ALL underlying Cascade stored_files from the corresponding gateway_request_id
 # Note: Only authenticated user with API key
 @router.get("/all_files_from_request/{gateway_request_id}")
@@ -131,7 +132,7 @@ async def get_all_files_from_request(
 # Get the underlying Cascade stored_file from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
 @router.get("/stored_file/{gateway_result_id}")
-async def get_stored_file(
+async def get_stored_file_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -155,14 +156,15 @@ async def get_stored_file(
 #    - in the context of OpanAPI it means that file was registered by that instance of OpenAPI with its PastelID
 # 2) or the make_publicly_accessible flag is set to True for that Cascade operation.
 @router.get("/stored_file_from_registration_ticket/{registration_ticket_txid}")
-async def get_file_from_reg_txid(
+async def get_stored_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    task_from_db = crud.cascade.get_by_reg_txid_and_owner(db=db, owner_id=current_user.id, reg_txid=registration_ticket_txid)
+    task_from_db = crud.cascade.get_by_reg_txid_and_owner(db=db, owner_id=current_user.id,
+                                                          reg_txid=registration_ticket_txid)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
     file_bytes = await common.search_file(db=db,
@@ -174,14 +176,15 @@ async def get_file_from_reg_txid(
 
 
 @router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}")
-async def get_file_from_act_txid(
+async def get_stored_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    task_from_db = crud.cascade.get_by_act_txid_and_owner(db=db, owner_id=current_user.id, act_txid=activation_ticket_txid)
+    task_from_db = crud.cascade.get_by_act_txid_and_owner(db=db, owner_id=current_user.id,
+                                                          act_txid=activation_ticket_txid)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
     file_bytes = await common.search_file(db=db,
@@ -192,37 +195,84 @@ async def get_file_from_act_txid(
                                     original_file_name=f"{task_from_db.original_file_name}")
 
 
-# Get the Pastel Cascade ticket from the blockchain corresponding to a particular gateway_request_id
+# Get ALL Pastel cascade registration tickets from the blockchain corresponding to a particular gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_ticket/{gateway_result_id}")
-async def get_pastel_ticket(
+@router.get("/pastel_registration_tickets/{gateway_request_id}")
+async def get_all_pastel_cascade_registration_tickets_from_request(
+        *,
+        gateway_request_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    tasks_from_db = crud.cascade.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
+    return await common.get_all_reg_ticket_from_request(gateway_request_id, tasks_from_db,
+                                                        "cascade", wn.WalletNodeService.CASCADE)
+
+
+# Get the Pastel Cascade registration ticket from the blockchain corresponding to a particular gateway_result_id
+# Note: Only authenticated user with API key
+@router.get("/pastel_registration_ticket/{gateway_result_id}")
+async def get_pastel_cascade_registration_ticket_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    # TODO: Implement
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+    if not task_from_db:
+        raise HTTPException(status_code=404, detail="gateway_result not found")
+
+    return await common.get_registration_action_ticket(task_from_db.reg_ticket_txid, wn.WalletNodeService.CASCADE)
 
 
-# Get the Pastel Cascade ticket from the blockchain from a Cascade Registration Ticket Transaction ID
+# Get the Pastel Cascade Activation ticket from the blockchain corresponding to a particular gateway_result_id
+# Note: Only authenticated user with API key
+@router.get("/pastel_activation_ticket/{gateway_result_id}")
+async def get_pastel_cascade_activation_ticket_by_result_id(
+        *,
+        gateway_result_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+    if not task_from_db:
+        raise HTTPException(status_code=404, detail="gateway_result not found")
+
+    return await common.get_activation_action_ticket(task_from_db.act_ticket_txid, wn.WalletNodeService.CASCADE)
+
+
+# Get the Pastel Cascade registration ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_ticket_from_registration_ticket/{registration_ticket_txid}")
-async def get_pastel_ticket_from_reg_ticket(
+@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}")
+async def get_pastel_registration_ticket_by_its_txid(
         *,
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
 ):
-    # TODO: Implement
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    return await common.get_registration_action_ticket(registration_ticket_txid, wn.WalletNodeService.CASCADE)
+
+
+# Get the Pastel Cascade activation ticket from the blockchain from its Transaction ID
+# Note: Available to any user and also visible on the Pastel Explorer site
+@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}")
+async def get_pastel_activation_ticket_by_its_txid(
+        *,
+        activation_ticket_txid: str,
+        db: Session = Depends(session.get_db_session),
+):
+    return await common.get_activation_action_ticket(activation_ticket_txid, wn.WalletNodeService.CASCADE)
 
 
 # Get the set of Pastel Cascade tickets from the blockchain corresponding to a particular stored_file_sha256_hash.
 # Contains pastel_block_number and pastel_id in case there are multiple results for the same stored_file_sha256_hash
 # Note: Available to any user
 @router.get("/pastel_ticket_from_stored_file_hash/{stored_file_sha256_hash}")
-async def get_pastel_ticket_data_from_stored_file_hash(
+async def get_pastel_registration_ticket_by_stored_file_hash(
         *,
         stored_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),

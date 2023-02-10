@@ -1,4 +1,7 @@
 import asyncio
+import json
+import zipfile
+import io
 import os
 import uuid
 import base64
@@ -259,6 +262,22 @@ async def search_file(*, db, task_from_db, service: wn.WalletNodeService, update
     return file_bytes
 
 
+async def get_all_reg_ticket_from_request(gateway_request_id, tasks_from_db,
+                                          service_type: str, service: wn.WalletNodeService):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+        for task_from_db in tasks_from_db:
+            ticket = await get_registration_action_ticket(
+                task_from_db.reg_ticket_txid,
+                service)
+            # convert to bytes
+            file_bytes = json.dumps(ticket, indent=2).encode('utf-8')
+            zip_file.writestr(f"{task_from_db.original_file_name}-{service_type}-reg-ticket.json", file_bytes)
+    return await stream_file(file_bytes=zip_buffer.getvalue(),
+                             original_file_name=f"{gateway_request_id}-{service_type}-registration-tickets.zip",
+                             content_type="application/zip")
+
+
 async def stream_file(*, file_bytes, original_file_name: str, content_type: str = "application/x-binary"):
 
     response = StreamingResponse(iter([file_bytes]),
@@ -278,3 +297,93 @@ async def create_offer_ticket(task_from_db, pastel_id, service: wn.WalletNodeSer
                                         pastel_id],
                             )
     return offer_ticket
+
+
+async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeService):
+    expected_ticket_type = "action-reg"
+
+    if service == wn.WalletNodeService.CASCADE:
+        expected_action_type = "cascade"
+    elif service == wn.WalletNodeService.SENSE:
+        expected_action_type = "sense"
+    else:
+        raise HTTPException(status_code=501, detail=f"Invalid service type - {service}")
+
+    try:
+        reg_ticket = psl.call("tickets", ['get', ticket_txid])
+    except psl.PasteldException as e:
+        raise HTTPException(status_code=404, detail=f"{expected_action_type} registration ticket not found")
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Failed to get {expected_action_type} registration ticket - {e}")
+
+    if not reg_ticket or \
+            "ticket" not in reg_ticket or \
+            "action_ticket" not in reg_ticket["ticket"] or \
+            "type" not in reg_ticket["ticket"] or \
+            "action_type" not in reg_ticket["ticket"]:
+        raise HTTPException(status_code=501, detail=f"Invalid {expected_action_type} registration ticket")
+
+    if reg_ticket["ticket"]["type"] != expected_ticket_type:
+        raise HTTPException(status_code=501,
+                            detail=f'Invalid {expected_action_type} registration ticket type - '
+                                   f'{reg_ticket["ticket"]["type"]}')
+
+    if reg_ticket["ticket"]["action_type"] != expected_action_type:
+        raise HTTPException(status_code=501,
+                            detail=f'Invalid {expected_action_type} registration ticket action type - '
+                                   f'{reg_ticket["ticket"]["action_type"]}')
+
+    # Base64decode the ticket
+    reg_ticket_action_ticket_str = base64.b64decode(reg_ticket["ticket"]["action_ticket"]).decode('utf-8')
+
+    # Convert to json
+    reg_ticket["ticket"]["action_ticket"] = json.loads(reg_ticket_action_ticket_str)
+
+    if not reg_ticket["ticket"]["action_ticket"] or \
+            "action_ticket_version" not in reg_ticket["ticket"]["action_ticket"] or \
+            "action_type" not in reg_ticket["ticket"]["action_ticket"] or \
+            "api_ticket" not in reg_ticket["ticket"]["action_ticket"]:
+        raise HTTPException(status_code=501, detail=f"Failed to decode action_ticket in the "
+                                                    f"{expected_action_type} registration ticket")
+    if reg_ticket["ticket"]["action_ticket"]["action_type"] != expected_action_type:
+        raise HTTPException(status_code=501,
+                            detail=f'Invalid "app_ticket" in the {expected_action_type} '
+                                   f'registration ticket action type - '
+                                   f'{reg_ticket["ticket"]["action_type"]}')
+
+    # ASCII85decode the api_ticket
+    api_ticket_str = base64.a85decode(reg_ticket["ticket"]["action_ticket"]["api_ticket"])
+
+    reg_ticket["ticket"]["action_ticket"]["api_ticket"] = json.loads(api_ticket_str)
+
+    return reg_ticket
+
+
+async def get_activation_action_ticket(ticket_txid, service: wn.WalletNodeService):
+    expected_ticket_type = "action-act"
+
+    if service == wn.WalletNodeService.CASCADE:
+        expected_action_type = "cascade"
+    elif service == wn.WalletNodeService.SENSE:
+        expected_action_type = "sense"
+    else:
+        raise HTTPException(status_code=501, detail=f"Invalid service type - {service}")
+
+    try:
+        act_ticket = psl.call("tickets", ['get', ticket_txid])
+    except psl.PasteldException as e:
+        raise HTTPException(status_code=501, detail=f"{expected_action_type} activation ticket not found - {e}")
+    except Exception as e:
+        raise HTTPException(status_code=501, detail=f"Failed to get {expected_action_type} activation ticket - {e}")
+
+    if not act_ticket or \
+            "ticket" not in act_ticket or \
+            "type" not in act_ticket["ticket"]:
+        raise HTTPException(status_code=501, detail=f"Invalid {expected_action_type} activation ticket")
+
+    if act_ticket["ticket"]["type"] != expected_ticket_type:
+        raise HTTPException(status_code=501,
+                            detail=f'Invalid {expected_action_type} activation ticket type - '
+                                   f'{act_ticket["ticket"]["type"]}')
+
+    return act_ticket
