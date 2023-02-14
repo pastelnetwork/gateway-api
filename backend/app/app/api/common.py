@@ -11,16 +11,16 @@ from datetime import datetime
 
 import requests
 import ipfshttpclient
+import zstd as zstd
 
 from fastapi import UploadFile, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from app.utils.filestorage import LocalFile
-from app import schemas
+from app import schemas, crud
 from app.core.config import settings
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
-from app.db.session import db_context
 
 
 async def process_request(
@@ -180,7 +180,7 @@ async def process_websocket_for_result(websocket, tasks_from_db, service: wn.Wal
         await asyncio.sleep(150)  # 2.5 minutes
 
 
-async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService):
+async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService, throw: bool = True):
     file_bytes = None
     wn_resp = wn.call(False,
                       service,
@@ -191,7 +191,7 @@ async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService
                       "file", "", True)
 
     if not wn_resp:
-        if service == wn.WalletNodeService.SENSE:
+        if service == wn.WalletNodeService.SENSE and throw:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
     elif not isinstance(wn_resp, requests.models.Response):
         file_bytes = base64.b64decode(wn_resp)
@@ -262,7 +262,7 @@ async def search_file(*, db, task_from_db, service: wn.WalletNodeService, update
     return file_bytes
 
 
-async def get_all_reg_ticket_from_request(gateway_request_id, tasks_from_db,
+async def get_all_reg_ticket_from_request(*, gateway_request_id, tasks_from_db,
                                           service_type: str, service: wn.WalletNodeService):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -290,6 +290,48 @@ async def stream_file(*, file_bytes, original_file_name: str, content_type: str 
         original_file_name = original_file_name.encode('latin-1', 'replace')
     response.headers["Content-Disposition"] = f"attachment; filename={original_file_name}"
     return response
+
+
+async def get_all_sense_data_from_request(*, db, tasks_from_db, gateway_request_id, parse=False):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+        for task_from_db in tasks_from_db:
+            raw_file_bytes = await search_file(db=db,
+                                               task_from_db=task_from_db,
+                                               service=wn.WalletNodeService.SENSE,
+                                               update_task_in_db_func=crud.sense.update)
+            if parse:
+                file_bytes = await parse_sense_data(raw_file_bytes)
+            else:
+                file_bytes = raw_file_bytes
+            # convert to bytes
+            # file_bytes = json.dumps(ticket, indent=2).encode('utf-8')
+            zip_file.writestr(f"{task_from_db.original_file_name}-sense-data.json", file_bytes)
+    return await stream_file(file_bytes=zip_buffer.getvalue(),
+                             original_file_name=f"{gateway_request_id}-sense-data.zip",
+                             content_type="application/zip")
+
+
+async def get_all_sense_data_for_pastelid(*, pastel_id: str, parse=False):
+    registration_ticket_txids = await get_reg_txids_by_pastel_id(pastel_id=pastel_id)
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+        for txid in registration_ticket_txids:
+            raw_file_bytes = await get_file_from_pastel(reg_ticket_txid=txid,
+                                                        service=wn.WalletNodeService.SENSE,
+                                                        throw=False)
+            if not raw_file_bytes:
+                continue
+            if parse:
+                file_bytes = await parse_sense_data(raw_file_bytes)
+            else:
+                file_bytes = raw_file_bytes
+            # convert to bytes
+            # file_bytes = json.dumps(ticket, indent=2).encode('utf-8')
+            zip_file.writestr(f"{txid}-sense-data.json", file_bytes)
+    return await stream_file(file_bytes=zip_buffer.getvalue(),
+                             original_file_name=f"{pastel_id}-sense-data.zip",
+                             content_type="application/zip")
 
 
 async def create_offer_ticket(task_from_db, pastel_id, service: wn.WalletNodeService):
@@ -392,3 +434,75 @@ async def get_activation_action_ticket(ticket_txid, service: wn.WalletNodeServic
                                    f'{act_ticket["ticket"]["type"]}')
 
     return act_ticket
+
+
+async def parse_sense_data(raw_bytes: bytes) -> bytearray:
+    try:
+        sense_data_json = json.loads(raw_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=501, detail=f"Invalid sense data - {e}")
+
+    if not sense_data_json:
+        raise HTTPException(status_code=501, detail=f"Invalid sense data")
+
+    if 'rareness_scores_table_json_compressed_b64' in sense_data_json:
+        decode_decompress_item(sense_data_json,
+                               'rareness_scores_table_json_compressed_b64')
+
+    if 'internet_rareness' in sense_data_json:
+        if 'rare_on_internet_summary_table_as_json_compressed_b64' in sense_data_json['internet_rareness']:
+            decode_decompress_item(sense_data_json['internet_rareness'],
+                                   'rare_on_internet_summary_table_as_json_compressed_b64')
+
+        if 'rare_on_internet_graph_json_compressed_b64' in sense_data_json['internet_rareness']:
+            decode_decompress_item(sense_data_json['internet_rareness'],
+                                   'rare_on_internet_graph_json_compressed_b64')
+
+        if 'alternative_rare_on_internet_dict_as_json_compressed_b64' in sense_data_json['internet_rareness']:
+            decode_decompress_item(sense_data_json['internet_rareness'],
+                                   'alternative_rare_on_internet_dict_as_json_compressed_b64')
+
+    return json.dumps(sense_data_json)
+
+
+def decode_decompress_item(json_object: dict, key: str):
+    compressed_value = base64.b64decode(json_object[key])
+    if compressed_value:
+        decompressed_value = zstd.decompress(compressed_value)
+        if decompressed_value:
+            try:
+                decompressed_json = json.loads(decompressed_value)
+                json_object[key] = decompressed_json
+            except Exception as e:
+                logging.error(f"Invalid sense data - {e}")
+
+
+async def get_reg_txid_by_act_txid(act_txid: str) -> str:
+    try:
+        act_ticket = psl.call("tickets", ['get', act_txid])
+    except psl.PasteldException as e:
+        raise HTTPException(status_code=501, detail=f"Action Activation ticket not found - {e}")
+    except Exception as e:
+        raise HTTPException(status_code=501, detail=f"Failed to get action activation ticket - {e}")
+    if not act_ticket or \
+            'ticket' not in act_ticket or \
+            'reg_txid' not in act_ticket['ticket']:
+        raise HTTPException(status_code=501, detail=f"Invalid action activation ticket")
+
+    return act_ticket['ticket']['reg_txid']
+
+
+async def get_reg_txids_by_pastel_id(pastel_id: str) -> List[str]:
+    txids = []
+    try:
+        reg_tickets = psl.call("tickets", ['find', 'action', pastel_id])
+    except psl.PasteldException as e:
+        raise HTTPException(status_code=501, detail=f"Action registration ticket not found - {e}")
+    except Exception as e:
+        raise HTTPException(status_code=501, detail=f"Failed to get action registration ticket - {e}")
+
+    for reg_ticket in reg_tickets:
+        if 'txid' in reg_ticket:
+            txids.append(reg_ticket['txid'])
+
+    return txids

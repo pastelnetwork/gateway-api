@@ -208,8 +208,10 @@ async def get_all_pastel_cascade_registration_tickets_from_request(
     tasks_from_db = crud.cascade.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
     if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
-    return await common.get_all_reg_ticket_from_request(gateway_request_id, tasks_from_db,
-                                                        "cascade", wn.WalletNodeService.CASCADE)
+    return await common.get_all_reg_ticket_from_request(gateway_request_id=gateway_request_id,
+                                                        tasks_from_db=tasks_from_db,
+                                                        service_type="cascade",
+                                                        service=wn.WalletNodeService.CASCADE)
 
 
 # Get the Pastel Cascade registration ticket from the blockchain corresponding to a particular gateway_result_id
@@ -277,7 +279,7 @@ async def get_pastel_registration_ticket_by_stored_file_hash(
         stored_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),
 ):
-    # TODO: Implement
+    # TODO: Implement get_pastel_registration_ticket_by_stored_file_hash
     raise HTTPException(status_code=501, detail="Not implemented yet")
 
 

@@ -23,6 +23,7 @@ python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 kombu = "^5.2.4"
 redis = "4.4.0"
 ipfshttpclient = "^0.7.0"
+zstd = "^1.5.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.3"
