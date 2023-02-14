@@ -2,3 +2,4 @@ __pycache__
 .idea
 .env
 celerybeat-schedule.db
+celerybeat-schedule

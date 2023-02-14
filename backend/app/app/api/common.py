@@ -283,6 +283,11 @@ async def stream_file(*, file_bytes, original_file_name: str, content_type: str 
     response = StreamingResponse(iter([file_bytes]),
                                  media_type=content_type
                                  )
+
+    try:
+        original_file_name.encode('latin-1')
+    except UnicodeEncodeError:
+        original_file_name = original_file_name.encode('latin-1', 'replace')
     response.headers["Content-Disposition"] = f"attachment; filename={original_file_name}"
     return response
 

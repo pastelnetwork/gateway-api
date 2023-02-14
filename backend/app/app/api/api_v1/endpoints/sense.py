@@ -387,7 +387,7 @@ async def get_pastel_activation_ticket_by_its_txid(
 # Get the set of Pastel Sense ticket from the blockchain corresponding to a particular media_file_sha256_hash;
 # Contains block number and pastel_id in case there are multiple results for the same media_file_sha256_hash
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_ticket_by_stored_file_hash/{stored_file_sha256_hash}")
+@router.get("/pastel_ticket_by_media_file_hash/{stored_file_sha256_hash}")
 async def get_pastel_ticket_data_from_stored_file_hash(
         *,
         stored_file_sha256_hash: str,
