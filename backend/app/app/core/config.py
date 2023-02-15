@@ -6,8 +6,12 @@ from typing import Any, Dict, Optional, List, Union
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Pastel Open API"
-    PROJECT_DESCRIPTION: str = "Pastel Open API"
+    PROJECT_NAME: str = "Pastel Network API Gateway"
+    PROJECT_DESCRIPTION: str = "Pastel Network’s Gateway provides Web3 developers with easy, robust, " \
+                               "and reliable access to the Pastel Network and its underlying protocols " \
+                               "via a lightweight, centralized service.<br/> " \
+                               "For more information on Pastel Network, review our " \
+                               "<a href=https://docs.pastel.network/introduction/pastel-overview>documentation</a>."
     SERVER_HOST: AnyHttpUrl
 
     API_V1_STR: str = "/api/v1"
