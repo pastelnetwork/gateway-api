@@ -143,10 +143,10 @@ async def get_raw_output_file(
     task_from_db = crud.sense.get_by_result_id(db=db, result_id=gateway_result_id)  # anyone can call it
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    json_bytes = await common.search_file(db=db,
-                                          task_from_db=task_from_db,
-                                          service=wn.WalletNodeService.SENSE,
-                                          update_task_in_db_func=crud.sense.update)
+    json_bytes = await common.search_gateway_file(db=db,
+                                                  task_from_db=task_from_db,
+                                                  service=wn.WalletNodeService.SENSE,
+                                                  update_task_in_db_func=crud.sense.update)
     return Response(content=json_bytes, media_type="application/json")
 
 
@@ -163,10 +163,10 @@ async def get_parsed_output_file(
     task_from_db = crud.sense.get_by_result_id(db=db, result_id=gateway_result_id)  # anyone can call it
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    raw_file_bytes = await common.search_file(db=db,
-                                              task_from_db=task_from_db,
-                                              service=wn.WalletNodeService.SENSE,
-                                              update_task_in_db_func=crud.sense.update)
+    raw_file_bytes = await common.search_gateway_file(db=db,
+                                                      task_from_db=task_from_db,
+                                                      service=wn.WalletNodeService.SENSE,
+                                                      update_task_in_db_func=crud.sense.update)
     parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
@@ -181,13 +181,13 @@ async def get_raw_output_file_by_registration_ticket(
 ) -> Response:
     task_from_db = crud.sense.get_by_reg_txid(db=db, reg_txid=registration_ticket_txid)  # anyone can call it
     if task_from_db:
-        raw_file_bytes = await common.search_file(db=db,
-                                                  task_from_db=task_from_db,
-                                                  service=wn.WalletNodeService.SENSE,
-                                                  update_task_in_db_func=crud.sense.update)
+        raw_file_bytes = await common.search_gateway_file(db=db,
+                                                          task_from_db=task_from_db,
+                                                          service=wn.WalletNodeService.SENSE,
+                                                          update_task_in_db_func=crud.sense.update)
     else:
-        raw_file_bytes = await common.get_file_from_pastel(reg_ticket_txid=registration_ticket_txid,
-                                                           service=wn.WalletNodeService.SENSE)
+        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+                                                         service=wn.WalletNodeService.SENSE)
     return Response(content=raw_file_bytes, media_type="application/json")
 
 
@@ -201,13 +201,13 @@ async def get_parsed_output_file_by_registration_ticket(
 ) -> Response:
     task_from_db = crud.sense.get_by_reg_txid(db=db, reg_txid=registration_ticket_txid)  # anyone can call it
     if task_from_db:
-        raw_file_bytes = await common.search_file(db=db,
-                                                  task_from_db=task_from_db,
-                                                  service=wn.WalletNodeService.SENSE,
-                                                  update_task_in_db_func=crud.sense.update)
+        raw_file_bytes = await common.search_gateway_file(db=db,
+                                                          task_from_db=task_from_db,
+                                                          service=wn.WalletNodeService.SENSE,
+                                                          update_task_in_db_func=crud.sense.update)
     else:
-        raw_file_bytes = await common.get_file_from_pastel(reg_ticket_txid=registration_ticket_txid,
-                                                           service=wn.WalletNodeService.SENSE)
+        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+                                                         service=wn.WalletNodeService.SENSE)
     parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
@@ -222,14 +222,14 @@ async def get_raw_output_file_by_activation_ticket(
 ) -> Response:
     task_from_db = crud.sense.get_by_act_txid(db=db, act_txid=activation_ticket_txid)  # anyone can call it
     if task_from_db:
-        raw_file_bytes = await common.search_file(db=db,
-                                                  task_from_db=task_from_db,
-                                                  service=wn.WalletNodeService.SENSE,
-                                                  update_task_in_db_func=crud.sense.update)
+        raw_file_bytes = await common.search_gateway_file(db=db,
+                                                          task_from_db=task_from_db,
+                                                          service=wn.WalletNodeService.SENSE,
+                                                          update_task_in_db_func=crud.sense.update)
     else:
         registration_ticket_txid = await common.get_reg_txid_by_act_txid(activation_ticket_txid)
-        raw_file_bytes = await common.get_file_from_pastel(reg_ticket_txid=registration_ticket_txid,
-                                                           service=wn.WalletNodeService.SENSE)
+        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+                                                         service=wn.WalletNodeService.SENSE)
     return Response(content=raw_file_bytes, media_type="application/json")
 
 
@@ -243,14 +243,14 @@ async def parsed_raw_output_file_by_act_txid(
 ) -> Response:
     task_from_db = crud.sense.get_by_act_txid(db=db, act_txid=activation_ticket_txid)  # anyone can call it
     if task_from_db:
-        raw_file_bytes = await common.search_file(db=db,
-                                                  task_from_db=task_from_db,
-                                                  service=wn.WalletNodeService.SENSE,
-                                                  update_task_in_db_func=crud.sense.update)
+        raw_file_bytes = await common.search_gateway_file(db=db,
+                                                          task_from_db=task_from_db,
+                                                          service=wn.WalletNodeService.SENSE,
+                                                          update_task_in_db_func=crud.sense.update)
     else:
         registration_ticket_txid = await common.get_reg_txid_by_act_txid(activation_ticket_txid)
-        raw_file_bytes = await common.get_file_from_pastel(reg_ticket_txid=registration_ticket_txid,
-                                                           service=wn.WalletNodeService.SENSE)
+        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+                                                         service=wn.WalletNodeService.SENSE)
     parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
@@ -357,7 +357,7 @@ async def get_pastel_activation_ticket_by_its_txid(
 @router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}")
 async def get_pastel_ticket_data_from_media_file_hash(
         *,
-        stored_file_sha256_hash: str,
+        media_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),
 ):
     # TODO: Implement get_pastel_ticket_data_from_media_file_hash

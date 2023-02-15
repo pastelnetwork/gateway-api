@@ -118,10 +118,10 @@ async def get_all_files_from_request(
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for task_from_db in tasks_from_db:
-            file_bytes = await common.search_file(db=db,
-                                                  task_from_db=task_from_db,
-                                                  service=wn.WalletNodeService.CASCADE,
-                                                  update_task_in_db_func=crud.cascade.update)
+            file_bytes = await common.search_gateway_file(db=db,
+                                                          task_from_db=task_from_db,
+                                                          service=wn.WalletNodeService.CASCADE,
+                                                          update_task_in_db_func=crud.cascade.update)
             zip_file.writestr(task_from_db.original_file_name, file_bytes)
 
     return await common.stream_file(file_bytes=zip_buffer.getvalue(),
@@ -142,10 +142,10 @@ async def get_stored_file_by_result_id(
     task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    file_bytes = await common.search_file(db=db,
-                                          task_from_db=task_from_db,
-                                          service=wn.WalletNodeService.CASCADE,
-                                          update_task_in_db_func=crud.cascade.update)
+    file_bytes = await common.search_gateway_file(db=db,
+                                                  task_from_db=task_from_db,
+                                                  service=wn.WalletNodeService.CASCADE,
+                                                  update_task_in_db_func=crud.cascade.update)
     return await common.stream_file(file_bytes=file_bytes,
                                     original_file_name=f"{task_from_db.original_file_name}")
 
@@ -167,10 +167,10 @@ async def get_stored_file_by_registration_ticket(
                                                           reg_txid=registration_ticket_txid)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    file_bytes = await common.search_file(db=db,
-                                          task_from_db=task_from_db,
-                                          service=wn.WalletNodeService.CASCADE,
-                                          update_task_in_db_func=crud.cascade.update)
+    file_bytes = await common.search_gateway_file(db=db,
+                                                  task_from_db=task_from_db,
+                                                  service=wn.WalletNodeService.CASCADE,
+                                                  update_task_in_db_func=crud.cascade.update)
     return await common.stream_file(file_bytes=file_bytes,
                                     original_file_name=f"{task_from_db.original_file_name}")
 
@@ -187,10 +187,10 @@ async def get_stored_file_by_activation_ticket(
                                                           act_txid=activation_ticket_txid)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    file_bytes = await common.search_file(db=db,
-                                          task_from_db=task_from_db,
-                                          service=wn.WalletNodeService.CASCADE,
-                                          update_task_in_db_func=crud.cascade.update)
+    file_bytes = await common.search_gateway_file(db=db,
+                                                  task_from_db=task_from_db,
+                                                  service=wn.WalletNodeService.CASCADE,
+                                                  update_task_in_db_func=crud.cascade.update)
     return await common.stream_file(file_bytes=file_bytes,
                                     original_file_name=f"{task_from_db.original_file_name}")
 

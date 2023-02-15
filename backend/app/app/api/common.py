@@ -202,7 +202,41 @@ async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService
     return file_bytes
 
 
-async def search_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func):
+async def search_file_in_local_cache(*, reg_ticket_txid) -> bytes:
+    cached_result_file = \
+        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
+    try:
+        with open(cached_result_file, 'rb') as f:
+            return f.read()
+    except Exception as e:
+        logging.error(f"File not found in the local storage - {e}")
+
+
+async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes):
+    cached_result_file = \
+        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
+    try:
+        if not os.path.exists(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}"):
+            os.makedirs(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}")
+
+        with open(cached_result_file, 'wb') as f:
+            f.write(file_bytes)
+    except Exception as e:
+        logging.error(f"File not saved in the local storage - {e}")
+
+
+async def add_local_file_into_ipfs(*, reg_ticket_txid) -> str:
+    cached_result_file = \
+        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
+    try:
+        ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
+        res = ipfs_client.add(cached_result_file)
+        return res["Hash"]
+    except Exception as e:
+        logging.error(f"File not saved in the IPFS - {e}")
+
+
+async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func) -> bytes:
 
     if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in ['DONE', 'SUCCESS']:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
@@ -214,12 +248,7 @@ async def search_file(*, db, task_from_db, service: wn.WalletNodeService, update
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail=f"Only owner can download cascade file")
 
-    cached_result_file = f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.ticket_id}"
-    try:
-        with open(cached_result_file, 'rb') as f:
-            file_bytes = f.read()
-    except Exception as e:
-        logging.error(f"File not found in the local storage - {e}")
+    file_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid)
     not_locally_cached = not file_bytes
 
     if not file_bytes and task_from_db.ipfs_link:
@@ -237,27 +266,31 @@ async def search_file(*, db, task_from_db, service: wn.WalletNodeService, update
 
     # cache file in local storage and IPFS
     if not_locally_cached:
-        try:
-            if not os.path.exists(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}"):
-                os.makedirs(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}")
-
-            with open(cached_result_file, 'wb') as f:
-                f.write(file_bytes)
-        except Exception as e:
-            logging.error(f"File not saved in the local storage - {e}")
+        await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, file_bytes=file_bytes)
 
     if not task_from_db.ipfs_link:
-        ipfs_link = None
-        try:
-            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-            res = ipfs_client.add(cached_result_file)
-            ipfs_link = res["Hash"]
-        except Exception as e:
-            logging.error(f"File not saved in the IPFS - {e}")
-
+        ipfs_link = await add_local_file_into_ipfs(reg_ticket_txid=task_from_db.reg_ticket_txid)
         if ipfs_link:
             upd = {"ipfs_link": ipfs_link, "updated_at": datetime.utcnow()}
             update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
+
+    return file_bytes
+
+
+async def search_pastel_file(*, reg_ticket_txid: str, service: wn.WalletNodeService, throw=True) -> bytes:
+
+    file_bytes = await search_file_in_local_cache(reg_ticket_txid=reg_ticket_txid)
+    not_locally_cached = not file_bytes
+
+    if not file_bytes:
+        file_bytes = await get_file_from_pastel(reg_ticket_txid=reg_ticket_txid, service=service, throw=throw)
+
+    if not file_bytes and throw:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
+
+    # cache file in local storage and IPFS
+    if file_bytes and not_locally_cached:
+        await store_file_into_local_cache(reg_ticket_txid=reg_ticket_txid, file_bytes=file_bytes)
 
     return file_bytes
 
@@ -296,12 +329,14 @@ async def get_all_sense_data_from_request(*, db, tasks_from_db, gateway_request_
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for task_from_db in tasks_from_db:
-            raw_file_bytes = await search_file(db=db,
-                                               task_from_db=task_from_db,
-                                               service=wn.WalletNodeService.SENSE,
-                                               update_task_in_db_func=crud.sense.update)
+            raw_file_bytes = await search_gateway_file(db=db,
+                                                       task_from_db=task_from_db,
+                                                       service=wn.WalletNodeService.SENSE,
+                                                       update_task_in_db_func=crud.sense.update)
             if parse:
-                file_bytes = await parse_sense_data(raw_file_bytes)
+                file_bytes = await parse_sense_data(raw_file_bytes, False)
+                if not file_bytes:
+                    file_bytes = raw_file_bytes
             else:
                 file_bytes = raw_file_bytes
             # convert to bytes
@@ -317,13 +352,15 @@ async def get_all_sense_data_for_pastelid(*, pastel_id: str, parse=False):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for txid in registration_ticket_txids:
-            raw_file_bytes = await get_file_from_pastel(reg_ticket_txid=txid,
-                                                        service=wn.WalletNodeService.SENSE,
-                                                        throw=False)
+            raw_file_bytes = await search_pastel_file(reg_ticket_txid=txid,
+                                                      service=wn.WalletNodeService.SENSE,
+                                                      throw=False)
             if not raw_file_bytes:
                 continue
             if parse:
-                file_bytes = await parse_sense_data(raw_file_bytes)
+                file_bytes = await parse_sense_data(raw_file_bytes, False)
+                if not file_bytes:
+                    file_bytes = raw_file_bytes
             else:
                 file_bytes = raw_file_bytes
             # convert to bytes
@@ -436,14 +473,22 @@ async def get_activation_action_ticket(ticket_txid, service: wn.WalletNodeServic
     return act_ticket
 
 
-async def parse_sense_data(raw_bytes: bytes) -> bytearray:
+async def parse_sense_data(raw_bytes: bytes, throw=True) -> bytearray:
     try:
         sense_data_json = json.loads(raw_bytes)
     except Exception as e:
-        raise HTTPException(status_code=501, detail=f"Invalid sense data - {e}")
+        logging.error(f"Invalid sense data - {e}")
+        if throw:
+            raise HTTPException(status_code=501, detail=f"Invalid sense data - {e}")
+        else:
+            return None
 
     if not sense_data_json:
-        raise HTTPException(status_code=501, detail=f"Invalid sense data")
+        logging.error(f"Invalid sense data - {e}")
+        if throw:
+            raise HTTPException(status_code=501, detail=f"Invalid sense data")
+        else:
+            return None
 
     if 'rareness_scores_table_json_compressed_b64' in sense_data_json:
         decode_decompress_item(sense_data_json,
