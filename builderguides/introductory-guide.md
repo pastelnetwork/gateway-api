@@ -1,13 +1,16 @@
-# Welcome to Pastel Network's Open API Gateway! See details below on how to get started today.
+# Welcome to Pastel Network's Open API Gateway. 
 
-### Testnet Gateway URL
+##See details below on how to get started today.
 
-https://testnet.gateway-api.pastel.network/
+### [Pastel Testnet API Gateway](https://testnet.gateway-api.pastel.network/)
+
+URL: https://testnet.gateway-api.pastel.network/
 
 ### Accessing the Gateway
 
 - Obtain OAuth2 token login credentials from the Foundation and login [here](https://testnet.gateway-api.pastel.network/#/login/login_access_token_api_v1_login_access_token_post) 
--   POST /api/v1/login/access-token
+
+  POST /api/v1/login/access-token
   
 ### Accessing the Gateway
 - List api keys from the service after getting an access token
