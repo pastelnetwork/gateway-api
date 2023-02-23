@@ -1,14 +1,14 @@
-# Get started with Pastel Network's Gateway.
+# Pastel Network Open API Gateway Introductory Builder's Guide.
 
 ### [Pastel Testnet API Gateway](https://testnet.gateway-api.pastel.network/)
 
-URL: https://testnet.gateway-api.pastel.network/
+Current URL: https://testnet.gateway-api.pastel.network/
 
 Pastel Network's OpenAPI Gateway provides Web3 developers with easy, robust, and reliable access to the Pastel Network and its underlying decentralized protocols via a lightweight, centralized service. For more information on how the Gateway works, please see visit our Swagger docs [here](https://testnet.gateway-api.pastel.network/).
 
 ## Gateway Concepts
 
-# Gateway Requests
+### Gateway Requests
 A `gateway_request` allows users to submit via Gateway a set of one or more files to be stored in Cascade or one or more media files to be submitted to Sense.
 
 Each `gateway_request` has a corresponding `gateway_request_id` that uniquely identifies it globally. The `gateway_request_id` is available to the user the moment a `gateway_request` is submitted. Users do not need to wait a while for a request to propagate to the underlying Pastel blockchain itself.
@@ -26,7 +26,7 @@ The following items are returned by the Gateway for each `gateway_request`:
     - “The gateway_request has been successfully finalized and activated on the Pastel Network at block <block_height> with activation transaction id <activation_ticket_txid>”
     - *In the case of a Cascade* `gateway_request`*, there will also be an additional status message: “*The file has been successfully stored (pinned) in IPFS, and can be retrieved with the following identifier: /ipfs/<ipfs_identifier>”
 
-# Gateway Results
+### Gateway Results
 A `gateway_result` refers to the output generated from a `gateway_request`, which contains various pieces of metadata. 
 
 A single `gateway_request` can generate multiple `gateway_result` objects, and each `gateway_result` has a corresponding `gateway_result_id` that uniquely identifies it globally. 
