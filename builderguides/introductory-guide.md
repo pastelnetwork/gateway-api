@@ -10,7 +10,9 @@ URL: https://testnet.gateway-api.pastel.network/
 
 - Obtain OAuth2 token login credentials from the Foundation and login [here](https://testnet.gateway-api.pastel.network/#/login/login_access_token_api_v1_login_access_token_post) 
 
+  ```
   POST /api/v1/login/access-token
+  ```
   
 ### Accessing the Gateway
 - List api keys from the service after getting an access token
