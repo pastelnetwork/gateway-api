@@ -14,9 +14,9 @@ A `gateway_request` allows users to upload one or more files to Cascade or Sense
 Each `gateway_request` has a corresponding `gateway_request_id` that uniquely identifies it globally. The `gateway_request_id` is available to the user the moment a `gateway_request` is submitted. Users do not need to wait a while for a request to propagate to the underlying Pastel blockchain itself.
 
 Each `gateway_request` has a `current_status` of:
-    - `gateway_request_pending`
-    - `gateway_request_successful`
-    - `gateway_request_failed`
+* `gateway_request_pending`
+* `gateway_request_successful`
+* `gateway_request_failed`
 
 ** Note: If `current_status` is `gateway_request_failed`, then Gateway will automatically resubmit the request for the user. If `current_status` is `gateway_request_pending` or `gateway_request_failed`, the user will receive a placeholder informing them that results are `pending`. **
 
