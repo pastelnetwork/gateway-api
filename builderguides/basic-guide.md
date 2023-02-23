@@ -2,29 +2,23 @@
 
 ### [Pastel Testnet API Gateway](https://testnet.gateway-api.pastel.network/)
 
-Current URL: https://testnet.gateway-api.pastel.network/
+#### Pastel Network's OpenAPI Gateway provides Web3 developers with easy, robust, and reliable access to the Pastel Network and its underlying decentralized protocols via a lightweight, centralized service. For more information on how the Gateway works, please see visit our Swagger docs [here](https://testnet.gateway-api.pastel.network/).
 
-Pastel Network's OpenAPI Gateway provides Web3 developers with easy, robust, and reliable access to the Pastel Network and its underlying decentralized protocols via a lightweight, centralized service. For more information on how the Gateway works, please see visit our Swagger docs [here](https://testnet.gateway-api.pastel.network/).
+Current URL: https://testnet.gateway-api.pastel.network/
 
 ## Introductory Concepts
 
 ### Gateway Requests
-A `gateway_request` allows users to submit via Gateway a set of one or more files to be stored in Cascade or one or more media files to be submitted to Sense.
+A `gateway_request` allows users to upload one or more files to Cascade or Sense.
 
 Each `gateway_request` has a corresponding `gateway_request_id` that uniquely identifies it globally. The `gateway_request_id` is available to the user the moment a `gateway_request` is submitted. Users do not need to wait a while for a request to propagate to the underlying Pastel blockchain itself.
 
-The following items are returned Gateway for each `gateway_request`:
-
-- `current_status` of the request:
+Each `gateway_request` has a `current_status` of:
     - `gateway_request_pending`
     - `gateway_request_successful`
     - `gateway_request_failed`
-- A set of `status_messages` which provide the user with information about the state of a given gateway_request such as:
-    - “The gateway_request has been received by OpenAPI Gateway and is pending submission to the Pastel Network”
-    - “The gateway_request has been submitted to the Pastel Network and is currently being processed.”
-    - “The gateway_request has been successfully processed by the Pastel Network and the corresponding Registration Ticket has been included in block <block_height> with registration transaction id <registration_ticket_txid>”
-    - “The gateway_request has been successfully finalized and activated on the Pastel Network at block <block_height> with activation transaction id <activation_ticket_txid>”
-    - *In the case of a Cascade* `gateway_request`*, there will also be an additional status message: “*The file has been successfully stored (pinned) in IPFS, and can be retrieved with the following identifier: /ipfs/<ipfs_identifier>”
+
+**Note: If `current_status` is `gateway_request_failed`, then Gateway will automatically resubmit the request for the user. If `current_status` is `gateway_request_pending` or `gateway_request_failed`, the user will receive a placeholder informing them that results are `pending`.**
 
 ### Gateway Results
 A `gateway_result` refers to the output generated from a `gateway_request`, which contains various pieces of metadata. 
@@ -54,7 +48,7 @@ The following metadata fields are returned from a `gateway_result`. Certain fiel
       "error": "string"
     }
 
-*Note: Information for any `gateway_result_id` will only be provided if the `current_status` is `gateway_request_successful`; if `current_status` is `gateway_request_failed`, then the OpenAPI Gateway will automatically resubmit the request for the user. If the `current_status` is `gateway_request_pending` or  `gateway_request_failed`, then the user will receive a placeholder informing them that results are `pending`.*
+*Note: Information for any `gateway_result_id` will only be provided if the `current_status` is `gateway_request_successful`; 
 
 ## Accessing Gateway
 
