@@ -21,13 +21,13 @@ Each `gateway_request` has a `current_status` of:
 *Note: If `current_status` is `gateway_request_failed`, then Gateway will automatically resubmit the request for the user. If `current_status` is `gateway_request_pending` or `gateway_request_failed`, the user will receive a placeholder informing them that results are `pending`.*
 
 ### Gateway Results
-A `gateway_result` refers to the output generated from a `gateway_request`, which contains various pieces of metadata. 
+A `gateway_result` refers to the output generated from a `gateway_request` for an individual file which contains various pieces of metadata. 
 
 A single `gateway_request` can generate multiple `gateway_result` objects, and each `gateway_result` has a corresponding `gateway_result_id` that uniquely identifies it globally. 
 
 Users can obtain a list of `gateway_result_id` objects from the corresponding `gateway_request_id`.
 
-The following metadata fields are returned from a `gateway_result`. Certain fields are only included depending on the `gateway_request_id` type:
+The following metadata fields are returned from a `gateway_result` in JSON:
 
     {
       "file_name": "string",
@@ -48,29 +48,29 @@ The following metadata fields are returned from a `gateway_result`. Certain fiel
       "error": "string"
     }
 
-*Note: Information for any `gateway_result_id` will only be provided if the `current_status` is `gateway_request_successful`; 
+*Note: Information for any `gateway_result_id` will only be provided if the `current_status` is `gateway_request_successful`*
 
 ## Accessing Gateway
 
-- Login to the Gatway using your credentials from the Foundation (username and password) and obtain an OAuth2 compataible token [here](https://testnet.gateway-api.pastel.network/#/login/login_access_token_api_v1_login_access_token_post) 
+Login to the Gatway using your credentials from the Foundation (username and password) and obtain an OAuth2 compataible token [here](https://testnet.gateway-api.pastel.network/#/login/login_access_token_api_v1_login_access_token_post) 
 
   ```
   POST /api/v1/login/access-token
   ```
   
-- Create a new API Key [here](https://testnet.gateway-api.pastel.network/#/api_keys/create_apikey_api_v1_api_keys__post)
+Create a new API Key [here](https://testnet.gateway-api.pastel.network/#/api_keys/create_apikey_api_v1_api_keys__post)
 
   ```
   POST /api/v1/api_keys/
   ```
   
-- View all existing API Keys [here](https://testnet.gateway-api.pastel.network/#/api_keys/read_apikeys_api_v1_api_keys__get)
+View all existing API Keys [here](https://testnet.gateway-api.pastel.network/#/api_keys/read_apikeys_api_v1_api_keys__get)
 
   ```
   GET /api/v1/api_keys/
   ```
 
-- For each `gateway_request`, include the following headers:
+For each `gateway_request`, include the following headers:
 
   ```
   Authorization: Bearer `${accessToken}`
@@ -79,7 +79,7 @@ The following metadata fields are returned from a `gateway_result`. Certain fiel
 
 ## Cascade Requests
 
-## Upload one or more files to Cascade [here](https://testnet.gateway-api.pastel.network/#/cascade/process_request_api_v1_cascade__post)
+Upload one or more files to Cascade [here](https://testnet.gateway-api.pastel.network/#/cascade/process_request_api_v1_cascade__post)
 
   ```
   POST /api/v1/cascade/
@@ -100,7 +100,7 @@ This method returns JSON including the ```request_id```, ```request_status```, a
 
 ## Sense Requests
 
-## Upload one or more files to Sense [here](https://testnet.gateway-api.pastel.network/#/sense/process_request_api_v1_sense__post)
+Upload one or more files to Sense [here](https://testnet.gateway-api.pastel.network/#/sense/process_request_api_v1_sense__post)
 
   ```
   POST /api/v1/sense/
