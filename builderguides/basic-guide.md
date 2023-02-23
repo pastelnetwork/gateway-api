@@ -18,7 +18,7 @@ Each `gateway_request` has a `current_status` of:
     - `gateway_request_successful`
     - `gateway_request_failed`
 
-**Note: If `current_status` is `gateway_request_failed`, then Gateway will automatically resubmit the request for the user. If `current_status` is `gateway_request_pending` or `gateway_request_failed`, the user will receive a placeholder informing them that results are `pending`.**
+** Note: If `current_status` is `gateway_request_failed`, then Gateway will automatically resubmit the request for the user. If `current_status` is `gateway_request_pending` or `gateway_request_failed`, the user will receive a placeholder informing them that results are `pending`. **
 
 ### Gateway Results
 A `gateway_result` refers to the output generated from a `gateway_request`, which contains various pieces of metadata. 
