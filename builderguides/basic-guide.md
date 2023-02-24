@@ -17,8 +17,14 @@ Each `gateway_request` has a `current_status` of:
 * `gateway_request_pending`
 * `gateway_request_successful`
 * `gateway_request_failed`
+* `gateway_request_rejected`
 
-*Note: If `current_status` is `gateway_request_failed`, then Gateway will automatically resubmit the request for the user. If `current_status` is `gateway_request_pending` or `gateway_request_failed`, the user will receive a placeholder informing them that results are `pending`.*
+> Where: 
+    * `gateway_request_pending` - the request is processed by gateway. It can be that the original request has failed, and gateway is still trying to re-process it.
+    * `gateway_request_failed` - the request failed and cannot be reprocessed automatically, customer must resubmit failed files
+    * `gateway_request_rejected` - request was rejected by gateway or Pastel network as invalid
+
+> For `current_status` of `gateway_request_pending` and `gateway_request_successful` the response will have and `request_id` that can be used to get more info about request in the future
 
 ### Gateway Results
 A `gateway_result` refers to the output generated from a `gateway_request` for an individual file which contains various pieces of metadata. 
