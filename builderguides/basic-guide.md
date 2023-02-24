@@ -293,140 +293,41 @@ The response will be a JOSN of the format, like this:
   "pct_of_top_10_most_similar_with_dupe_prob_above_33pct": 0,
   "pct_of_top_10_most_similar_with_dupe_prob_above_50pct": 0,
   "rareness_scores_table_json_compressed_b64": {
-    "image_hash": {
-      "0": "string",
-...
-      "9": "string",
-    },
-    "register_time": {
-      "0": [
-        [
-          "data-time"
-        ]
-      ],
-...
-      "9": [
-        [
-          "data-time"
-        ]
-      ]
-    },
-    "cos_scores": {
-      "0": double,
-...
-      "9": double
-    },
-    "hoef_scores": {
-      "0": double,
-...
-      "9": double
-    },
-    "hsic_scores": {
-      "0": double,
-...
-      "9": double
-
-    },
-    "cos_gains": {
-      "0": double,
-...
-      "9": double
-    },
-    "hoef_gains": {
-      "0": double,
-...
-      "9": double
-    },
-    "hsic_gains": {
-      "0": double,
-...
-      "9": double
-    },
-    "final_dupe_probability": {
-      "0": double,
-...
-      "9": double
-    },
-    "is_likely_dupe": {
-      "0": boolean,
-...
-      "9": boolean
-    },
-    "thumbnail": {
-      "0": [
-        [
-        "base64-encioded"
-        ]
-      ],
-...
-      "9": [
-        [        
-        "base64-encioded"
-        ]
-      ]
-    },
-    "match_type": {
-      "0": "Image",
-...
-      "9": "Image"
-    }
+    "image_hash": {},
+    "register_time": {},
+    "cos_scores": {},
+    "hoef_scores": {},
+    "hsic_scores": {},
+    "cos_gains": {},
+    "hoef_gains": {},
+    "hsic_gains": {},
+    "final_dupe_probability": {},
+    "is_likely_dupe": {},
+    "thumbnail": {},
+    "match_type": {}
   },
   "internet_rareness": {
     "rare_on_internet_summary_table_as_json_compressed_b64": {
-      "title": {
-        "2": "string",
-...
-      },
-      "description_text": {
-        "2": "",
-...
-      },
-      "original_url": {
-        "2": "https://...",
-...
-      },
-      "google_cached_url": {
-        "2": "https://...",
-...
-      },
-      "date_string": {
-        "2": "",
-...
-      },
-      "resolution_string": {
-        "2": "",
-...
-      },
-      "img_alt_string": {
-        "2": "",
-...
-      },
-      "img_src_string": {
-        "2": "base64",
-...
-      },
-      "search_result_ranking": {
-        "2": 2,
-...
-      }
+      "title": {},
+      "description_text": {},
+      "original_url": {},
+      "google_cached_url": {},
+      "date_string": {},
+      "resolution_string": {},
+      "img_alt_string": {},
+      "img_src_string": {},
+      "search_result_ranking": {}
     },
     "rare_on_internet_graph_json_compressed_b64": {
-      "nodes": [
-      ],
-      "links": [
-      ]
+      "nodes": [],
+      "links": []
     },
     "alternative_rare_on_internet_dict_as_json_compressed_b64": {
-      "list_of_image_src_strings": [
-      ],
-      "list_of_image_alt_strings": [
-      ],
-      "list_of_images_as_base64": [
-      ],
-      "list_of_sha3_256_hashes_of_images_as_base64": [
-      ],
-      "list_of_href_strings": [
-      ],
+      "list_of_image_src_strings": [],
+      "list_of_image_alt_strings": [],
+      "list_of_images_as_base64": [],
+      "list_of_sha3_256_hashes_of_images_as_base64": [],
+      "list_of_href_strings": [],
       "alternative_rare_on_internet_graph_json_compressed_b64": ""
     },
     "min_number_of_exact_matches_in_page": int,
@@ -440,8 +341,7 @@ The response will be a JOSN of the format, like this:
     "porn": double,
     "sexy": double
   },
-  "image_fingerprint_of_candidate_image_file": [
-  ],
+  "image_fingerprint_of_candidate_image_file": [],
   "hash_of_candidate_image_file": "string"
 }
 ```
