@@ -106,6 +106,30 @@ This method returns JSON including the ```request_id```, ```request_status```, a
 }
 ```
 
+### Track status of the request using WebSockets
+
+```
+ws://testnet.gateway-api.pastel.network/api/v1/cascade/status/request?api_key={api_key}&gateway_request_id={request_id}
+```
+*Note: This is a WebSocket endpoint, not HTTP*
+
+The server sends caller the message every 2.5 minutes. The message is a JSON object with the following fields:
+```
+{
+  "request_id": "string",
+  "request_status": \<"PENDING"|'SUCCESS'|'FAILED'\>,
+  "results": [
+    {
+        'result_id': "string",
+        'file_name': "string",
+        'status': \<"PENDING"|'SUCCESS'|'FAILED'\>,
+    },
+    ...
+  ]
+}
+```
+
+
 ### Get information about request or individual result
 
 ```
@@ -205,13 +229,36 @@ This method returns JSON including the ```request_id```, ```request_status```, a
 }
 ```
 
+### Track status of the request using WebSockets
+
+```
+ws://testnet.gateway-api.pastel.network/api/v1/sense/status/request?api_key={api_key}&gateway_request_id={request_id}
+```
+*Note: This is a WebSocket endpoint, not HTTP*
+
+The server sends caller the message every 2.5 minutes. The message is a JSON object with the following fields:
+```
+{
+  "request_id": "string",
+  "request_status": \<"PENDING"|'SUCCESS'|'FAILED'\>,
+  "results": [
+    {
+        'result_id': "string",
+        'file_name': "string",
+        'status': \<"PENDING"|'SUCCESS'|'FAILED'\>,
+    },
+    ...
+  ]
+}
+```
+
 ### Get information about request or individual result
 
 ```
 GET /api/v1/sense/gateway_requests/{gateway_request_id}
 ```
 
-Method returnes the same JSON as POST above
+Method returns the same JSON as POST above
 
 ```
 {
