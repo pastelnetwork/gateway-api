@@ -117,12 +117,12 @@ The server sends caller the message every 2.5 minutes. The message is a JSON obj
 ```
 {
   "request_id": "string",
-  "request_status": \<"PENDING"|'SUCCESS'|'FAILED'\>,
+  "request_status": <"PENDING"|'SUCCESS'|'FAILED'>,
   "results": [
     {
         'result_id': "string",
         'file_name': "string",
-        'status': \<"PENDING"|'SUCCESS'|'FAILED'\>,
+        'status': <"PENDING"|'SUCCESS'|'FAILED'>,
     },
     ...
   ]
@@ -240,12 +240,12 @@ The server sends caller the message every 2.5 minutes. The message is a JSON obj
 ```
 {
   "request_id": "string",
-  "request_status": \<"PENDING"|'SUCCESS'|'FAILED'\>,
+  "request_status": <"PENDING"|'SUCCESS'|'FAILED'>,
   "results": [
     {
         'result_id': "string",
         'file_name': "string",
-        'status': \<"PENDING"|'SUCCESS'|'FAILED'\>,
+        'status': <"PENDING"|'SUCCESS'|'FAILED'>,
     },
     ...
   ]
