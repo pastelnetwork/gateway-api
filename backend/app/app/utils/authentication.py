@@ -1,10 +1,15 @@
 import logging
+import base64
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import emails
 from emails.template import JinjaTemplate
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from email.mime.text import MIMEText
+
 from jose import jwt
 
 from app.core.config import settings
@@ -22,15 +27,35 @@ def send_email(
         html=JinjaTemplate(html_template),
         mail_from=(settings.EMAILS_FROM_NAME, settings.EMAILS_FROM_EMAIL),
     )
-    smtp_options = {"host": settings.SMTP_HOST, "port": settings.SMTP_PORT}
-    if settings.SMTP_TLS:
-        smtp_options["tls"] = True
-    if settings.SMTP_USER:
-        smtp_options["user"] = settings.SMTP_USER
-    if settings.SMTP_PASSWORD:
-        smtp_options["password"] = settings.SMTP_PASSWORD
-    response = message.send(to=email_to, render=environment, smtp=smtp_options)
-    logging.info(f"send email result: {response}")
+    
+    credentials = Credentials.from_authorized_user_info(
+        info={
+            "client_id": settings.GOOGLE_MAILER_CLIENT_ID,
+            "client_secret": settings.GOOGLE_MAILER_CLIENT_SECRET,
+            "refresh_token": settings.GOOGLE_MAILER_REFRESH_TOKEN
+        }
+    )
+    service = build("gmail", "v1", credentials=credentials)
+
+    message = MIMEText(emails.html(html_template, **environment))
+    message["to"] = email_to
+    message["subject"] = emails.subject(subject_template, **environment)
+    message["from"] = settings.GOOGLE_EMAIL_ACCOUNT
+    create_message = {
+        "raw": base64.urlsafe_b64encode(message.as_bytes()).decode()
+    }
+    send_message = (
+        service.users().messages().send(userId="me", body=create_message).execute()
+    )
+    # smtp_options = {"host": settings.SMTP_HOST, "port": settings.SMTP_PORT}
+    # if settings.SMTP_TLS:
+    #     smtp_options["tls"] = True
+    # if settings.SMTP_USER:
+    #     smtp_options["user"] = settings.SMTP_USER
+    # if settings.SMTP_PASSWORD:
+    #     smtp_options["password"] = settings.SMTP_PASSWORD
+    # response = message.send(to=email_to, render=environment, smtp=smtp_options)
+    logging.info(f"send email result: {send_message}")
 
 
 def send_test_email(email_to: str) -> None:
