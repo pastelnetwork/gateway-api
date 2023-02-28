@@ -120,8 +120,14 @@ class Settings(BaseSettings):
     SMTP_HOST: Optional[str] = None
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+    GOOGLE_EMAIL_ACCOUNT: Optional[str] = None
+    GOOGLE_MAILER_CLIENT_ID: Optional[str] = None
+    GOOGLE_MAILER_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_MAILER_REFRESH_TOKEN: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[EmailStr] = None
     EMAILS_FROM_NAME: Optional[str] = None
+
+
 
     @validator("EMAILS_FROM_NAME")
     def get_project_name(cls, v: Optional[str], values: Dict[str, Any]) -> str:
@@ -138,6 +144,10 @@ class Settings(BaseSettings):
         return bool(
             values.get("SMTP_HOST")
             and values.get("SMTP_PORT")
+            and values.get("GOOGLE_EMAIL_ACCOUNT")
+            and values.get("GOOGLE_MAILER_CLIENT_ID")
+            and values.get("GOOGLE_MAILER_CLIENT_SECRET")
+            and values.get("GOOGLE_MAILER_REFRESH_TOKEN")
             and values.get("EMAILS_FROM_EMAIL")
         )
 
