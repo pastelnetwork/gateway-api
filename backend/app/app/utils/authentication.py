@@ -52,7 +52,7 @@ def send_reset_password_email(email_to: str, email: str, token: str) -> None:
     project_root_directory = Path(__file__).parent.parent.absolute()
     with open(project_root_directory / Path(settings.EMAIL_TEMPLATES_DIR) / "reset_password.html") as f:
         template_str = f.read()
-    server_host = settings.SERVER_HOST
+    server_host = settings.FRONTEND_URL
     link = f"{server_host}/reset-password?token={token}"
 
     send_email(
