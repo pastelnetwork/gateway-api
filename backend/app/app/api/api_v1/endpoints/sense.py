@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query
 from typing import List
 from sqlalchemy.orm import Session
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 import app.celery_tasks.sense as sense
 import app.db.session as session

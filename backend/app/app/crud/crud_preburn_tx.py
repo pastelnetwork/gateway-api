@@ -55,14 +55,18 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
 
     def change_status(self, db: Session, preburn_txid: str, status: PBTXStatus):
         db_obj = db.query(self.model).filter(PreBurnTx.txid == preburn_txid).first()
-        update_data = {"status": status}
-        super().update(db, db_obj=db_obj, obj_in=update_data)
+        if db_obj:
+            update_data = {"status": status}
+            super().update(db, db_obj=db_obj, obj_in=update_data)
 
     def mark_used(self, db: Session, preburn_txid: str):
         self.change_status(db, preburn_txid, PBTXStatus.USED)
 
     def mark_non_used(self, db: Session, preburn_txid: str):
-        self.change_status(db, preburn_txid, PBTXStatus.NEW)
+        db_obj = db.query(self.model).filter(PreBurnTx.txid == preburn_txid).first()
+        if db_obj:
+            update_data = {"status": PBTXStatus.NEW, "ticket_id": None}
+            super().update(db, db_obj=db_obj, obj_in=update_data)
 
     def mark_pending(self, db: Session, preburn_txid: str):
         self.change_status(db, preburn_txid, PBTXStatus.PENDING)
@@ -93,6 +97,9 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
             db.query(self.model).filter(PreBurnTx.fee == fee)
             .statement.with_only_columns([func.count()]).order_by(None)
         ).scalar()
+
+    def get_all_used(self, db: Session) -> list[PreBurnTx]:
+        return db.query(self.model).filter(PreBurnTx.status == PBTXStatus.USED).all()
 
 
 preburn_tx = CRUDPreBurnTx(PreBurnTx)

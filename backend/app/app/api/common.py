@@ -484,7 +484,7 @@ async def parse_sense_data(raw_bytes: bytes, throw=True) -> bytearray:
             return None
 
     if not sense_data_json:
-        logging.error(f"Invalid sense data - {e}")
+        logging.error(f"Invalid sense data")
         if throw:
             raise HTTPException(status_code=501, detail=f"Invalid sense data")
         else:
