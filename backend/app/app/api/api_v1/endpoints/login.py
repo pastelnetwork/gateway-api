@@ -73,8 +73,7 @@ def recover_password(
     send_reset_password_email(
         email_to=user.email, email=email, token=password_reset_token
     )
-    return {"msg": "Password recovery email sent"}
-
+    return {"msg": f"Password recovery email sent to {email} with token {password_reset_token}"}
 
 @router.post("/reset-password/", response_model=schemas.Msg)
 def reset_password(
