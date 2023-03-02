@@ -373,7 +373,7 @@ async def request_status(
 ):
     await websocket.accept()
 
-    apikey = await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
+    apikey = await deps.APIKeyAuth.get_api_key_for_sense(db, api_key)
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
     tickets = crud.sense.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
