@@ -294,11 +294,8 @@ async def request_status(
     await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
-    results = crud.cascade.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
-    if not results:
-        raise HTTPException(status_code=404, detail="No gateway_result or gateway_request found")
-
-    await common.process_websocket_for_result(websocket, results, wn.WalletNodeService.CASCADE, gateway_request_id)
+    tasks_in_db = crud.cascade.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.CASCADE, gateway_request_id)
 
 
 @router.websocket("/status/result")
@@ -314,9 +311,6 @@ async def status_of_result(
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
     results = [crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)]
-    if not results or not results[0]:
-        raise HTTPException(status_code=404, detail="gateway_result not found")
-
     await common.process_websocket_for_result(websocket, results, wn.WalletNodeService.CASCADE)
 
 

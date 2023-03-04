@@ -100,7 +100,7 @@ def _registration_finisher(
         tasks_from_db = started_not_finished_func(session)
     logger.info(f"{service_name}: Found {len(tasks_from_db)} non finished tasks")
     #
-    # TODO: Add finishing logic for tasks with status "UPLOADED"!!!!
+    # TODO: Add finishing logic for tasks stuck with status "UPLOADED"!!!!
     #
     for task_from_db in tasks_from_db:
         if task_from_db.wn_task_id:
@@ -234,6 +234,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                         or not task_from_db.wn_file_id:
                     logger.debug(f"Task status is empty, clearing and reprocessing: {task_from_db.ticket_id}")
                     clear_task_in_db(task_from_db, update_task_in_db_func)
+                    # clear_task_in_db sets task's status to RESTART
                     reprocess_func(task_from_db)
                 else:
                     logger.debug(f"Task status is empty, but other data is not empty, "
@@ -245,6 +246,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
             if task_from_db.ticket_status == "ERROR":
                 logger.debug(f"Task status is ERROR, clearing and reprocessing: {task_from_db.ticket_id}")
                 clear_task_in_db(task_from_db, update_task_in_db_func)
+                # clear_task_in_db sets task's status to RESTART
                 reprocess_func(task_from_db)
         except Exception as e:
             traceback.print_exc()

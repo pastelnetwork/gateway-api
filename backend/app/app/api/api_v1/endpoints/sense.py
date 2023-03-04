@@ -376,11 +376,8 @@ async def request_status(
     apikey = await deps.APIKeyAuth.get_api_key_for_sense(db, api_key)
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
-    tickets = crud.sense.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
-    if not tickets:
-        raise HTTPException(status_code=404, detail="No gateway_result or gateway_request found")
-
-    await common.process_websocket_for_result(websocket, tickets, wn.WalletNodeService.SENSE, gateway_request_id)
+    tasks_in_db = crud.sense.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.SENSE, gateway_request_id)
 
 
 @router.websocket("/status/result")
@@ -395,8 +392,5 @@ async def ticket_status(
     await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
-    tickets = [crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)]
-    if not tickets or not tickets[0]:
-        raise HTTPException(status_code=404, detail="gateway_result not found")
-
-    await common.process_websocket_for_result(websocket, tickets, wn.WalletNodeService.SENSE)
+    tasks_in_db = [crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)]
+    await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.SENSE)

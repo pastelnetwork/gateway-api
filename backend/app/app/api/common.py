@@ -22,6 +22,20 @@ from app.core.config import settings
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 
+# Life cycle of a request:
+#   ticket_status in DB can be one of the following:
+#       NEW - just created record in DB
+#       UPLOADED - file uploaded to WN, and WN returned file_id/image_id
+#       PREBURN_FEE - pre-burnt fee either found in the preburn table or new one was sent and all confirmed
+#       STARTED - task started by WN, and WN returned task_id
+#       DONE - both registration and activation txid are received
+#       ERROR - something whent wrong, will try to re-process
+#       RESTARTED - task is scheduled to be reprocessed
+#       DEAD - 10 re-processing attempts failed, will not try to re-process
+#
+# NEW -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
+# ERROR -> RESTARTED -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
+# ERROR -> ... -> ERROR 10 times -> DEAD
 
 async def process_request(
         *,
@@ -36,8 +50,8 @@ async def process_request(
         results=[]
     )
     for file in files:
-        lf = LocalFile(file.filename, file.content_type)
         result_id = str(uuid.uuid4())
+        lf = LocalFile(file.filename, file.content_type, result_id)
         await lf.save(file)
         _ = (
                 worker.register_file.s(lf, request_id, result_id, user_id) |
@@ -62,7 +76,7 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
 
     result_registration_status = schemas.Status.UNKNOWN
     if task_from_db.ticket_status:
-        if task_from_db.ticket_status == 'STARTED':
+        if task_from_db.ticket_status in ['STARTED', 'PENDING', 'NEW']:
             result_registration_status = schemas.Status.PENDING
         elif task_from_db.ticket_status == 'DONE':
             result_registration_status = schemas.Status.SUCCESS
@@ -73,20 +87,26 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
     if (result_registration_status == schemas.Status.UNKNOWN or
         result_registration_status == schemas.Status.PENDING) \
             and task_from_db.wn_task_id:
-        wn_task_status = wn.call(False,
-                                 service,
-                                 f'{task_from_db.wn_task_id}/history',
-                                 {}, [], {},
-                                 "", "")
-        if wn_task_status:
-            for step in wn_task_status:
-                if step['status'] == 'Task Rejected' or step['status'] == 'Task Failed':
-                    result_registration_status = schemas.Status.ERROR \
-                        if settings.RETURN_DETAILED_WN_ERROR else schemas.Status.PENDING
-                    break
-                if step['status'] == 'Task Completed':
-                    result_registration_status = schemas.Status.SUCCESS
-                    break
+        try:
+            wn_task_status = wn.call(False,
+                                     service,
+                                     f'{task_from_db.wn_task_id}/history',
+                                     {}, [], {},
+                                     "", "")
+            if wn_task_status:
+                for step in wn_task_status:
+                    if step['status'] == 'Task Rejected' or step['status'] == 'Task Failed':
+                        result_registration_status = schemas.Status.ERROR \
+                            if settings.RETURN_DETAILED_WN_ERROR else schemas.Status.PENDING
+                        break
+                    if step['status'] == 'Task Completed':
+                        result_registration_status = schemas.Status.SUCCESS
+                        break
+        except Exception as e:
+            logging.error(e)
+            result_registration_status = schemas.Status.ERROR \
+                if settings.RETURN_DETAILED_WN_ERROR else schemas.Status.PENDING
+
     reg_result = schemas.ResultRegistrationResult(
         file_name=task_from_db.original_file_name,
         file_type=task_from_db.original_file_content_type,
@@ -147,6 +167,10 @@ async def parse_user_request(results_in_request, request_id, service: wn.WalletN
 
 
 async def process_websocket_for_result(websocket, tasks_from_db, service: wn.WalletNodeService, request_id: str = None):
+    if not tasks_from_db or not tasks_from_db[0]:
+        await websocket.send_text(f"No gateway_result or gateway_request found")
+        raise HTTPException(status_code=404, detail="No gateway_result or gateway_request found")
+
     while True:
         all_failed = True
         all_success = True
@@ -188,14 +212,17 @@ async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService
                       {},
                       [],
                       {'Authorization': settings.PASSPHRASE, },
-                      "file", "", True)
+                      "file", "", True) # This call will not throw!
 
     if not wn_resp:
         if service == wn.WalletNodeService.SENSE and throw:
+            logging.error(f"WalletNode [download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}] returns empty result")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
     elif not isinstance(wn_resp, requests.models.Response):
         file_bytes = base64.b64decode(wn_resp)
         if not file_bytes:
+            logging.error(f"Failed to base64 decode file returned by "
+                          f"[download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}]=")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Pastel file's incorrect")
     else:
         logging.error(wn_resp.text)

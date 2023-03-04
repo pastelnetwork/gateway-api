@@ -17,6 +17,7 @@ def register_file(self, local_file, work_id, ticket_id, user_id) -> str:
         schemas.CascadeCreate,
         crud.cascade.get_by_result_id,
         crud.cascade.create_with_owner,
+        crud.cascade.update,
         register_file.retry,
         WalletNodeService.CASCADE,
         "Cascade")

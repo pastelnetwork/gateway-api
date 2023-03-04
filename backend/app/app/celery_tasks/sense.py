@@ -17,6 +17,7 @@ def register_file(self, local_file, work_id, ticket_id, user_id) -> str:
         schemas.SenseCreate,
         crud.sense.get_by_result_id,
         crud.sense.create_with_owner,
+        crud.sense.update,
         register_file.retry,
         WalletNodeService.SENSE,
         "Sense")
