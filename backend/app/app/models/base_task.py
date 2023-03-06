@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .user import User  # noqa: F401
 
 
-class BaseTicket(Base):
+class BaseTask(Base):
     __abstract__ = True
     id = Column(Integer, primary_key=True, index=True, default=gen_rand_id)
 

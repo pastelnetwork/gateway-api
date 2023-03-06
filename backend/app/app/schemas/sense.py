@@ -1,33 +1,33 @@
 from typing import Optional
 
-from .base_ticket import BaseTicketBase, BaseTicketCreate, BaseTicketUpdate, BaseTicketInDBBase, BaseTicket, BaseTicketInDB
+from .base_task import BaseTaskBase, BaseTaskCreate, BaseTaskUpdate, BaseTaskInDBBase, BaseTask, BaseTaskInDB
 
 
 # Shared properties
-class SenseBase(BaseTicketBase):
+class SenseBase(BaseTaskBase):
     pass
 
 
 # Properties to receive on Sense creation
-class SenseCreate(BaseTicketCreate, SenseBase):
+class SenseCreate(BaseTaskCreate, SenseBase):
     burn_txid: Optional[str] = None
 
 
 # Properties to receive on Sense update
-class SenseUpdate(BaseTicketUpdate, SenseBase):
+class SenseUpdate(BaseTaskUpdate, SenseBase):
     pass
 
 
 # Properties shared by models stored in DB
-class SenseInDBBase(BaseTicketInDBBase, SenseBase):
+class SenseInDBBase(BaseTaskInDBBase, SenseBase):
     pass
 
 
 # Properties to return to client
-class Sense(BaseTicket, SenseInDBBase):
+class Sense(BaseTask, SenseInDBBase):
     pass
 
 
 # Properties stored in DB
-class SenseInDB(BaseTicketInDB, SenseInDBBase):
+class SenseInDB(BaseTaskInDB, SenseInDBBase):
     pass

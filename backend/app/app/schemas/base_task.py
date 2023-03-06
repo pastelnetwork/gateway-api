@@ -5,7 +5,7 @@ from typing import Optional, List, Any
 from pydantic import BaseModel, Json
 
 
-class BaseTicketBase(BaseModel):
+class BaseTaskBase(BaseModel):
     original_file_name: str
     original_file_content_type: str
     original_file_local_path: str
@@ -25,15 +25,15 @@ class BaseTicketBase(BaseModel):
     retry_num: Optional[int] = None
 
 
-class BaseTicketCreate(BaseTicketBase):
+class BaseTaskCreate(BaseTaskBase):
     pass
 
 
-class BaseTicketUpdate(BaseTicketBase):
+class BaseTaskUpdate(BaseTaskBase):
     updated_at: datetime = datetime.utcnow()
 
 
-class BaseTicketInDBBase(BaseTicketBase):
+class BaseTaskInDBBase(BaseTaskBase):
     id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
@@ -43,12 +43,12 @@ class BaseTicketInDBBase(BaseTicketBase):
         orm_mode = True
 
 
-class BaseTicket(BaseTicketInDBBase):
+class BaseTask(BaseTaskInDBBase):
     pass
 
 
 # Properties stored in DB
-class BaseTicketInDB(BaseTicketInDBBase):
+class BaseTaskInDB(BaseTaskInDBBase):
     pass
 
 
