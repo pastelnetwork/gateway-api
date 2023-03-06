@@ -229,7 +229,7 @@ class PastelAPITask(celery.Task):
                                      json.dumps({"burn_txid": burn_txid, "app_pastelid": settings.PASTEL_ID, }),
                                      [],
                                      {
-                                         'app_pastelid_passphrase': settings.PASSPHRASE,
+                                         'Authorization': settings.PASSPHRASE,
                                          'Content-Type': 'application/json'
                                      },
                                      "task_id", "")
