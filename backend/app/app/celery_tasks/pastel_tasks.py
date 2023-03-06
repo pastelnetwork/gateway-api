@@ -192,6 +192,7 @@ class PastelAPITask(celery.Task):
                      get_task_from_db_by_task_id_func,
                      update_task_in_db_func,
                      service: wn.WalletNodeService,
+                     retry_func,
                      service_name: str) -> str:
         logger.info(f'{service_name}: Register file in the Pastel Network... [Result ID: {result_id}]')
 
@@ -235,7 +236,7 @@ class PastelAPITask(celery.Task):
                                      "task_id", "")
             except Exception as e:
                 logger.error(f'{service_name}: Error calling "WN Start" for result_id {result_id}: {e}')
-                raise e
+                retry_func()
 
             if not wn_task_id:
                 logger.error(f'{service_name}: No wn_task_id returned from WN for result_id {result_id}')
@@ -249,7 +250,6 @@ class PastelAPITask(celery.Task):
             }
             with db_context() as session:
                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
-                # crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
         else:
             logger.info(f'{service_name}: "WN Start" already called... [Result ID: {result_id}; '
                         f'WN Task ID: {task_from_db.wn_task_id}]')

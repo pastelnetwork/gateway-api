@@ -44,6 +44,7 @@ def process(self, ticket_id) -> str:
                              crud.sense.get_by_result_id,
                              crud.sense.update,
                              WalletNodeService.SENSE,
+                             process.retry,
                              "Sense")
 
 
