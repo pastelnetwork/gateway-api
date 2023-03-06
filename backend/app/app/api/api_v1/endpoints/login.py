@@ -86,7 +86,8 @@ def reset_password(
     """
     email = verify_password_reset_token(token)
     if not email:
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise HTTPException(status_code=400, detail="Invalid token. "
+                                                    "Use password recovery API to get a new token to reset password.")
     user = crud.user.get_by_email(db, email=email)
     if not user:
         raise HTTPException(

@@ -427,47 +427,7 @@ async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeServ
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Failed to get {expected_action_type} registration ticket - {e}")
 
-    if not reg_ticket or \
-            "ticket" not in reg_ticket or \
-            "action_ticket" not in reg_ticket["ticket"] or \
-            "type" not in reg_ticket["ticket"] or \
-            "action_type" not in reg_ticket["ticket"]:
-        raise HTTPException(status_code=501, detail=f"Invalid {expected_action_type} registration ticket")
-
-    if reg_ticket["ticket"]["type"] != expected_ticket_type:
-        raise HTTPException(status_code=501,
-                            detail=f'Invalid {expected_action_type} registration ticket type - '
-                                   f'{reg_ticket["ticket"]["type"]}')
-
-    if reg_ticket["ticket"]["action_type"] != expected_action_type:
-        raise HTTPException(status_code=501,
-                            detail=f'Invalid {expected_action_type} registration ticket action type - '
-                                   f'{reg_ticket["ticket"]["action_type"]}')
-
-    # Base64decode the ticket
-    reg_ticket_action_ticket_str = base64.b64decode(reg_ticket["ticket"]["action_ticket"]).decode('utf-8')
-
-    # Convert to json
-    reg_ticket["ticket"]["action_ticket"] = json.loads(reg_ticket_action_ticket_str)
-
-    if not reg_ticket["ticket"]["action_ticket"] or \
-            "action_ticket_version" not in reg_ticket["ticket"]["action_ticket"] or \
-            "action_type" not in reg_ticket["ticket"]["action_ticket"] or \
-            "api_ticket" not in reg_ticket["ticket"]["action_ticket"]:
-        raise HTTPException(status_code=501, detail=f"Failed to decode action_ticket in the "
-                                                    f"{expected_action_type} registration ticket")
-    if reg_ticket["ticket"]["action_ticket"]["action_type"] != expected_action_type:
-        raise HTTPException(status_code=501,
-                            detail=f'Invalid "app_ticket" in the {expected_action_type} '
-                                   f'registration ticket action type - '
-                                   f'{reg_ticket["ticket"]["action_type"]}')
-
-    # ASCII85decode the api_ticket
-    api_ticket_str = base64.a85decode(reg_ticket["ticket"]["action_ticket"]["api_ticket"])
-
-    reg_ticket["ticket"]["action_ticket"]["api_ticket"] = json.loads(api_ticket_str)
-
-    return reg_ticket
+    return await psl.parse_registration_action_ticket(reg_ticket, expected_ticket_type, expected_action_type)
 
 
 async def get_activation_action_ticket(ticket_txid, service: wn.WalletNodeService):
@@ -578,3 +538,29 @@ async def get_reg_txids_by_pastel_id(pastel_id: str) -> List[str]:
             txids.append(reg_ticket['txid'])
 
     return txids
+
+
+# import asyncio
+#
+# async def read_file(file_path):
+#     with open(file_path, 'r') as file:
+#         contents = await file.read()
+#         return contents
+#
+# async def run():
+#     task1 = asyncio.create_task(read_file('/path/to/first/file'))
+#     task2 = asyncio.create_task(read_file('/path/to/second/file'))
+#
+#     done, pending = await asyncio.wait([task1, task2], return_when=asyncio.FIRST_COMPLETED)
+#
+#     for task in pending:
+#         task.cancel()
+#
+#     result = await done.pop().result()
+#
+#     return result
+#
+# if __name__ == '__main__':
+#     loop = asyncio.get_event_loop()
+#     result = loop.run_until_complete(run())
+#     print(result)
