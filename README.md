@@ -42,7 +42,7 @@ celery -A app.main.celery beat -l debug
 ## To start celery workers (celery workers)
 ```
 cd /home/user/openapi/backend/app
-celery -A app.main.celery worker --loglevel=debug -Q cascade,sense,celery -c 1
+celery -A app.main.celery worker --loglevel=debug -Q cascade,sense,registration_helpers,scheduled_tools
 ```
 
 ## To start celery flower (celery monitoring web UI)
