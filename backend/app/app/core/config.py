@@ -80,8 +80,8 @@ class Settings(BaseSettings):
         else:
             return f"/dns/{values.get('IPFS_HOST') or 'localhost'}/tcp/5001/http"
 
-    REDIS_HOST: Optional[str] = None
-    REDIS_PORT: Optional[str] = None
+    REDIS_HOST: Optional[str] = 'localhost'
+    REDIS_PORT: Optional[str] = '6379'
     REDIS_URL: Optional[str] = None
 
     @validator("REDIS_URL", pre=True)

@@ -95,6 +95,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
     def get_number_non_used_by_fee(self, db: Session, *, fee: int) -> Optional[int]:
         return db.execute(
             db.query(self.model).filter(PreBurnTx.fee == fee)
+            .filter(PreBurnTx.status == PBTXStatus.NEW)
             .statement.with_only_columns([func.count()]).order_by(None)
         ).scalar()
 

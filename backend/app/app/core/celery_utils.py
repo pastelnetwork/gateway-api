@@ -19,17 +19,21 @@ def create_celery():
     celery_app.conf.update(celery_task_always_eager=True)
 
     celery_app.conf.beat_schedule = {
-        'fee_pre_burner': {
-            'task': 'fee_pre_burner',
-            'schedule': 500.0,
-        },
-        'registration_finisher': {
-            'task': 'registration_finisher',
+        'registration_helpers_registration_finisher': {
+            'task': 'registration_helpers:registration_finisher',
             'schedule': 600.0,
         },
-        'registration_re_processor': {
-            'task': 'registration_re_processor',
+        'registration_helpers_registration_re_processor': {
+            'task': 'registration_helpers:registration_re_processor',
             'schedule': 700.0,
+        },
+        'scheduled_tools_fee_pre_burner': {
+            'task': 'scheduled_tools:fee_pre_burner',
+            'schedule': 500.0,
+        },
+        'scheduled_tools_reg_tickets_finder': {
+            'task': 'scheduled_tools:reg_tickets_finder',
+            'schedule': 150.0,
         },
     }
     celery_app.conf.timezone = 'UTC'

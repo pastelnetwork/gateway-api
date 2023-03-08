@@ -67,7 +67,8 @@ class PastelAPITask(celery.Task):
             task_in_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
         if task_in_db and task_in_db.ticket_status != 'NEW':
-            logger.info(f'{service_name}: Task is already in the DB... [Result ID: {result_id}]')
+            logger.info(f'{service_name}: Task is already in the DB. Status is {task_in_db.ticket_status}... '
+                        f'[Result ID: {result_id}]')
             return result_id
 
         wn_file_id = ''
@@ -88,8 +89,9 @@ class PastelAPITask(celery.Task):
                     height=height,
                 )
                 task_in_db = create_with_owner_func(session, obj_in=new_task, owner_id=user_id)
+            logger.info(f'{service_name}: New record created... [Result ID: {result_id}]')
 
-        logger.info(f'{service_name}: New file - calling WN... [Result ID: {result_id}]')
+        logger.info(f'{service_name}: New file - calling WN Upload... [Result ID: {result_id}]')
         data = local_file.read()
 
         id_field_name = "image_id" if service == wn.WalletNodeService.SENSE else "file_id"
@@ -102,18 +104,19 @@ class PastelAPITask(celery.Task):
                                       {},
                                       id_field_name, "estimated_fee")
         except Exception as e:
-            logger.info(f'{service_name}: Upload call failed for file {local_file.name}, retrying...')
+            logger.info(f'{service_name}: Upload call failed for file {local_file.name} - {e}. retrying...')
             retry_func()
 
         if not wn_file_id:
-            logger.info(f'{service_name}: Upload call failed for file {local_file.name}, retrying...')
+            logger.info(f'{service_name}: Upload call failed for file {local_file.name} - "wn_file_id" is empty. '
+                        f'retrying...')
             retry_func()
         if fee <= 0:
             logger.info(f'{service_name}: Wrong WN Fee {fee} for file {local_file.name}, retrying...')
             retry_func()
 
         logger.info(f'{service_name}: File was registered with WalletNode with\n:'
-                    f'\twn_file_id = {wn_file_id}and fee = {fee}. [Result ID: {result_id}]')
+                    f'\twn_file_id = {wn_file_id} and fee = {fee}. [Result ID: {result_id}]')
         upd = {
             "ticket_status": 'UPLOADED',
             "wn_file_id": wn_file_id,
@@ -349,6 +352,14 @@ class CascadeAPITask(PastelAPITask):
 
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.cascade.get_by_result_id, crud.cascade.update)
+
+
+class SenseAPITask(PastelAPITask):
+    def on_success(self, retval, result_id, args, kwargs):
+        PastelAPITask.on_success_base(args, crud.sense.get_by_result_id, crud.sense.update)
+
+    def on_failure(self, exc, result_id, args, kwargs, einfo):
+        PastelAPITask.on_failure_base(args, crud.sense.get_by_result_id, crud.sense.update)
 
 
 def get_celery_task_info(celery_task_id):

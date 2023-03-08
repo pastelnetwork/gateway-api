@@ -24,7 +24,8 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_request(worker=cascade, files=files, user_id=current_user.id)
+    return await common.process_request(worker=cascade, files=files, user_id=current_user.id,
+                                        service=wn.WalletNodeService.CASCADE)
 
 
 # Get all Cascade OpenAPI gateway_requests for the current user

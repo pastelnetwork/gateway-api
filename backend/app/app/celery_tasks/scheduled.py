@@ -11,11 +11,12 @@ from app import crud
 from app.db.session import db_context
 import app.utils.walletnode as wn
 from app.celery_tasks import cascade, sense
+from app.celery_tasks.task_lock import task_lock
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(name="registration_finisher")
+@shared_task(name="registration_helpers:registration_finisher")
 def registration_finisher():
     _registration_finisher(
         crud.cascade.get_all_started_not_finished,
@@ -45,7 +46,11 @@ def _registration_finisher(
         tasks_from_db = started_not_finished_func(session)
     logger.info(f"{service_name}: Found {len(tasks_from_db)} non finished tasks")
     #
-    # TODO: Add finishing logic for tasks stuck with status "UPLOADED"!!!!
+    # TODO: Add finishing logic for tasks stuck with statuses:
+    #  "NEW"
+    #  "RESTARTED"
+    #  "UPLOADED"
+    #  "PREBURN_FEE"
     #
     for task_from_db in tasks_from_db:
         if task_from_db.wn_task_id:
@@ -139,7 +144,7 @@ def _mark_task_in_db_as_failed(session,
     logger.error(f"Result {task_from_db.ticket_id} failed")
 
 
-@shared_task(name="registration_re_processor")
+@shared_task(name="registration_helpers:registration_re_processor")
 def registration_re_processor():
 
     _registration_re_processor(
@@ -241,7 +246,7 @@ def _start_reprocess_sense(task_from_db):
     logger.info(f"Sense Registration restarted for result {task_from_db.ticket_id} with task id {res.task_id}")
 
 
-@shared_task(name="fee_pre_burner")
+@shared_task(name="scheduled_tools:fee_pre_burner")
 def fee_pre_burner():
     logger.info(f"fee_pre_burner task started")
     logger.info(f"first: release non used")
@@ -294,3 +299,17 @@ def fee_pre_burner():
                                        fee=burn_amount,
                                        height=height,
                                        txid=burn_txid)
+
+
+@shared_task(name="scheduled_tools:reg_tickets_finder", task_id="reg_tickets_finder")
+@task_lock(main_key="registration_tickets_finder", timeout=60*60)
+def registration_tickets_finder():
+    logger.info(f"cascade_tickets_finder started")
+    # try:
+    #     with db_context() as session:
+    #         last_processed_block = crud.reg_ticket.get_last_blocknum(session)
+    #         tickets = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1])
+    #         for ticket in tickets:
+    #             psl.parse_registration_action_ticket(ticket, "action-reg", "cascade")
+    # except Exception as e:
+    #     logger.error(f"Error while processing cascade tickets {e}")

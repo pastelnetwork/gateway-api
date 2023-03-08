@@ -41,7 +41,8 @@ async def process_request(
         *,
         worker,
         files: List[UploadFile],
-        user_id: int
+        user_id: int,
+        service: wn.WalletNodeService
 ) -> schemas.RequestResult:
     request_id = str(uuid.uuid4())
     request_result = schemas.RequestResult(
@@ -50,6 +51,19 @@ async def process_request(
         results=[]
     )
     for file in files:
+        if service == wn.WalletNodeService.SENSE and "image" not in file.content_type:
+            reg_result = schemas.ResultRegistrationResult(
+                file_name=file.filename,
+                file_type=file.content_type,
+                result_id="",
+                status_messages=["File type not supported"],
+                result_status=schemas.Status.ERROR,
+                created_at=datetime.utcnow(),
+                last_updated_at=datetime.utcnow(),
+            )
+            request_result.results.append(reg_result)
+            continue
+
         result_id = str(uuid.uuid4())
         lf = LocalFile(file.filename, file.content_type, result_id)
         await lf.save(file)
@@ -68,6 +82,12 @@ async def process_request(
         )
         request_result.results.append(reg_result)
 
+    all_failed = True
+    for result in request_result.results:
+        all_failed &= result.result_status == schemas.Status.ERROR
+    request_result.request_status = schemas.Status.ERROR if all_failed \
+        else schemas.Status.PENDING
+
     return request_result
 
 
@@ -76,7 +96,9 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
 
     result_registration_status = schemas.Status.UNKNOWN
     if task_from_db.ticket_status:
-        if task_from_db.ticket_status in ['STARTED', 'PENDING', 'NEW']:
+        if task_from_db.ticket_status in ['NEW', 'UPLOADED', 'PREBURN_FEE', 'STARTED']:
+            result_registration_status = schemas.Status.PENDING
+        if task_from_db.ticket_status in ['ERROR', 'RESTARTED']:
             result_registration_status = schemas.Status.PENDING
         elif task_from_db.ticket_status == 'DONE':
             result_registration_status = schemas.Status.SUCCESS
