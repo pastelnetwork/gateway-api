@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import traceback
 from datetime import datetime
@@ -302,14 +303,51 @@ def fee_pre_burner():
 
 
 @shared_task(name="scheduled_tools:reg_tickets_finder", task_id="reg_tickets_finder")
-@task_lock(main_key="registration_tickets_finder", timeout=60*60)
+@task_lock(main_key="registration_tickets_finder", timeout=5*60)
 def registration_tickets_finder():
     logger.info(f"cascade_tickets_finder started")
-    # try:
-    #     with db_context() as session:
-    #         last_processed_block = crud.reg_ticket.get_last_blocknum(session)
-    #         tickets = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1])
-    #         for ticket in tickets:
-    #             psl.parse_registration_action_ticket(ticket, "action-reg", "cascade")
-    # except Exception as e:
-    #     logger.error(f"Error while processing cascade tickets {e}")
+    try:
+        with db_context() as session:
+            last_processed_block = crud.reg_ticket.get_last_blocknum(session)
+            tickets = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)
+        if not tickets:
+            logger.info(f"No new tickets found after block {last_processed_block}")
+            return
+        logger.info(f"Fount {len(tickets)} new tickets after block {last_processed_block}")
+        for ticket in tickets:
+            parsed_ticket = asyncio.run(psl.parse_registration_action_ticket(ticket,
+                                                                             "action-reg",
+                                                                             ["cascade", "sense"]))
+            if parsed_ticket:
+                with db_context() as session:
+                    if 'txid' not in parsed_ticket:
+                        continue
+                    reg_ticket_txid = parsed_ticket['txid']
+                    if 'data_hash' not in parsed_ticket['ticket']['action_ticket']['api_ticket']:
+                        continue
+                    data_hash = parsed_ticket['ticket']['action_ticket']['api_ticket']['data_hash']
+
+                    height = parsed_ticket['height'] if 'height' in parsed_ticket else 0
+
+                    file_name = parsed_ticket['ticket']['action_ticket']['api_ticket']['file_name'] \
+                        if 'file_name' in parsed_ticket['ticket']['action_ticket']['api_ticket'] else ''
+
+                    ticket_type = parsed_ticket['ticket']['action_ticket']['action_type'] \
+                        if 'action_type' in parsed_ticket['ticket']['action_ticket'] else ''
+
+                    caller_pastel_id = parsed_ticket['ticket']['action_ticket']['caller'] \
+                        if 'caller' in parsed_ticket['ticket']['action_ticket'] else ''
+
+                    crud.reg_ticket.create_new(session,
+                                               reg_ticket_txid=reg_ticket_txid,
+                                               data_hash=data_hash,
+                                               blocknum=height,
+                                               file_name=file_name,
+                                               ticket_type=ticket_type,
+                                               caller_pastel_id=caller_pastel_id
+                                               )
+
+    except Exception as e:
+        logger.error(f"Error while processing cascade tickets {e}")
+
+    logger.info(f"cascade_tickets_finder done, processed {len(tickets)} tickets")

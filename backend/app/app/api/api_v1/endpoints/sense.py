@@ -283,7 +283,7 @@ async def get_all_pastel_sense_registration_tickets_from_request(
         *,
         gateway_request_id: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     tasks_from_db = crud.sense.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
@@ -303,7 +303,7 @@ async def get_pastel_sense_registration_ticket_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     task_from_db = crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
@@ -320,7 +320,7 @@ async def get_pastel_sense_activation_ticket_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     task_from_db = crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
@@ -361,8 +361,13 @@ async def get_pastel_ticket_data_from_media_file_hash(
         media_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),
 ):
-    # TODO: Implement get_pastel_ticket_data_from_media_file_hash
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    output = []
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash=media_file_sha256_hash)
+    for ticket in tickets:
+        if ticket.ticket_type == "sense":
+            reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.SENSE)
+            output.append(reg_ticket)
+    return output
 
 
 @router.websocket("/status/request")
@@ -390,7 +395,7 @@ async def ticket_status(
 ):
     await websocket.accept()
 
-    await deps.APIKeyAuth.get_api_key_for_cascade(db, api_key)
+    await deps.APIKeyAuth.get_api_key_for_sense(db, api_key)
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
     tasks_in_db = [crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)]

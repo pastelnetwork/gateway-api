@@ -108,7 +108,7 @@ class APIKeyAuth:
         if not apikey.can_nft:
             raise HTTPException(
                 status_code=403,
-                detail="Cascade scope is not allowed for API Key",
+                detail="NFT scope is not allowed for API Key",
             )
         return apikey
 

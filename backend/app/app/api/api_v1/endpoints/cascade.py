@@ -279,8 +279,13 @@ async def get_pastel_registration_ticket_by_stored_file_hash(
         stored_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),
 ):
-    # TODO: Implement get_pastel_registration_ticket_by_stored_file_hash
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    output = []
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash=stored_file_sha256_hash)
+    for ticket in tickets:
+        if ticket.ticket_type == "cascade":
+            reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.CASCADE)
+            output.append(reg_ticket)
+    return output
 
 
 @router.websocket("/status/request")

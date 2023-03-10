@@ -449,7 +449,7 @@ async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeServ
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Failed to get {expected_action_type} registration ticket - {e}")
 
-    return await psl.parse_registration_action_ticket(reg_ticket, expected_ticket_type, expected_action_type)
+    return await psl.parse_registration_action_ticket(reg_ticket, expected_ticket_type, [expected_action_type])
 
 
 async def get_activation_action_ticket(ticket_txid, service: wn.WalletNodeService):
