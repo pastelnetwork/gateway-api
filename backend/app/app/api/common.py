@@ -136,7 +136,7 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
         created_at=task_from_db.created_at,
         last_updated_at=task_from_db.updated_at,
         result_status=result_registration_status,
-        retry_num=task_from_db.retry_number,
+        retry_num=task_from_db.retry_num,
     )
     if result_registration_status != schemas.Status.ERROR and result_registration_status != schemas.Status.FAILED:
         reg_result.registration_ticket_txid = task_from_db.reg_ticket_txid
