@@ -67,7 +67,7 @@ class ResultRegistrationResult(BaseModel):
     created_at: datetime
     last_updated_at: datetime
     result_status: Status
-    status_messages: Optional[List[str]] = None
+    status_messages: Optional[Any] = None
     retry_num: Optional[int] = None
     registration_ticket_txid: Optional[str] = None
     activation_ticket_txid: Optional[str] = None

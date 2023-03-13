@@ -145,7 +145,8 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
             reg_result.ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.ipfs_link}'
             reg_result.aws_link = task_from_db.aws_link
             reg_result.other_links = task_from_db.other_links
-        reg_result.status_messages = [wn_task_status]
+        if wn_task_status:
+            reg_result.status_messages = wn_task_status
     else:
         reg_result.error = wn_task_status
     return reg_result
