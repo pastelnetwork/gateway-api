@@ -136,6 +136,7 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
         created_at=task_from_db.created_at,
         last_updated_at=task_from_db.updated_at,
         result_status=result_registration_status,
+        retry_num=task_from_db.retry_number,
     )
     if result_registration_status != schemas.Status.ERROR and result_registration_status != schemas.Status.FAILED:
         reg_result.registration_ticket_txid = task_from_db.reg_ticket_txid
@@ -144,6 +145,7 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
             reg_result.ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.ipfs_link}'
             reg_result.aws_link = task_from_db.aws_link
             reg_result.other_links = task_from_db.other_links
+        reg_result.status_messages = [wn_task_status]
     else:
         reg_result.error = wn_task_status
     return reg_result

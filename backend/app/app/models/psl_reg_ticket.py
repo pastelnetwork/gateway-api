@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, Boolean
 
 from app.db.base_class import Base, gen_rand_id
 
@@ -15,3 +15,4 @@ class RegTicket(Base):
     blocknum = Column(Integer, index=True)
     caller_pastel_id = Column(String, index=True)
     file_name = Column(String)
+    is_public = Column(Boolean, default=False)

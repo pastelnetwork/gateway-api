@@ -332,6 +332,10 @@ def registration_tickets_finder():
                     file_name = parsed_ticket['ticket']['action_ticket']['api_ticket']['file_name'] \
                         if 'file_name' in parsed_ticket['ticket']['action_ticket']['api_ticket'] else ''
 
+                    is_public = parsed_ticket['ticket']['action_ticket']['api_ticket']['make_publicly_accessible'] \
+                        if 'make_publicly_accessible' \
+                           in parsed_ticket['ticket']['action_ticket']['api_ticket'] else False
+
                     ticket_type = parsed_ticket['ticket']['action_ticket']['action_type'] \
                         if 'action_type' in parsed_ticket['ticket']['action_ticket'] else ''
 
@@ -344,8 +348,8 @@ def registration_tickets_finder():
                                                blocknum=height,
                                                file_name=file_name,
                                                ticket_type=ticket_type,
-                                               caller_pastel_id=caller_pastel_id
-                                               )
+                                               caller_pastel_id=caller_pastel_id,
+                                               is_public=is_public)
 
     except Exception as e:
         logger.error(f"Error while processing cascade tickets {e}")

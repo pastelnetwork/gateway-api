@@ -151,10 +151,8 @@ async def get_stored_file_by_result_id(
 
 
 # Get the underlying Cascade stored_file from the corresponding Cascade Registration Ticket Transaction ID
-# Only succeeds if:
-# 1) the user owns the Cascade file (authenticated user with API key)
+# Only succeeds if the user owns the Cascade file (authenticated user with API key)
 #    - in the context of OpanAPI it means that file was registered by that instance of OpenAPI with its PastelID
-# 2) or the make_publicly_accessible flag is set to True for that Cascade operation.
 @router.get("/stored_file_from_registration_ticket/{registration_ticket_txid}")
 async def get_stored_file_by_registration_ticket(
         *,
@@ -175,6 +173,9 @@ async def get_stored_file_by_registration_ticket(
                                     original_file_name=f"{task_from_db.original_file_name}")
 
 
+# Get the underlying Cascade stored_file from the corresponding Cascade Activation Ticket Transaction ID
+# Only succeeds if the user owns the Cascade file (authenticated user with API key)
+#    - in the context of OpanAPI it means that file was registered by that instance of OpenAPI with its PastelID
 @router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}")
 async def get_stored_file_by_activation_ticket(
         *,
@@ -193,6 +194,33 @@ async def get_stored_file_by_activation_ticket(
                                                   update_task_in_db_func=crud.cascade.update)
     return await common.stream_file(file_bytes=file_bytes,
                                     original_file_name=f"{task_from_db.original_file_name}")
+
+
+# Get the Public Cascade stored_file from the corresponding Cascade Registration Ticket Transaction ID
+# Only succeeds if the file was made Public during registration (by setting flag make_publicly_accessible)
+# Note: Available to any user
+@router.get("/public_stored_file_from_registration_ticket/{registration_ticket_txid}")
+async def get_public_stored_file_by_registration_ticket(
+        *,
+        registration_ticket_txid: str,
+        db: Session = Depends(session.get_db_session),
+):
+    shadow_ticket = crud.reg_ticket.get_by_reg_ticket_txid_and_type(
+        db=db,
+        txid=registration_ticket_txid,
+        ticket_type='cascade')
+    if not shadow_ticket:
+        # reg_ticket = await common.get_registration_action_ticket(registration_ticket_txid, wn.WalletNodeService.CASCADE)
+        raise HTTPException(status_code=404, detail="File not found")
+    if shadow_ticket.ticket_type == 'sense':
+        raise HTTPException(status_code=404, detail="File not found")
+    if not shadow_ticket.is_public:
+        raise HTTPException(status_code=403, detail="Non authorized access to file")
+
+    file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+                                                 service=wn.WalletNodeService.CASCADE)
+    return await common.stream_file(file_bytes=file_bytes,
+                                    original_file_name=f"{shadow_ticket.file_name}")
 
 
 # Get ALL Pastel cascade registration tickets from the blockchain corresponding to a particular gateway_request_id.

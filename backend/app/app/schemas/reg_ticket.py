@@ -12,6 +12,7 @@ class RegTicketBase(BaseModel):
     blocknum: int
     caller_pastel_id: str
     file_name: str
+    is_public: bool
 
 
 # Properties to receive on RegTicket creation

@@ -15,7 +15,8 @@ class CRUDRegTicket(CRUDBase[RegTicket, RegTicketCreate, RegTicketUpdate]):
                    ticket_type: str,
                    blocknum: int,
                    caller_pastel_id: str,
-                   file_name: str
+                   file_name: str,
+                   is_public: bool,
                    ) -> RegTicket:
         db_obj = RegTicket(
             data_hash=data_hash,
@@ -24,6 +25,7 @@ class CRUDRegTicket(CRUDBase[RegTicket, RegTicketCreate, RegTicketUpdate]):
             blocknum=blocknum,
             caller_pastel_id=caller_pastel_id,
             file_name=file_name,
+            is_public=is_public,
         )
         db.add(db_obj)
         db.commit()
@@ -32,6 +34,15 @@ class CRUDRegTicket(CRUDBase[RegTicket, RegTicketCreate, RegTicketUpdate]):
 
     def get_by_hash(self, db: Session, *, data_hash: str) -> List[RegTicket]:
         return db.query(RegTicket).filter(RegTicket.data_hash == data_hash).all()
+
+    def get_by_reg_ticket_txid(self, db: Session, *, txid: str) -> RegTicket:
+        return db.query(RegTicket).filter(RegTicket.reg_ticket_txid == txid).first()
+
+    def get_by_reg_ticket_txid_and_type(self, db: Session, *, txid: str, ticket_type: str) -> RegTicket:
+        return db.query(RegTicket)\
+            .filter(RegTicket.ticket_type == ticket_type)\
+            .filter(RegTicket.reg_ticket_txid == txid)\
+            .first()
 
     def get_last_blocknum(self, db: Session) -> int:
         last = db.query(RegTicket).order_by(RegTicket.blocknum.desc()).first()
