@@ -1,4 +1,8 @@
 import secrets
+import boto3
+from botocore.exceptions import ClientError
+import json
+
 from functools import lru_cache
 from dotenv import find_dotenv
 from pydantic import BaseSettings, EmailStr, PostgresDsn, validator, AnyHttpUrl
@@ -97,23 +101,36 @@ class Settings(BaseSettings):
     FILE_STORAGE_FOR_RESULTS_SUFFIX: str = "results"
     FILE_STORAGE_FOR_PARSED_RESULTS_SUFFIX: str = "parsed_results"
 
-    POSTGRES_SERVER: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    AWS_SECRET_MANAGER_REGION: Optional[str] = None
+    AWS_SECRET_MANAGER_SECRET_NAME: Optional[str] = None
+
+    POSTGRES_SERVER: Optional[str]
+    POSTGRES_USER: Optional[str]
+    POSTGRES_PASSWORD: Optional[str]
+    POSTGRES_DB: Optional[str]
     SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
-        return PostgresDsn.build(
-            scheme="postgresql",
-            user=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            path=f"/{values.get('POSTGRES_DB') or ''}",
-        )
+
+        if values.get("AWS_SECRET_MANAGER_SECRET_NAME") and values.get("AWS_SECRET_MANAGER_REGION"):
+            return get_database_url_from_aws_secret_manager(
+                values.get("AWS_SECRET_MANAGER_REGION"),
+                values.get("AWS_SECRET_MANAGER_SECRET_NAME"),
+            )
+
+        if values.get("POSTGRES_SERVER") and values.get("POSTGRES_USER") and values.get("POSTGRES_PASSWORD"):
+            return PostgresDsn.build(
+                scheme="postgresql",
+                user=values.get("POSTGRES_USER"),
+                password=values.get("POSTGRES_PASSWORD"),
+                host=values.get("POSTGRES_SERVER"),
+                path=f"/{values.get('POSTGRES_DB') or ''}",
+            )
+
+        return None
 
     SMTP_TLS: bool = True
     SMTP_PORT: Optional[int] = None
@@ -151,6 +168,36 @@ class Settings(BaseSettings):
     class Config:
         env_file = find_dotenv(usecwd=True)
         print("env_file is "+env_file)
+
+
+def get_database_url_from_aws_secret_manager(region_name, secret_id) -> PostgresDsn:
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_id)
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
+
+    # Decrypts secret using the associated KMS key.
+    secret = json.loads(get_secret_value_response["SecretString"])
+    if not secret:
+        raise ValueError("Cannot get database values from AWS secret manager")
+
+    return PostgresDsn.build(
+        scheme="postgresql",
+        user=secret["username"],
+        port=str(secret["port"]),
+        password=secret["password"],
+        host=secret["host"],
+        path=f"/{secret['dbname']}",
+    )
 
 
 @lru_cache()
