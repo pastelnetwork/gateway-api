@@ -28,13 +28,7 @@ class Settings(BaseSettings):
     # BACKEND_CORS_ORIGINS is a JSON-formatted list of origins
     # e.g: '["http://localhost", "http://localhost:4200", "http://localhost:3000", \
     # "http://localhost:8080", "http://local.dockertoolbox.tiangolo.com"]'
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = ["http://localhost",
-                                              "http://localhost:8081",
-                                              "http://100.26.28.34",
-                                              "http://100.26.28.34:8081",
-                                              "https://smartmint.pastel.network",
-                                              "https://smartmintdev.pastel.network"
-                                              ]
+    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = None
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
@@ -170,7 +164,7 @@ class Settings(BaseSettings):
         print("env_file is "+env_file)
 
 
-def get_database_url_from_aws_secret_manager(region_name, secret_id) -> PostgresDsn:
+def get_database_url_from_aws_secret_manager(region_name, secret_id) -> Any:
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(
