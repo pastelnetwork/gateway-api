@@ -10,7 +10,7 @@ from app.api import deps
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.ApiKey])
+@router.get("", response_model=List[schemas.ApiKey])
 def read_apikeys(
     db: Session = Depends(session.get_db_session),
     skip: int = 0,
@@ -29,7 +29,7 @@ def read_apikeys(
     return apikeys
 
 
-@router.post("/", response_model=schemas.ApiKey)
+@router.post("", response_model=schemas.ApiKey)
 def create_apikey(
     *,
     db: Session = Depends(session.get_db_session),

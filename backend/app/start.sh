@@ -1,13 +1,13 @@
 #! /usr/bin/env sh
 set -e
 
-PYTHONPATH=$PYTHONPATH:${PWD}
+export PYTHONPATH=$PYTHONPATH:${PWD}
 echo "PYTHONPATH is $PYTHONPATH"
 
 if [ -f app/app/main.py ]; then
-    DEFAULT_MODULE_NAME=app.main
+    DEFAULT_MODULE_NAME=app.app.main
 elif [ -f app/main.py ]; then
-    DEFAULT_MODULE_NAME=main
+    DEFAULT_MODULE_NAME=app.main
 fi
 echo "Module name is $DEFAULT_MODULE_NAME"
 
@@ -19,13 +19,13 @@ if [ -f app/gunicorn_conf.py ]; then
     DEFAULT_GUNICORN_CONF=app/gunicorn_conf.py
 elif [ -f app/app/gunicorn_conf.py ]; then
     DEFAULT_GUNICORN_CONF=app/app/gunicorn_conf.py
-elif [ -f ../docker/gunicorn_conf.py ]; then
-    DEFAULT_GUNICORN_CONF=../docker/gunicorn_conf.py
 else
-    DEFAULT_GUNICORN_CONF=/gunicorn_conf.py
+    DEFAULT_GUNICORN_CONF=./gunicorn_conf.py
 fi
 export GUNICORN_CONF=${GUNICORN_CONF:-$DEFAULT_GUNICORN_CONF}
 export WORKER_CLASS=${WORKER_CLASS:-"uvicorn.workers.UvicornWorker"}
+echo "Gunicorn config is $GUNICORN_CONF"
+echo "Worker class is $WORKER_CLASS"
 
 # If there's a prestart.sh script in the /app directory or other path specified, run it before starting
 PRE_START_PATH=${PRE_START_PATH:-./prestart.sh}
@@ -38,4 +38,4 @@ else
 fi
 
 # Start Gunicorn
-exec gunicorn -k "$WORKER_CLASS" -c "$GUNICORN_CONF" "$APP_MODULE"
+exec poetry run gunicorn -k "$WORKER_CLASS" -c "$GUNICORN_CONF" "$APP_MODULE"

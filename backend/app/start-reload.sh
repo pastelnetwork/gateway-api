@@ -1,13 +1,13 @@
 #! /usr/bin/env sh
 #set -e
 
-PYTHONPATH=$PYTHONPATH:${PWD}
+export PYTHONPATH=$PYTHONPATH:${PWD}
 echo "PYTHONPATH is $PYTHONPATH"
 
 if [ -f app/app/main.py ]; then
-    DEFAULT_MODULE_NAME=app.main
+    DEFAULT_MODULE_NAME=app.app.main
 elif [ -f app/main.py ]; then
-    DEFAULT_MODULE_NAME=main
+    DEFAULT_MODULE_NAME=app.main
 fi
 echo "Module name is $DEFAULT_MODULE_NAME"
 
@@ -30,4 +30,4 @@ else
 fi
 
 # Start Uvicorn with live reload
-exec uvicorn --reload --host $HOST --port $PORT --log-level $LOG_LEVEL "$APP_MODULE"
+exec poetry run uvicorn --reload --host $HOST --port $PORT --log-level $LOG_LEVEL "$APP_MODULE"

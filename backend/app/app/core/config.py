@@ -26,8 +26,6 @@ class Settings(BaseSettings):
     API_KEY_EXPIRE_MINUTES: int = 60 * 24 * 90
 
     # BACKEND_CORS_ORIGINS is a JSON-formatted list of origins
-    # e.g: '["http://localhost", "http://localhost:4200", "http://localhost:3000", \
-    # "http://localhost:8080", "http://local.dockertoolbox.tiangolo.com"]'
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = None
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
@@ -96,7 +94,7 @@ class Settings(BaseSettings):
     FILE_STORAGE_FOR_PARSED_RESULTS_SUFFIX: str = "parsed_results"
 
     AWS_SECRET_MANAGER_REGION: Optional[str] = None
-    AWS_SECRET_MANAGER_SECRET_NAME: Optional[str] = None
+    AWS_SECRET_MANAGER_RDS_CREDENTIALS: Optional[str] = None
 
     POSTGRES_SERVER: Optional[str]
     POSTGRES_USER: Optional[str]
@@ -109,10 +107,10 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return v
 
-        if values.get("AWS_SECRET_MANAGER_SECRET_NAME") and values.get("AWS_SECRET_MANAGER_REGION"):
+        if values.get("AWS_SECRET_MANAGER_RDS_CREDENTIALS") and values.get("AWS_SECRET_MANAGER_REGION"):
             return get_database_url_from_aws_secret_manager(
                 values.get("AWS_SECRET_MANAGER_REGION"),
-                values.get("AWS_SECRET_MANAGER_SECRET_NAME"),
+                values.get("AWS_SECRET_MANAGER_RDS_CREDENTIALS"),
             )
 
         if values.get("POSTGRES_SERVER") and values.get("POSTGRES_USER") and values.get("POSTGRES_PASSWORD"):
@@ -126,6 +124,7 @@ class Settings(BaseSettings):
 
         return None
 
+    AWS_SECRET_MANAGER_SMTP_SECRETS: Optional[str] = None
     SMTP_TLS: bool = True
     SMTP_PORT: Optional[int] = None
     SMTP_HOST: Optional[str] = None
@@ -133,6 +132,16 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[EmailStr] = None
     EMAILS_FROM_NAME: Optional[str] = None
+
+    @validator("SMTP_PASSWORD")
+    def get_smtp_pwd(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+        if isinstance(v, str):
+            return v
+        if values.get("AWS_SECRET_MANAGER_SMTP_SECRETS") and values.get("AWS_SECRET_MANAGER_REGION"):
+            secret = get_secret_string_from_aws_secret_manager(
+                values.get("AWS_SECRET_MANAGER_REGION"),
+                values.get("AWS_SECRET_MANAGER_SMTP_SECRETS"))
+            return secret["password"]
 
     @validator("EMAILS_FROM_NAME")
     def get_project_name(cls, v: Optional[str], values: Dict[str, Any]) -> str:
@@ -154,8 +163,8 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: Optional[AnyHttpUrl] = None
 
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
+    FIRST_SUPERUSER: Optional[EmailStr]
+    FIRST_SUPERUSER_PASSWORD: Optional[str]
     USERS_OPEN_REGISTRATION: bool = False
     RETURN_DETAILED_WN_ERROR: bool = True
 
@@ -164,7 +173,7 @@ class Settings(BaseSettings):
         print("env_file is "+env_file)
 
 
-def get_database_url_from_aws_secret_manager(region_name, secret_id) -> Any:
+def get_secret_string_from_aws_secret_manager(region_name, secret_id) -> Any:
     # Create a Secrets Manager client
     session = boto3.session.Session()
     client = session.client(
@@ -180,17 +189,22 @@ def get_database_url_from_aws_secret_manager(region_name, secret_id) -> Any:
         raise e
 
     # Decrypts secret using the associated KMS key.
-    secret = json.loads(get_secret_value_response["SecretString"])
-    if not secret:
-        raise ValueError("Cannot get database values from AWS secret manager")
+    secret_json = json.loads(get_secret_value_response["SecretString"])
+    if not secret_json:
+        raise ValueError(f"Cannot get {secret_id} values from AWS secret manager")
+    return secret_json
+
+
+def get_database_url_from_aws_secret_manager(region_name, secret_id) -> Any:
+    secret_json = get_secret_string_from_aws_secret_manager(region_name, secret_id)
 
     return PostgresDsn.build(
         scheme="postgresql",
-        user=secret["username"],
-        port=str(secret["port"]),
-        password=secret["password"],
-        host=secret["host"],
-        path=f"/{secret['dbname']}",
+        user=secret_json["username"],
+        port=str(secret_json["port"]),
+        password=secret_json["password"],
+        host=secret_json["host"],
+        path=f"/{secret_json['dbname']}",
     )
 
 

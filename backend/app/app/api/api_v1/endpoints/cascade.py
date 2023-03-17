@@ -16,7 +16,7 @@ router = APIRouter()
 
 # Submit a Cascade OpenAPI gateway_request for the current user
 # Note: Only authenticated user with API key
-@router.post("/", response_model=schemas.RequestResult, response_model_exclude_none=True)
+@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True)
 async def process_request(
         *,
         files: List[UploadFile],

@@ -15,8 +15,18 @@ def init_db(db: Session) -> None:
     # the tables un-commenting the next line
     # Base.metadata.create_all(bind=engine)
 
+    if not settings.FIRST_SUPERUSER:
+        raise ValueError(
+            "First superuser not specified, add FIRST_SUPERUSER environment variable to .env file"
+        )
+
     user = crud.user.get_by_email(db, email=settings.FIRST_SUPERUSER)
     if not user:
+        if not settings.FIRST_SUPERUSER_PASSWORD:
+            raise ValueError(
+                "Superuser password not specified, cannot create first superuser, add "
+                "FIRST_SUPERUSER_PASSWORD environment variable to .env file"
+            )
         user_in = schemas.UserCreate(
             email=settings.FIRST_SUPERUSER,
             password=settings.FIRST_SUPERUSER_PASSWORD,
