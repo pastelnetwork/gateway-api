@@ -18,6 +18,11 @@ class Settings(BaseSettings):
                                "<a href=https://docs.pastel.network/introduction/pastel-overview>documentation</a>."
     SERVER_HOST: AnyHttpUrl
 
+    AWS_SECRET_MANAGER_REGION: Optional[str] = None
+    AWS_SECRET_MANAGER_PASTEL_IDS: Optional[str] = None
+    AWS_SECRET_MANAGER_RDS_CREDENTIALS: Optional[str] = None
+    AWS_SECRET_MANAGER_SMTP_SECRETS: Optional[str] = None
+
     API_V1_STR: str = "/api/v1"
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
@@ -51,7 +56,17 @@ class Settings(BaseSettings):
     PASTEL_RPC_PWD: str
 
     PASTEL_ID: str
-    PASSPHRASE: str
+    PASTEL_ID_PASSPHRASE: Optional[str] = None
+
+    @validator("PASTEL_ID_PASSPHRASE", pre=True)
+    def get_pastel_id_passphrase(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+        if isinstance(v, str):
+            return v
+        if values.get("AWS_SECRET_MANAGER_PASTEL_IDS") and values.get("AWS_SECRET_MANAGER_REGION"):
+            secret = get_secret_string_from_aws_secret_manager(
+                values.get("AWS_SECRET_MANAGER_REGION"),
+                values.get("AWS_SECRET_MANAGER_PASTEL_IDS"))
+            return secret[values.get("PASTEL_ID")]
 
     BURN_ADDRESS: str
 
@@ -93,8 +108,6 @@ class Settings(BaseSettings):
     FILE_STORAGE_FOR_RESULTS_SUFFIX: str = "results"
     FILE_STORAGE_FOR_PARSED_RESULTS_SUFFIX: str = "parsed_results"
 
-    AWS_SECRET_MANAGER_REGION: Optional[str] = None
-    AWS_SECRET_MANAGER_RDS_CREDENTIALS: Optional[str] = None
 
     POSTGRES_SERVER: Optional[str]
     POSTGRES_USER: Optional[str]
@@ -124,7 +137,6 @@ class Settings(BaseSettings):
 
         return None
 
-    AWS_SECRET_MANAGER_SMTP_SECRETS: Optional[str] = None
     SMTP_TLS: bool = True
     SMTP_PORT: Optional[int] = None
     SMTP_HOST: Optional[str] = None
@@ -133,7 +145,7 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: Optional[EmailStr] = None
     EMAILS_FROM_NAME: Optional[str] = None
 
-    @validator("SMTP_PASSWORD")
+    @validator("SMTP_PASSWORD", pre=True)
     def get_smtp_pwd(cls, v: Optional[str], values: Dict[str, Any]) -> str:
         if isinstance(v, str):
             return v

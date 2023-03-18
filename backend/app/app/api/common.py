@@ -236,7 +236,7 @@ async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService
                       f'download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
                       {},
                       [],
-                      {'Authorization': settings.PASSPHRASE, },
+                      {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
                       "file", "", True) # This call will not throw!
 
     if not wn_resp:
@@ -428,7 +428,7 @@ async def create_offer_ticket(task_from_db, pastel_id, service: wn.WalletNodeSer
                                         task_from_db.act_ticket_txid,
                                         1,
                                         settings.PASTEL_ID,
-                                        settings.PASSPHRASE,
+                                        settings.PASTEL_ID_PASSPHRASE,
                                         0, 0, 1, "",
                                         pastel_id],
                             )
