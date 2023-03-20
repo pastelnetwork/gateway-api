@@ -124,6 +124,10 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
                     if step['status'] == 'Task Completed':
                         result_registration_status = schemas.Status.SUCCESS
                         break
+                    if step['status'] == 'Request Accepted':
+                        result_registration_status = schemas.Status.PENDING_REG
+                    if step['status'] == 'Request Registered':
+                        result_registration_status = schemas.Status.PENDING_ACT
         except Exception as e:
             logging.error(e)
             result_registration_status = schemas.Status.ERROR \
