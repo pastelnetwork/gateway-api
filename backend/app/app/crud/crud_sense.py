@@ -139,6 +139,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             .filter(
                 sa.or_(
                     Sense.ticket_status == 'ERROR',
+                    Sense.ticket_status == '',
                     Sense.ticket_status.is_(None),
                 )
             )

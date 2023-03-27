@@ -269,6 +269,7 @@ class PastelAPITask(celery.Task):
                     ipfs_link = res["Hash"]
                 except Exception as e:
                     logger.info(f'{service_name}: Error while storing file into IPFS... [Result ID: {result_id}]')
+                    ipfs_link = None
 
                 if ipfs_link:
                     logger.info(f'{service_name}: Updating DB with IPFS link... '

@@ -9,6 +9,7 @@ from celery import shared_task
 import app.utils.pasteld as psl
 from app.core.config import settings
 from app import crud
+from app import schemas
 from app.db.session import db_context
 import app.utils.walletnode as wn
 from app.celery_tasks import cascade, sense
@@ -79,6 +80,7 @@ def _registration_finisher(
 
             for step in wn_task_status:
                 status = step['status']
+                logger.info(f"Task status: {status}")
                 if status == 'Task Rejected':
                     logger.error(f"Task Rejected: wn_task_id - {task_from_db.wn_task_id}, "
                                  f"ResultId - {task_from_db.ticket_id}")
@@ -87,7 +89,6 @@ def _registration_finisher(
                         _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
                                                    get_by_preburn_txid_func)
                     break
-                logger.info(f"Task status: {status}")
                 if not task_from_db.reg_ticket_txid:
                     reg = status.split(f'Validating {service_name} Reg TXID: ', 1)
                     if len(reg) != 2:
@@ -110,6 +111,24 @@ def _registration_finisher(
                         logger.info(f"Found act ticket txid from WalletNode: {act[2]}")
                         _finalize_registration(task_from_db, act[2], update_task_in_db_func)
                         break
+
+            with db_context() as session:
+                if wn_service == wn.WalletNodeService.CASCADE:
+                    log = schemas.CascadeHistoryLog(
+                        wn_file_id=task_from_db.wn_file_id,
+                        wn_task_id=task_from_db.wn_task_id,
+                        task_status=task_from_db.status,
+                        status_messages=wn_task_status,
+                    )
+                    crud.cascade_log.create(session, obj_in=log)
+                elif wn_service == wn.WalletNodeService.SENSE:
+                    log = schemas.SenseHistoryLog(
+                        wn_file_id=task_from_db.wn_file_id,
+                        wn_task_id=task_from_db.wn_task_id,
+                        task_status=task_from_db.status,
+                        status_messages=wn_task_status,
+                    )
+                    crud.sense_log.create(session, obj_in=log)
 
 
 def _finalize_registration(task_from_db, act_txid, update_task_in_db_func):
@@ -187,6 +206,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                     _clear_task_in_db(task_from_db, update_task_in_db_func)
                     # clear_task_in_db sets task's status to RESTART
                     reprocess_func(task_from_db)
+                    continue
                 else:
                     logger.debug(f"Task status is empty, but other data is not empty, "
                                  f"marking as STARTED: {task_from_db.id}")
@@ -195,6 +215,14 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
             if task_from_db.ticket_status == "ERROR":
+                if task_from_db.reg_ticket_txid or task_from_db.act_ticket_txid:
+                    logger.debug(f"Task status is ERROR, but reg_ticket_txid [{task_from_db.reg_ticket_txid}] or "
+                                 f"act_ticket_txid is not empty [{task_from_db.act_ticket_txid}], "
+                                 f"marking as STARTED: {task_from_db.ticket_id}")
+                    upd = {"ticket_status": "STARTED", "updated_at": datetime.utcnow()}
+                    with db_context() as session:
+                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                    continue
                 logger.debug(f"Task status is ERROR, clearing and reprocessing: {task_from_db.ticket_id}")
                 _clear_task_in_db(task_from_db, update_task_in_db_func)
                 # clear_task_in_db sets task's status to RESTART

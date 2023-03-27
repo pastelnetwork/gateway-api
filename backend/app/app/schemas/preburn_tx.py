@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from app.models.preburn_tx import PBTXStatus
 
+
 # Shared properties
 class PreBurnTxBase(BaseModel):
     fee: int

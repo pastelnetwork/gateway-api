@@ -139,6 +139,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             .filter(
                 sa.or_(
                     Cascade.ticket_status == 'ERROR',
+                    Cascade.ticket_status == '',
                     Cascade.ticket_status.is_(None),
                 )
             )
