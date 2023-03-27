@@ -205,7 +205,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                         or not task_from_db.wn_file_id:
                     logger.debug(f"Task status is empty, clearing and reprocessing: {task_from_db.ticket_id}")
                     _clear_task_in_db(task_from_db, update_task_in_db_func)
-                    # clear_task_in_db sets task's status to RESTART
+                    # clear_task_in_db sets task's status to RESTARTED
                     reprocess_func(task_from_db)
                     continue
                 else:
@@ -228,7 +228,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                 logger.debug(f"Task status is {DbStatus.ERROR.value}, "
                              f"clearing and reprocessing: {task_from_db.ticket_id}")
                 _clear_task_in_db(task_from_db, update_task_in_db_func)
-                # clear_task_in_db sets task's status to RESTART
+                # clear_task_in_db sets task's status to RESTARTED
                 reprocess_func(task_from_db)
         except Exception as e:
             traceback.print_exc()
@@ -250,7 +250,7 @@ def _clear_task_in_db(task_from_db, update_task_in_db_func):
         "pastel_id": None,
         "reg_ticket_txid": None,
         "act_ticket_txid": None,
-        "ticket_status": "RESTART",
+        "ticket_status": DbStatus.RESTARTED.value,
         "retry_num": retries,
         "updated_at": datetime.utcnow()
     }

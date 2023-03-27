@@ -294,9 +294,9 @@ class PastelAPITask(celery.Task):
         if not task_from_db:
             raise PastelAPIException(f'{service_name}: No cascade result found for result_id {result_id}')
 
-        if task_from_db.ticket_status != DbStatus.RESTART.value:
+        if task_from_db.ticket_status != DbStatus.RESTARTED.value:
             logger.info(f'{service_name}: re_register_file_task: Wrong task state - "{task_from_db.ticket_status}", '
-                        f'Should be {DbStatus.RESTART.value}'
+                        f'Should be {DbStatus.RESTARTED.value}'
                         f' ... [Result ID: {result_id}]')
             return result_id
 
