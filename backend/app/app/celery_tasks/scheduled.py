@@ -118,7 +118,7 @@ def _registration_finisher(
                     log = schemas.CascadeHistoryLog(
                         wn_file_id=task_from_db.wn_file_id,
                         wn_task_id=task_from_db.wn_task_id,
-                        task_status=task_from_db.status,
+                        task_status=task_from_db.ticket_status,
                         status_messages=wn_task_status,
                     )
                     crud.cascade_log.create(session, obj_in=log)
@@ -126,7 +126,7 @@ def _registration_finisher(
                     log = schemas.SenseHistoryLog(
                         wn_file_id=task_from_db.wn_file_id,
                         wn_task_id=task_from_db.wn_task_id,
-                        task_status=task_from_db.status,
+                        task_status=task_from_db.ticket_status,
                         status_messages=wn_task_status,
                     )
                     crud.sense_log.create(session, obj_in=log)
