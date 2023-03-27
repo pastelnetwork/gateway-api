@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -18,7 +18,7 @@ class HistoryLog(Base):
     wn_file_id = Column(String, index=True)
     wn_task_id = Column(String, index=True)
     task_status = Column(String)
-    status_messages = Column(JSON)
+    status_messages = Column(String)
     retry_number = Column(Integer, default=0)
     pastel_id = Column(String, index=True)
 
