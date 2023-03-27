@@ -1,6 +1,5 @@
 from typing import Optional
 
-from psycopg2.extensions import JSONB
 from pydantic import BaseModel
 
 
