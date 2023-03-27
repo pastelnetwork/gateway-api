@@ -121,7 +121,7 @@ def _registration_finisher(
                             wn_task_id=task_from_db.wn_task_id,
                             task_status=task_from_db.ticket_status,
                             status_messages=wn_task_status,
-                            retry_count=task_from_db.retry_count,
+                            retry_count=task_from_db.retry_num,
                             pastel_id=task_from_db.pastel_id,
                             cascade_task_id=task_from_db.id,
                         )
@@ -132,7 +132,7 @@ def _registration_finisher(
                             wn_task_id=task_from_db.wn_task_id,
                             task_status=task_from_db.ticket_status,
                             status_messages=wn_task_status,
-                            retry_count=task_from_db.retry_count,
+                            retry_count=task_from_db.retry_num,
                             pastel_id=task_from_db.pastel_id,
                             sense_task_id=task_from_db.id,
                         )
