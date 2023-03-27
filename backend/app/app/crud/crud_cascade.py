@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from app.crud.base import CRUDBase
 from app.models.cascade import Cascade
 from app.schemas.cascade import CascadeCreate, CascadeUpdate
+from app.core.status import DbStatus
 
 
 class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
@@ -119,7 +120,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             db.query(self.model)
             .filter(
                 sa.and_(
-                    Cascade.ticket_status == 'STARTED',
+                    Cascade.ticket_status == DbStatus.STARTED.value,
                     sa.or_(
                         Cascade.reg_ticket_txid.is_(None),
                         Cascade.act_ticket_txid.is_(None),
@@ -138,7 +139,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             db.query(self.model)
             .filter(
                 sa.or_(
-                    Cascade.ticket_status == 'ERROR',
+                    Cascade.ticket_status == DbStatus.ERROR.value,
                     Cascade.ticket_status == '',
                     Cascade.ticket_status.is_(None),
                 )

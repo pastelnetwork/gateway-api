@@ -8,6 +8,7 @@ from celery import shared_task
 
 import app.utils.pasteld as psl
 from app.core.config import settings
+from app.core.status import DbStatus
 from app import crud
 from app import schemas
 from app.db.session import db_context
@@ -136,7 +137,7 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func):
     ipfs_link = task_from_db.ipfs_link
     upd = {
         "act_ticket_txid": act_txid,
-        "ticket_status": "DONE",
+        "ticket_status": DbStatus.DONE.value,
         "ipfs_link": "",
         "updated_at": datetime.utcnow()
     }
@@ -156,7 +157,7 @@ def _mark_task_in_db_as_failed(session,
                                update_task_in_db_func,
                                get_by_preburn_txid_func):
     logger.info(f"Marking task as failed: {task_from_db.id}")
-    upd = {"ticket_status": "ERROR", "updated_at": datetime.utcnow()}
+    upd = {"ticket_status": DbStatus.ERROR.value, "updated_at": datetime.utcnow()}
     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
     t = get_by_preburn_txid_func(session, txid=task_from_db.burn_txid)
     if not t:
@@ -191,7 +192,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
         try:
             if task_from_db.retry_num and task_from_db.retry_num > 10:
                 logger.error(f"Result {task_from_db.ticket_id} failed 10 times, marking as DEAD")
-                upd = {"ticket_status": "DEAD", "updated_at": datetime.utcnow()}
+                upd = {"ticket_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
                 with db_context() as session:
                     crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
@@ -209,21 +210,23 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                     continue
                 else:
                     logger.debug(f"Task status is empty, but other data is not empty, "
-                                 f"marking as STARTED: {task_from_db.id}")
-                    upd = {"ticket_status": "STARTED", "updated_at": datetime.utcnow()}
+                                 f"marking as {DbStatus.STARTED.value}: {task_from_db.id}")
+                    upd = {"ticket_status": DbStatus.STARTED.value, "updated_at": datetime.utcnow()}
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
-            if task_from_db.ticket_status == "ERROR":
+            if task_from_db.ticket_status == DbStatus.ERROR.value:
                 if task_from_db.reg_ticket_txid or task_from_db.act_ticket_txid:
-                    logger.debug(f"Task status is ERROR, but reg_ticket_txid [{task_from_db.reg_ticket_txid}] or "
+                    logger.debug(f"Task status is {DbStatus.ERROR.value}, "
+                                 f"but reg_ticket_txid [{task_from_db.reg_ticket_txid}] or "
                                  f"act_ticket_txid is not empty [{task_from_db.act_ticket_txid}], "
-                                 f"marking as STARTED: {task_from_db.ticket_id}")
-                    upd = {"ticket_status": "STARTED", "updated_at": datetime.utcnow()}
+                                 f"marking as {DbStatus.REGISTERED.value}: {task_from_db.ticket_id}")
+                    upd = {"ticket_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                     continue
-                logger.debug(f"Task status is ERROR, clearing and reprocessing: {task_from_db.ticket_id}")
+                logger.debug(f"Task status is {DbStatus.ERROR.value}, "
+                             f"clearing and reprocessing: {task_from_db.ticket_id}")
                 _clear_task_in_db(task_from_db, update_task_in_db_func)
                 # clear_task_in_db sets task's status to RESTART
                 reprocess_func(task_from_db)

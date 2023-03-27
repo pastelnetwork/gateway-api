@@ -11,6 +11,7 @@ from app import crud
 from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
+from app.core.status import DbStatus
 
 logger = get_task_logger(__name__)
 
@@ -45,7 +46,7 @@ class PastelAPITask(celery.Task):
         logger.error(f'Error in task: {args}')
         result_id = PastelAPITask.get_result_id_from_args(args)
         PastelAPITask.update_task_in_db_status_func(result_id,
-                                                    "ERROR",
+                                                    DbStatus.ERROR.value,
                                                     get_task_from_db_by_task_id_func,
                                                     update_task_in_db_func)
 
@@ -66,7 +67,7 @@ class PastelAPITask(celery.Task):
         with db_context() as session:
             task_in_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
-        if task_in_db and task_in_db.ticket_status != 'NEW':
+        if task_in_db and task_in_db.ticket_status != DbStatus.NEW.value:
             logger.info(f'{service_name}: Task is already in the DB. Status is {task_in_db.ticket_status}... '
                         f'[Result ID: {result_id}]')
             return result_id
@@ -83,7 +84,7 @@ class PastelAPITask(celery.Task):
                     original_file_local_path=local_file.path,
                     work_id=request_id,
                     ticket_id=result_id,
-                    ticket_status='NEW',
+                    ticket_status=DbStatus.NEW.value,
                     wn_file_id=wn_file_id,
                     wn_fee=fee,
                     height=height,
@@ -118,7 +119,7 @@ class PastelAPITask(celery.Task):
         logger.info(f'{service_name}: File was registered with WalletNode with\n:'
                     f'\twn_file_id = {wn_file_id} and fee = {fee}. [Result ID: {result_id}]')
         upd = {
-            "ticket_status": 'UPLOADED',
+            "ticket_status": DbStatus.UPLOADED.value,
             "wn_file_id": wn_file_id,
             "wn_fee": fee,
         }
@@ -141,9 +142,9 @@ class PastelAPITask(celery.Task):
         if not task_from_db:
             raise PastelAPIException(f'{service_name}: No task found for result_id {result_id}')
 
-        if task_from_db.ticket_status != 'UPLOADED':
+        if task_from_db.ticket_status != DbStatus.UPLOADED.value:
             logger.info(f'{service_name}: preburn_fee_task: Wrong task state - "{task_from_db.ticket_status}", '
-                        f'Should be "UPLOADED"'
+                        f'Should be {DbStatus.UPLOADED.value}'
                         f' ... [Result ID: {result_id}]')
             return result_id
 
@@ -183,7 +184,7 @@ class PastelAPITask(celery.Task):
             logger.info(f'{service_name}: Have burn tx [{burn_tx.txid}], for the task [Result ID: {result_id}]')
             upd = {
                 "burn_txid": burn_tx.txid,
-                "ticket_status": 'PREBURN_FEE',
+                "ticket_status": DbStatus.PREBURN_FEE.value,
                 "updated_at": datetime.utcnow(),
             }
             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
@@ -211,9 +212,9 @@ class PastelAPITask(celery.Task):
         if not task_from_db.wn_file_id:
             raise PastelAPIException(f'{service_name}: Wrong WN file ID for result_id {result_id}')
 
-        if task_from_db.ticket_status != 'PREBURN_FEE':
+        if task_from_db.ticket_status != DbStatus.PREBURN_FEE.value:
             logger.info(f'{service_name}: process_task: Wrong task state - "{task_from_db.ticket_status}", '
-                        f'Should be "PREBURN_FEE"'
+                        f'Should be {DbStatus.PREBURN_FEE.value}'
                         f' ... [Result ID: {result_id}]')
             return result_id
 
@@ -248,7 +249,7 @@ class PastelAPITask(celery.Task):
             upd = {
                 "wn_task_id": wn_task_id,
                 "pastel_id": settings.PASTEL_ID,
-                "ticket_status": 'STARTED',
+                "ticket_status": DbStatus.STARTED.value,
                 "updated_at": datetime.utcnow(),
             }
             with db_context() as session:
@@ -293,9 +294,9 @@ class PastelAPITask(celery.Task):
         if not task_from_db:
             raise PastelAPIException(f'{service_name}: No cascade result found for result_id {result_id}')
 
-        if task_from_db.ticket_status != 'RESTART':
+        if task_from_db.ticket_status != DbStatus.RESTART.value:
             logger.info(f'{service_name}: re_register_file_task: Wrong task state - "{task_from_db.ticket_status}", '
-                        f'Should be "RESTART"'
+                        f'Should be {DbStatus.RESTART.value}'
                         f' ... [Result ID: {result_id}]')
             return result_id
 
@@ -339,7 +340,7 @@ class PastelAPITask(celery.Task):
             upd = {
                 "wn_file_id": wn_file_id,
                 "wn_fee": fee,
-                "ticket_status": 'UPLOADED',
+                "ticket_status": DbStatus.UPLOADED.value,
                 "updated_at": datetime.utcnow(),
             }
             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)

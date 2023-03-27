@@ -19,23 +19,10 @@ from fastapi.responses import StreamingResponse
 from app.utils.filestorage import LocalFile
 from app import schemas, crud
 from app.core.config import settings
+from app.core.status import DbStatus
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 
-# Life cycle of a request:
-#   ticket_status in DB can be one of the following:
-#       NEW - just created record in DB
-#       UPLOADED - file uploaded to WN, and WN returned file_id/image_id
-#       PREBURN_FEE - pre-burnt fee either found in the preburn table or new one was sent and all confirmed
-#       STARTED - task started by WN, and WN returned task_id
-#       DONE - both registration and activation txid are received
-#       ERROR - something whent wrong, will try to re-process
-#       RESTARTED - task is scheduled to be reprocessed
-#       DEAD - 10 re-processing attempts failed, will not try to re-process
-#
-# NEW -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
-# ERROR -> RESTARTED -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
-# ERROR -> ... -> ERROR 10 times -> DEAD
 
 async def process_request(
         *,
@@ -96,13 +83,14 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
 
     result_registration_status = schemas.Status.UNKNOWN
     if task_from_db.ticket_status:
-        if task_from_db.ticket_status in ['NEW', 'UPLOADED', 'PREBURN_FEE', 'STARTED']:
+        if task_from_db.ticket_status in [DbStatus.NEW.value, DbStatus.UPLOADED.value,
+                                          DbStatus.PREBURN_FEE.value, DbStatus.STARTED.value]:
             result_registration_status = schemas.Status.PENDING
-        if task_from_db.ticket_status in ['ERROR', 'RESTARTED']:
+        if task_from_db.ticket_status in [DbStatus.ERROR.value, DbStatus.RESTARTED.value]:
             result_registration_status = schemas.Status.PENDING
-        elif task_from_db.ticket_status == 'DONE':
+        elif task_from_db.ticket_status == DbStatus.DONE.value:
             result_registration_status = schemas.Status.SUCCESS
-        elif task_from_db.ticket_status == 'DEAD':
+        elif task_from_db.ticket_status == DbStatus.DEAD.value:
             result_registration_status = schemas.Status.FAILED
 
     wn_task_status = ''
@@ -294,7 +282,8 @@ async def add_local_file_into_ipfs(*, reg_ticket_txid) -> str:
 
 async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func) -> bytes:
 
-    if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in ['DONE', 'SUCCESS']:
+    if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in [DbStatus.DONE.value,
+                                                                                    DbStatus.SUCCESS.value]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
     file_bytes = None
@@ -314,7 +303,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
         except Exception as e:
             logging.error(f"File not found in the IPFS - {e}")
 
-    if not file_bytes and task_from_db.ticket_status in ['DONE', 'SUCCESS']:
+    if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value, DbStatus.SUCCESS.value]:
         file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
 
     if not file_bytes:

@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from app.crud.base import CRUDBase
 from app.models.sense import Sense
 from app.schemas.sense import SenseCreate, SenseUpdate
+from app.core.status import DbStatus
 
 
 class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
@@ -119,7 +120,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             db.query(self.model)
             .filter(
                 sa.and_(
-                    Sense.ticket_status == 'STARTED',
+                    Sense.ticket_status == DbStatus.STARTED.value,
                     sa.or_(
                         Sense.reg_ticket_txid.is_(None),
                         Sense.act_ticket_txid.is_(None),
@@ -138,7 +139,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             db.query(self.model)
             .filter(
                 sa.or_(
-                    Sense.ticket_status == 'ERROR',
+                    Sense.ticket_status == DbStatus.ERROR.value,
                     Sense.ticket_status == '',
                     Sense.ticket_status.is_(None),
                 )
