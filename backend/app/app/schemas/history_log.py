@@ -1,4 +1,6 @@
 from typing import Optional
+
+from psycopg2.extensions import JSONB
 from pydantic import BaseModel
 
 
@@ -7,7 +9,7 @@ class HistoryLogBase(BaseModel):
     wn_file_id: Optional[str] = None
     wn_task_id: Optional[str] = None
     task_status: Optional[str] = None
-    status_messages: str
+    status_messages: JSONB = []
     retry_number: Optional[int]
     pastel_id: Optional[str] = None
 
