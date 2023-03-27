@@ -113,23 +113,30 @@ def _registration_finisher(
                         _finalize_registration(task_from_db, act[2], update_task_in_db_func)
                         break
 
-            with db_context() as session:
-                if wn_service == wn.WalletNodeService.CASCADE:
-                    log = schemas.CascadeHistoryLog(
-                        wn_file_id=task_from_db.wn_file_id,
-                        wn_task_id=task_from_db.wn_task_id,
-                        task_status=task_from_db.ticket_status,
-                        status_messages=wn_task_status,
-                    )
-                    crud.cascade_log.create(session, obj_in=log)
-                elif wn_service == wn.WalletNodeService.SENSE:
-                    log = schemas.SenseHistoryLog(
-                        wn_file_id=task_from_db.wn_file_id,
-                        wn_task_id=task_from_db.wn_task_id,
-                        task_status=task_from_db.ticket_status,
-                        status_messages=wn_task_status,
-                    )
-                    crud.sense_log.create(session, obj_in=log)
+            if wn_task_status:
+                with db_context() as session:
+                    if wn_service == wn.WalletNodeService.CASCADE:
+                        log = schemas.CascadeHistoryLog(
+                            wn_file_id=task_from_db.wn_file_id,
+                            wn_task_id=task_from_db.wn_task_id,
+                            task_status=task_from_db.ticket_status,
+                            status_messages=wn_task_status,
+                            retry_count=task_from_db.retry_count,
+                            pastel_id=task_from_db.pastel_id,
+                            cascade_task_id=task_from_db.id,
+                        )
+                        crud.cascade_log.create(session, obj_in=log)
+                    elif wn_service == wn.WalletNodeService.SENSE:
+                        log = schemas.SenseHistoryLog(
+                            wn_file_id=task_from_db.wn_file_id,
+                            wn_task_id=task_from_db.wn_task_id,
+                            task_status=task_from_db.ticket_status,
+                            status_messages=wn_task_status,
+                            retry_count=task_from_db.retry_count,
+                            pastel_id=task_from_db.pastel_id,
+                            sense_task_id=task_from_db.id,
+                        )
+                        crud.sense_log.create(session, obj_in=log)
 
 
 def _finalize_registration(task_from_db, act_txid, update_task_in_db_func):

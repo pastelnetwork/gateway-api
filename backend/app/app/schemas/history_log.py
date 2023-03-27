@@ -4,11 +4,11 @@ from pydantic import BaseModel
 
 # Shared properties
 class HistoryLogBase(BaseModel):
-    wn_file_id: str
+    wn_file_id: Optional[str] = None
     wn_task_id: Optional[str] = None
-    task_status: str
+    task_status: Optional[str] = None
     status_messages: str
-    retry_number: int
+    retry_number: Optional[int]
     pastel_id: Optional[str] = None
 
 
@@ -26,7 +26,6 @@ class CascadeHistoryLogUpdate(CascadeHistoryLogBase):
 
 # Properties shared by models stored in DB
 class CascadeHistoryLogInDBBase(CascadeHistoryLogBase):
-    id: int
 
     class Config:
         orm_mode = True
