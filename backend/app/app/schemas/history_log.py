@@ -27,7 +27,6 @@ class CascadeHistoryLogUpdate(CascadeHistoryLogBase):
 
 # Properties shared by models stored in DB
 class CascadeHistoryLogInDBBase(CascadeHistoryLogBase):
-
     class Config:
         orm_mode = True
 
@@ -56,8 +55,6 @@ class SenseHistoryLogUpdate(SenseHistoryLogBase):
 
 # Properties shared by models stored in DB
 class SenseHistoryLogInDBBase(SenseHistoryLogBase):
-    id: int
-
     class Config:
         orm_mode = True
 
