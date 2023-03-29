@@ -15,6 +15,7 @@ from app.db.session import db_context
 import app.utils.walletnode as wn
 from app.celery_tasks import cascade, sense
 from app.celery_tasks.task_lock import task_lock
+from app.models.preburn_tx import PBTXStatus
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,15 @@ def _registration_finisher(
                 if status == 'Task Rejected':
                     logger.error(f"Task Rejected: wn_task_id - {task_from_db.wn_task_id}, "
                                  f"ResultId - {task_from_db.ticket_id}")
+                    if 'details' in step and step['details']:
+                        if 'fields' in step['details'] and step['details']['fields']:
+                            if 'error_detail' in step['details']['fields'] and step['details']['fields']['error_detail']:
+                                if 'duplicate burnTXID' in step['details']['fields']['error_detail']:
+                                    logger.error(f"Task Rejected because of duplicate burnTXID: "
+                                                 f"wn_task_id - {task_from_db.wn_task_id}, "
+                                                 f"ResultId - {task_from_db.ticket_id}")
+                                    with db_context() as session:
+                                        crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
                     # mark result as failed, and requires reprocessing
                     with db_context() as session:
                         _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
@@ -289,24 +299,34 @@ def _start_reprocess_sense(task_from_db):
 def fee_pre_burner():
     logger.info(f"fee_pre_burner task started")
     logger.info(f"first: release non used")
-    # with db_context() as session:
-    # all_used = crud.preburn_tx.get_all_used(session)
-    # for used in all_used:
-    #     if used.status != crud.preburn_tx.PBTXStatus.USED:
-    #         continue
-    #     tx = psl.call("tickets", ["find", "nft", used.txid])
-    #     if tx and isinstance(tx, dict):
-    #         continue
-    #     tx = psl.call("tickets", ["find", "action", used.txid])
-    #     if tx and isinstance(tx, dict):
-    #         continue
-    #     from_cascade = crud.cascade.get_by_preburn_txid(used.txid)
-    #     if from_cascade and from_cascade.ticket_status != 'DEAD':
-    #         continue
-    #     from_sense = crud.sense.get_by_preburn_txid(used.txid)
-    #     if from_sense and from_sense.ticket_status != 'DEAD':
-    #         continue
-    #     crud.preburn_tx.mark_non_used(session, used.txid)
+    with db_context() as session:
+        all_used = crud.preburn_tx.get_all_used(session)
+        for used in all_used:
+            if used.status != PBTXStatus.USED:
+                continue
+            tx = psl.call("tickets", ["find", "nft", used.txid])
+            if tx and (isinstance(tx, dict) or isinstance(tx, list)):
+                continue
+            tx = psl.call("tickets", ["find", "action", used.txid])
+            if tx and (isinstance(tx, dict) or isinstance(tx, list)):
+                continue
+            from_cascade = crud.cascade.get_by_preburn_txid(session, txid=used.txid)
+            if from_cascade and from_cascade.ticket_status != 'DEAD':
+                continue
+            from_sense = crud.sense.get_by_preburn_txid(session, txid=used.txid)
+            if from_sense and from_sense.ticket_status != 'DEAD':
+                continue
+            crud.preburn_tx.mark_non_used(session, used.txid)
+
+    with db_context() as session:
+        all_new = crud.preburn_tx.get_all_new(session)
+        for new in all_new:
+            tx = psl.call("tickets", ["find", "nft", new.txid])
+            if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+                tx = psl.call("tickets", ["find", "action", new.txid])
+                if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+                    continue
+            crud.preburn_tx.mark_used(session, new.txid)
 
     with db_context() as session:
         fees = []

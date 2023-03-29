@@ -102,5 +102,8 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
     def get_all_used(self, db: Session) -> list[PreBurnTx]:
         return db.query(self.model).filter(PreBurnTx.status == PBTXStatus.USED).all()
 
+    def get_all_new(self, db: Session) -> list[PreBurnTx]:
+        return db.query(self.model).filter(PreBurnTx.status == PBTXStatus.NEW).all()
+
 
 preburn_tx = CRUDPreBurnTx(PreBurnTx)
