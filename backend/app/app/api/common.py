@@ -284,8 +284,7 @@ async def add_local_file_into_ipfs(*, reg_ticket_txid) -> str:
 
 async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func) -> bytes:
 
-    if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in [DbStatus.DONE.value,
-                                                                                    DbStatus.SUCCESS.value]:
+    if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in [DbStatus.DONE.value]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
     file_bytes = None
@@ -305,7 +304,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
         except Exception as e:
             logging.error(f"File not found in the IPFS - {e}")
 
-    if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value, DbStatus.DONE.value]:
+    if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value]:
         file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
 
     if not file_bytes:
