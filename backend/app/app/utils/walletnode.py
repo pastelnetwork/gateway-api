@@ -1,3 +1,6 @@
+import base64
+import logging
+
 import requests
 from enum import Enum
 
@@ -51,3 +54,27 @@ class WalletnodeException(Exception):
     def __init__(self, message="Call to walletnode failed"):
         self.message = message
         super().__init__(self.message)
+
+
+async def get_file_from_pastel(*, reg_ticket_txid, wn_service: WalletNodeService):
+    file_bytes = None
+    wn_resp = call(False,
+                   wn_service,
+                   f'download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
+                   {},
+                   [],
+                   {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
+                   "file", "", True)    # This call will not throw!
+
+    if not wn_resp:
+        logging.error(f"Pastel file not found - reg ticket txid = {reg_ticket_txid}")
+    elif not isinstance(wn_resp, requests.models.Response):
+        try:
+            file_bytes = base64.b64decode(wn_resp)
+        except Exception as e:
+            logging.error(f"Exception while decoding pastel file {e} - reg ticket txid = {reg_ticket_txid}")
+        if not file_bytes:
+            logging.error(f"Pastel file is incorrect - reg ticket txid = {reg_ticket_txid}")
+    else:
+        logging.error(wn_resp.text)
+    return file_bytes

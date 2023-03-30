@@ -2,26 +2,25 @@ import asyncio
 import json
 import zipfile
 import io
-import os
 import uuid
 import base64
 import logging
 from typing import List
 from datetime import datetime
 
-import requests
 import zstd as zstd
 
 from fastapi import UploadFile, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from app.utils.filestorage import LocalFile
+from app.utils.filestorage import LocalFile, store_file_into_local_cache, search_file_in_local_cache
 from app import schemas, crud
 from app.core.config import settings
 from app.core.status import DbStatus
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import add_file_to_ipfs, read_file_from_ipfs
+import app.utils.walletnode
 
 
 async def process_request(
@@ -223,54 +222,6 @@ async def process_websocket_for_result(websocket, tasks_from_db, service: wn.Wal
         await asyncio.sleep(150)  # 2.5 minutes
 
 
-async def get_file_from_pastel(*, reg_ticket_txid, service: wn.WalletNodeService, throw: bool = True):
-    file_bytes = None
-    wn_resp = wn.call(False,
-                      service,
-                      f'download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
-                      {},
-                      [],
-                      {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
-                      "file", "", True) # This call will not throw!
-
-    if not wn_resp:
-        if service == wn.WalletNodeService.SENSE and throw:
-            logging.error(f"WalletNode [download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}] returns empty result")
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pastel file not found")
-    elif not isinstance(wn_resp, requests.models.Response):
-        file_bytes = base64.b64decode(wn_resp)
-        if not file_bytes:
-            logging.error(f"Failed to base64 decode file returned by "
-                          f"[download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}]=")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Pastel file's incorrect")
-    else:
-        logging.error(wn_resp.text)
-    return file_bytes
-
-
-async def search_file_in_local_cache(*, reg_ticket_txid) -> bytes:
-    cached_result_file = \
-        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
-    try:
-        with open(cached_result_file, 'rb') as f:
-            return f.read()
-    except Exception as e:
-        logging.error(f"File not found in the local storage - {e}")
-
-
-async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes):
-    cached_result_file = \
-        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
-    try:
-        if not os.path.exists(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}"):
-            os.makedirs(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}")
-
-        with open(cached_result_file, 'wb') as f:
-            f.write(file_bytes)
-    except Exception as e:
-        logging.error(f"File not saved in the local storage - {e}")
-
-
 async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func) -> bytes:
 
     if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in [DbStatus.DONE.value]:
@@ -290,7 +241,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
         file_bytes = await read_file_from_ipfs(task_from_db.stored_file_ipfs_link)
 
     if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value]:
-        file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
+        file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, wn_service=service)
 
     if not file_bytes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
@@ -316,7 +267,7 @@ async def search_pastel_file(*, reg_ticket_txid: str, service: wn.WalletNodeServ
     not_locally_cached = not file_bytes
 
     if not file_bytes:
-        file_bytes = await get_file_from_pastel(reg_ticket_txid=reg_ticket_txid, service=service, throw=throw)
+        file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=reg_ticket_txid, wn_service=service)
 
     if not file_bytes and throw:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")

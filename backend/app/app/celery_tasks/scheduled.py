@@ -15,6 +15,8 @@ import app.utils.walletnode as wn
 from app.celery_tasks import cascade, sense
 from app.celery_tasks.task_lock import task_lock
 from app.models.preburn_tx import PBTXStatus
+from app.utils.filestorage import store_file_into_local_cache
+from app.utils.ipfs_tools import add_file_to_ipfs
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +118,12 @@ def _registration_finisher(
                         act_ticket = psl.call("tickets", ['find', 'action-act', task_from_db.reg_ticket_txid])
                         if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                             logger.info(f"Found act ticket txid from Pastel network: {act_ticket['txid']}")
-                            _finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func)
+                            _finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
                             break
                     act = status.split(f'Activated {service_name} Action Ticket TXID: ', 1)
                     if len(act) == 2:
                         logger.info(f"Found act ticket txid from WalletNode: {act[2]}")
-                        _finalize_registration(task_from_db, act[2], update_task_in_db_func)
+                        _finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
                         break
 
 
@@ -152,16 +154,33 @@ def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
                 crud.sense_log.create(session, obj_in=log)
 
 
-def _finalize_registration(task_from_db, act_txid, update_task_in_db_func):
+def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):
     logger.info(f"Finalizing registration: {task_from_db.id}")
+
+    stored_file_ipfs_link = task_from_db.stored_file_ipfs_link
+    try:
+        file_bytes = asyncio.run(wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                         wn_service=wn_service))
+        if file_bytes:
+            asyncio.run(
+                store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, file_bytes=file_bytes))
+        if not task_from_db.stored_file_ipfs_link:
+            cached_result_file = \
+                f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.reg_ticket_txid}"
+            stored_file_ipfs_link = asyncio.run(add_file_to_ipfs(cached_result_file))
+    except Exception as e:
+        logger.error(f"Failed to get file from Pastel: {e}")
+
     upd = {
         "act_ticket_txid": act_txid,
         "ticket_status": DbStatus.DONE.value,
+        "stored_file_ipfs_link": stored_file_ipfs_link,
         "updated_at": datetime.utcnow()
     }
     with db_context() as session:
         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+
 
 
 def _mark_task_in_db_as_failed(session,

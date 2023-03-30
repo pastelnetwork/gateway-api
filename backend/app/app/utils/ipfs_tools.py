@@ -40,6 +40,7 @@ async def read_file_from_ipfs(ipfs_link):
         file_bytes = ipfs_client.cat(ipfs_link)
     except Exception as e:
         logging.error(f"File not found in the IPFS - {e}")
+        file_bytes = None
     return file_bytes
 
 

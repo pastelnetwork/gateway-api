@@ -1,3 +1,4 @@
+import logging
 import os
 import pathlib
 
@@ -23,3 +24,25 @@ class LocalFile:
     def read(self):
         return open(self.path, 'rb')
 
+
+async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes):
+    cached_result_file = \
+        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
+    try:
+        if not os.path.exists(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}"):
+            os.makedirs(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}")
+
+        with open(cached_result_file, 'wb') as f:
+            f.write(file_bytes)
+    except Exception as e:
+        logging.error(f"File not saved in the local storage - {e}")
+
+
+async def search_file_in_local_cache(*, reg_ticket_txid) -> bytes:
+    cached_result_file = \
+        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
+    try:
+        with open(cached_result_file, 'rb') as f:
+            return f.read()
+    except Exception as e:
+        logging.error(f"File not found in the local storage - {e}")
