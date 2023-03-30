@@ -10,7 +10,6 @@ from typing import List
 from datetime import datetime
 
 import requests
-import ipfshttpclient
 import zstd as zstd
 
 from fastapi import UploadFile, HTTPException, status
@@ -22,6 +21,7 @@ from app.core.config import settings
 from app.core.status import DbStatus
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
+from app.utils.ipfs_tools import add_file_to_ipfs, read_file_from_ipfs
 
 
 async def process_request(
@@ -271,17 +271,6 @@ async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes):
         logging.error(f"File not saved in the local storage - {e}")
 
 
-async def add_local_file_into_ipfs(*, reg_ticket_txid) -> str:
-    cached_result_file = \
-        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
-    try:
-        ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-        res = ipfs_client.add(cached_result_file)
-        return res["Hash"]
-    except Exception as e:
-        logging.error(f"File not saved in the IPFS - {e}")
-
-
 async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func) -> bytes:
 
     if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in [DbStatus.DONE.value]:
@@ -298,11 +287,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
     not_locally_cached = not file_bytes
 
     if not file_bytes and task_from_db.stored_file_ipfs_link:
-        try:
-            ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-            file_bytes = ipfs_client.cat(task_from_db.stored_file_ipfs_link)
-        except Exception as e:
-            logging.error(f"File not found in the IPFS - {e}")
+        file_bytes = await read_file_from_ipfs(task_from_db.stored_file_ipfs_link)
 
     if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value]:
         file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
@@ -315,7 +300,9 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
         await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, file_bytes=file_bytes)
 
     if not task_from_db.stored_file_ipfs_link:
-        stored_file_ipfs_link = await add_local_file_into_ipfs(reg_ticket_txid=task_from_db.reg_ticket_txid)
+        cached_result_file = \
+            f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.reg_ticket_txid}"
+        stored_file_ipfs_link = await add_file_to_ipfs(cached_result_file)
         if stored_file_ipfs_link:
             upd = {"stored_file_ipfs_link": stored_file_ipfs_link, "updated_at": datetime.utcnow()}
             update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)

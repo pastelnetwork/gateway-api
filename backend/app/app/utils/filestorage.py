@@ -2,7 +2,6 @@ import os
 import pathlib
 
 import aiofiles
-import uuid
 
 from app.core.config import settings
 

@@ -1,8 +1,7 @@
+import asyncio
 import json
 from datetime import datetime
-from pathlib import Path
 
-import ipfshttpclient as ipfshttpclient
 from celery.result import AsyncResult
 import celery
 from celery.utils.log import get_task_logger
@@ -12,6 +11,7 @@ from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
 from app.core.status import DbStatus
+from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, add_file_to_ipfs
 
 logger = get_task_logger(__name__)
 
@@ -264,13 +264,7 @@ class PastelAPITask(celery.Task):
 
                 logger.info(f'{service_name}: Storing file into IPFS... [Result ID: {result_id}]')
 
-                try:
-                    ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                    res = ipfs_client.add(task_from_db.original_file_local_path)
-                    original_file_ipfs_link = res["Hash"]
-                except Exception as e:
-                    logger.info(f'{service_name}: Error while storing file into IPFS... [Result ID: {result_id}]')
-                    original_file_ipfs_link = None
+                original_file_ipfs_link = asyncio.run(add_file_to_ipfs(task_from_db.original_file_local_path))
 
                 if original_file_ipfs_link:
                     logger.info(f'{service_name}: Updating DB with IPFS link... '
@@ -302,23 +296,8 @@ class PastelAPITask(celery.Task):
 
         logger.info(f'{service_name}: New File - calling WN... [Result ID: {result_id}]')
 
-        path = Path(task_from_db.original_file_local_path)
-        if not path.is_file():
-            if task_from_db.original_file_ipfs_link:
-                try:
-                    logger.info(f'{service_name}: File not found locally, downloading from IPFS... '
-                                f'[Result ID: {result_id}]')
-                    ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                    ipfs_client.get(task_from_db.original_file_ipfs_link, path.parent)
-                except Exception as e:
-                    raise PastelAPIException(f'{service_name}: File not found locally and nor in IPFS: {e}')
-                new_path = path.parent / task_from_db.original_file_ipfs_link
-                new_path.rename(path)
-            else:
-                raise PastelAPIException(f'{service_name}: File not found locally and no IPFS link for '
-                                         f'result_id {result_id}')
-
-        data = open(path, 'rb')
+        data = asyncio.run(search_file_locally_or_in_ipfs(task_from_db.original_file_local_path,
+                                                          task_from_db.original_file_ipfs_link))
 
         id_field_name = "image_id" if service == wn.WalletNodeService.SENSE else "file_id"
         try:
@@ -378,7 +357,7 @@ def get_celery_task_info(celery_task_id):
     return result
 
 
-# Exception for Cascade tasks
+# Exception for Cascade and Sense tasks
 class PastelAPIException(Exception):
     def __init__(self, message):
         self.message = message or "PastelAPIException"

@@ -10,6 +10,7 @@ import app.db.session as session
 from app.api import deps, common
 from app import models, crud, schemas
 import app.utils.walletnode as wn
+from app.utils.ipfs_tools import search_file_locally_or_in_ipfs
 
 router = APIRouter()
 
@@ -221,6 +222,29 @@ async def get_public_stored_file_by_registration_ticket(
                                                  service=wn.WalletNodeService.CASCADE)
     return await common.stream_file(file_bytes=file_bytes,
                                     original_file_name=f"{shadow_ticket.file_name}")
+
+
+# Get the ORIGINAL uploaded from the corresponding gateway_result_id
+# Note: Only authenticated user with API key
+@router.get("/originally_submitted_file/{gateway_result_id}")
+async def get_originally_submitted_file_by_result_id(
+        *,
+        gateway_result_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+    if not task_from_db:
+        raise HTTPException(status_code=404, detail="gateway_result not found")
+    try:
+        file_bytes = await search_file_locally_or_in_ipfs(task_from_db.original_file_local_path,
+                                                          task_from_db.original_file_ipfs_link)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return await common.stream_file(file_bytes=file_bytes.read(),
+                                    original_file_name=f"{task_from_db.original_file_name}")
 
 
 # Get ALL Pastel cascade registration tickets from the blockchain corresponding to a particular gateway_request_id.

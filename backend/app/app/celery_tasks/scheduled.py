@@ -3,7 +3,6 @@ import logging
 import traceback
 from datetime import datetime
 
-import ipfshttpclient
 from celery import shared_task
 
 import app.utils.pasteld as psl
