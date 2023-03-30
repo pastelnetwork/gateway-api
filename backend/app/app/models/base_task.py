@@ -17,9 +17,10 @@ class BaseTask(Base):
     original_file_name = Column(String)
     original_file_content_type = Column(String)
     original_file_local_path = Column(String)
-    ipfs_link = Column(String)
-    aws_link = Column(String)
-    other_links = Column(JSONB)
+    original_file_ipfs_link = Column(String)
+    stored_file_ipfs_link = Column(String)
+    stored_file_aws_link = Column(String)
+    stored_file_other_links = Column(JSONB)
 
     work_id = Column(String, index=True)
     ticket_id = Column(String, index=True)

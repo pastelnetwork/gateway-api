@@ -221,7 +221,7 @@ class PastelAPITask(celery.Task):
         if not task_from_db.burn_txid:
             raise PastelAPIException(f'{service_name}: No burn txid for result_id {result_id}')
 
-        task_ipfs_link = task_from_db.ipfs_link
+        original_file_ipfs_link = task_from_db.original_file_ipfs_link
 
         if not task_from_db.wn_task_id:
             logger.info(f'{service_name}: Calling "WN Start"... [Result ID: {result_id}]')
@@ -258,7 +258,7 @@ class PastelAPITask(celery.Task):
             logger.info(f'{service_name}: "WN Start" already called... [Result ID: {result_id}; '
                         f'WN Task ID: {task_from_db.wn_task_id}]')
 
-        if not task_ipfs_link:
+        if not original_file_ipfs_link:
             with db_context() as session:
                 task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
@@ -267,15 +267,15 @@ class PastelAPITask(celery.Task):
                 try:
                     ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
                     res = ipfs_client.add(task_from_db.original_file_local_path)
-                    ipfs_link = res["Hash"]
+                    original_file_ipfs_link = res["Hash"]
                 except Exception as e:
                     logger.info(f'{service_name}: Error while storing file into IPFS... [Result ID: {result_id}]')
-                    ipfs_link = None
+                    original_file_ipfs_link = None
 
-                if ipfs_link:
+                if original_file_ipfs_link:
                     logger.info(f'{service_name}: Updating DB with IPFS link... '
-                                f'[Result ID: {result_id}; IPFS Link: https://ipfs.io/ipfs/{ipfs_link}]')
-                    upd = {"ipfs_link": ipfs_link, "updated_at": datetime.utcnow()}
+                                f'[Result ID: {result_id}; IPFS Link: https://ipfs.io/ipfs/{original_file_ipfs_link}]')
+                    upd = {"original_file_ipfs_link": original_file_ipfs_link, "updated_at": datetime.utcnow()}
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
         return result_id
@@ -304,15 +304,15 @@ class PastelAPITask(celery.Task):
 
         path = Path(task_from_db.original_file_local_path)
         if not path.is_file():
-            if task_from_db.ipfs_link:
+            if task_from_db.original_file_ipfs_link:
                 try:
                     logger.info(f'{service_name}: File not found locally, downloading from IPFS... '
                                 f'[Result ID: {result_id}]')
                     ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-                    ipfs_client.get(task_from_db.ipfs_link, path.parent)
+                    ipfs_client.get(task_from_db.original_file_ipfs_link, path.parent)
                 except Exception as e:
                     raise PastelAPIException(f'{service_name}: File not found locally and nor in IPFS: {e}')
-                new_path = path.parent / task_from_db.ipfs_link
+                new_path = path.parent / task_from_db.original_file_ipfs_link
                 new_path.rename(path)
             else:
                 raise PastelAPIException(f'{service_name}: File not found locally and no IPFS link for '

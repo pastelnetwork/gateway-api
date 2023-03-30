@@ -133,10 +133,12 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
     if result_registration_status != schemas.Status.ERROR and result_registration_status != schemas.Status.FAILED:
         reg_result.registration_ticket_txid = task_from_db.reg_ticket_txid
         reg_result.activation_ticket_txid = task_from_db.act_ticket_txid
-        if service != wn.WalletNodeService.SENSE:
-            reg_result.ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.ipfs_link}'
-            reg_result.aws_link = task_from_db.aws_link
-            reg_result.other_links = task_from_db.other_links
+        if task_from_db.original_file_ipfs_link:
+            reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.original_file_ipfs_link}'
+        if task_from_db.stored_file_ipfs_link:
+            reg_result.stored_file_ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.stored_file_ipfs_link}'
+        reg_result.stored_file_aws_link = task_from_db.stored_file_aws_link
+        reg_result.stored_file_other_links = task_from_db.stored_file_other_links
         if wn_task_status:
             reg_result.status_messages = wn_task_status
     else:
@@ -296,14 +298,14 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
     file_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid)
     not_locally_cached = not file_bytes
 
-    if not file_bytes and task_from_db.ipfs_link:
+    if not file_bytes and task_from_db.stored_file_ipfs_link:
         try:
             ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-            file_bytes = ipfs_client.cat(task_from_db.ipfs_link)
+            file_bytes = ipfs_client.cat(task_from_db.stored_file_ipfs_link)
         except Exception as e:
             logging.error(f"File not found in the IPFS - {e}")
 
-    if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value, DbStatus.SUCCESS.value]:
+    if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value, DbStatus.DONE.value]:
         file_bytes = await get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, service=service)
 
     if not file_bytes:
@@ -313,10 +315,10 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
     if not_locally_cached:
         await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, file_bytes=file_bytes)
 
-    if not task_from_db.ipfs_link:
-        ipfs_link = await add_local_file_into_ipfs(reg_ticket_txid=task_from_db.reg_ticket_txid)
-        if ipfs_link:
-            upd = {"ipfs_link": ipfs_link, "updated_at": datetime.utcnow()}
+    if not task_from_db.stored_file_ipfs_link:
+        stored_file_ipfs_link = await add_local_file_into_ipfs(reg_ticket_txid=task_from_db.reg_ticket_txid)
+        if stored_file_ipfs_link:
+            upd = {"stored_file_ipfs_link": stored_file_ipfs_link, "updated_at": datetime.utcnow()}
             update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
 
     return file_bytes

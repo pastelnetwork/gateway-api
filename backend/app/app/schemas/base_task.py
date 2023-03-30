@@ -19,9 +19,9 @@ class BaseTaskBase(BaseModel):
     reg_ticket_txid: Optional[str] = None
     act_ticket_txid: Optional[str] = None
     pastel_id: Optional[str] = None
-    ipfs_link: Optional[str] = None
-    aws_link: Optional[str] = None
-    other_links: Optional[Json] = None
+    original_file_ipfs_link: Optional[str] = None
+    stored_file_aws_link: Optional[str] = None
+    stored_file_other_links: Optional[Json] = None
     retry_num: Optional[int] = None
 
 
@@ -73,9 +73,10 @@ class ResultRegistrationResult(BaseModel):
     retry_num: Optional[int] = None
     registration_ticket_txid: Optional[str] = None
     activation_ticket_txid: Optional[str] = None
-    ipfs_link: Optional[str] = None
-    aws_link: Optional[str] = None
-    other_links: Optional[Json] = None
+    original_file_ipfs_link: Optional[str] = None
+    stored_file_ipfs_link: Optional[str] = None
+    stored_file_aws_link: Optional[str] = None
+    stored_file_other_links: Optional[Json] = None
     error: Optional[Any] = None
 
 

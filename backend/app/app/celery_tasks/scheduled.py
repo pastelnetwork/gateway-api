@@ -151,22 +151,14 @@ def _registration_finisher(
 
 def _finalize_registration(task_from_db, act_txid, update_task_in_db_func):
     logger.info(f"Finalizing registration: {task_from_db.id}")
-    ipfs_link = task_from_db.ipfs_link
     upd = {
         "act_ticket_txid": act_txid,
         "ticket_status": DbStatus.DONE.value,
-        "ipfs_link": "",
         "updated_at": datetime.utcnow()
     }
     with db_context() as session:
         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
-    # remove file from IPFS
-    try:
-        ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-        ipfs_client.pin.rm(ipfs_link)
-    except Exception as e:
-        logger.error(f"Error removing file from IPFS: {e}")
 
 
 def _mark_task_in_db_as_failed(session,
@@ -364,6 +356,7 @@ def fee_pre_burner():
 @task_lock(main_key="registration_tickets_finder", timeout=5*60)
 def registration_tickets_finder():
     logger.info(f"cascade_tickets_finder started")
+    tickets = []
     try:
         with db_context() as session:
             last_processed_block = crud.reg_ticket.get_last_blocknum(session)
