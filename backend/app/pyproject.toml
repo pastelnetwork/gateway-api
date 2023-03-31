@@ -21,7 +21,7 @@ passlib = {extras = ["bcrypt"], version = "^1.7.2"}
 emails = "^0.6"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 kombu = "^5.2.4"
-redis = "4.4.0"
+redis = "4.4.4"
 ipfshttpclient = "^0.7.0"
 zstd = "^1.5.4"
 python-redis-cache = "^1.2.0"
