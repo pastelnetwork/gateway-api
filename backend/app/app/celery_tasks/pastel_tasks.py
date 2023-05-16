@@ -11,7 +11,7 @@ from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
 from app.core.status import DbStatus
-from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, add_file_to_ipfs
+from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
 
 logger = get_task_logger(__name__)
 
@@ -25,7 +25,7 @@ class PastelAPITask(celery.Task):
         if args:
             if len(args) == 1:      # preburn_fee, process, re_register_file
                 return args[0]
-            elif len(args) == 4:    # register_file
+            elif len(args) == 5:    # register_file
                 return args[2]
         raise Exception("Invalid args")
 
@@ -54,7 +54,7 @@ class PastelAPITask(celery.Task):
     #     print(f'{task_id} retrying: {exc}')
 
     def register_file_task(self,
-                           local_file, request_id, result_id, user_id,
+                           local_file, request_id, result_id, user_id, ipfs_hash,
                            create_klass,
                            get_task_from_db_by_task_id_func,
                            create_with_owner_func,
@@ -73,7 +73,7 @@ class PastelAPITask(celery.Task):
             return result_id
 
         wn_file_id = ''
-        fee = 0
+        preburn_fee = 0
         if not task_in_db:
             height = psl.call("getblockcount", [])
             logger.info(f'{service_name}: New file - adding record to DB... [Result ID: {result_id}]')
@@ -82,11 +82,12 @@ class PastelAPITask(celery.Task):
                     original_file_name=local_file.name,
                     original_file_content_type=local_file.type,
                     original_file_local_path=local_file.path,
+                    original_file_ipfs_link=ipfs_hash,
                     work_id=request_id,
                     ticket_id=result_id,
                     ticket_status=DbStatus.NEW.value,
                     wn_file_id=wn_file_id,
-                    wn_fee=fee,
+                    wn_fee=preburn_fee,
                     height=height,
                 )
                 task_in_db = create_with_owner_func(session, obj_in=new_task, owner_id=user_id)
@@ -97,13 +98,13 @@ class PastelAPITask(celery.Task):
 
         id_field_name = "image_id" if service == wn.WalletNodeService.SENSE else "file_id"
         try:
-            wn_file_id, fee = wn.call(True,
-                                      service,
-                                      'upload',
-                                      {},
-                                      [('file', (local_file.name, data, local_file.type))],
-                                      {},
-                                      id_field_name, "estimated_fee")
+            wn_file_id, preburn_fee = wn.call(True,
+                                              service,
+                                              'upload',
+                                              {},
+                                              [('file', (local_file.name, data, local_file.type))],
+                                              {},
+                                              id_field_name, "required_preburn_amount")
         except Exception as e:
             logger.info(f'{service_name}: Upload call failed for file {local_file.name} - {e}. retrying...')
             retry_func()
@@ -112,16 +113,16 @@ class PastelAPITask(celery.Task):
             logger.info(f'{service_name}: Upload call failed for file {local_file.name} - "wn_file_id" is empty. '
                         f'retrying...')
             retry_func()
-        if fee <= 0:
-            logger.info(f'{service_name}: Wrong WN Fee {fee} for file {local_file.name}, retrying...')
+        if preburn_fee <= 0:
+            logger.info(f'{service_name}: Wrong WN Fee {preburn_fee} for file {local_file.name}, retrying...')
             retry_func()
 
         logger.info(f'{service_name}: File was registered with WalletNode with\n:'
-                    f'\twn_file_id = {wn_file_id} and fee = {fee}. [Result ID: {result_id}]')
+                    f'\twn_file_id = {wn_file_id} and fee = {preburn_fee}. [Result ID: {result_id}]')
         upd = {
             "ticket_status": DbStatus.UPLOADED.value,
             "wn_file_id": wn_file_id,
-            "wn_fee": fee,
+            "wn_fee": preburn_fee,
         }
         with db_context() as session:
             update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
@@ -148,7 +149,7 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        burn_amount = task_from_db.wn_fee / 5
+        burn_amount = task_from_db.wn_fee
         height = psl.call("getblockcount", [])
 
         if task_from_db.burn_txid:
@@ -264,7 +265,7 @@ class PastelAPITask(celery.Task):
 
                 logger.info(f'{service_name}: Storing file into IPFS... [Result ID: {result_id}]')
 
-                original_file_ipfs_link = asyncio.run(add_file_to_ipfs(task_from_db.original_file_local_path))
+                original_file_ipfs_link = asyncio.run(store_file_to_ipfs(task_from_db.original_file_local_path))
 
                 if original_file_ipfs_link:
                     logger.info(f'{service_name}: Updating DB with IPFS link... '
@@ -301,16 +302,16 @@ class PastelAPITask(celery.Task):
 
         id_field_name = "image_id" if service == wn.WalletNodeService.SENSE else "file_id"
         try:
-            wn_file_id, fee = wn.call(True,
-                                      service,
-                                      'upload',
-                                      {},
-                                      [('file',
-                                        (task_from_db.original_file_name,
-                                         data,
-                                         task_from_db.original_file_content_type))],
-                                      {},
-                                      id_field_name, "estimated_fee")
+            wn_file_id, preburn_fee = wn.call(True,
+                                              service,
+                                              'upload',
+                                              {},
+                                              [('file',
+                                                (task_from_db.original_file_name,
+                                                 data,
+                                                 task_from_db.original_file_content_type))],
+                                              {},
+                                              id_field_name, "required_preburn_amount")
         except Exception as e:
             logger.error(f'{service_name}: Error calling "WN Start" for result_id {result_id}: {e}')
             raise e
@@ -318,7 +319,7 @@ class PastelAPITask(celery.Task):
         with db_context() as session:
             upd = {
                 "wn_file_id": wn_file_id,
-                "wn_fee": fee,
+                "wn_fee": preburn_fee,
                 "ticket_status": DbStatus.UPLOADED.value,
                 "updated_at": datetime.utcnow(),
             }

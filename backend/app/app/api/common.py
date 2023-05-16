@@ -19,10 +19,10 @@ from app.core.config import settings
 from app.core.status import DbStatus
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
-from app.utils.ipfs_tools import add_file_to_ipfs, read_file_from_ipfs
+from app.utils.ipfs_tools import store_file_to_ipfs, read_file_from_ipfs
 import app.utils.walletnode
 
-
+x
 async def process_request(
         *,
         worker,
@@ -53,8 +53,9 @@ async def process_request(
         result_id = str(uuid.uuid4())
         lf = LocalFile(file.filename, file.content_type, result_id)
         await lf.save(file)
+        ipfs_hash = await store_file_to_ipfs(lf.path)
         _ = (
-                worker.register_file.s(lf, request_id, result_id, user_id) |
+                worker.register_file.s(lf, request_id, result_id, user_id, ipfs_hash) |
                 worker.preburn_fee.s() |
                 worker.process.s()
         ).apply_async()
@@ -253,7 +254,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
     if not task_from_db.stored_file_ipfs_link:
         cached_result_file = \
             f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.reg_ticket_txid}"
-        stored_file_ipfs_link = await add_file_to_ipfs(cached_result_file)
+        stored_file_ipfs_link = await store_file_to_ipfs(cached_result_file)
         if stored_file_ipfs_link:
             upd = {"stored_file_ipfs_link": stored_file_ipfs_link, "updated_at": datetime.utcnow()}
             update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)

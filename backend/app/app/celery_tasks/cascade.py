@@ -11,9 +11,9 @@ from app.utils.pasteld import PasteldException
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
              name='cascade:register_file', base=CascadeAPITask)
-def register_file(self, local_file, work_id, ticket_id, user_id) -> str:
+def register_file(self, local_file, work_id, ticket_id, user_id, ipfs_hash) -> str:
     return self.register_file_task(
-        local_file, work_id, ticket_id, user_id,
+        local_file, work_id, ticket_id, user_id, ipfs_hash,
         schemas.CascadeCreate,
         crud.cascade.get_by_result_id,
         crud.cascade.create_with_owner,

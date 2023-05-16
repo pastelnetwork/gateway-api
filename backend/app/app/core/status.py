@@ -17,4 +17,6 @@ class DbStatus(str, Enum):
 #
 # NEW -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
 # ERROR -> RESTARTED -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
+# ERROR, BUT has reg_txid -> REGISTERED
+# REGISTERED ->
 # ERROR -> ... -> ERROR 10 times -> DEAD
