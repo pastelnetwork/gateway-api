@@ -16,7 +16,7 @@ from app.celery_tasks import cascade, sense
 from app.celery_tasks.task_lock import task_lock
 from app.models.preburn_tx import PBTXStatus
 from app.utils.filestorage import store_file_into_local_cache
-from app.utils.ipfs_tools import add_file_to_ipfs
+from app.utils.ipfs_tools import store_file_to_ipfs
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
         if not task_from_db.stored_file_ipfs_link:
             cached_result_file = \
                 f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.reg_ticket_txid}"
-            stored_file_ipfs_link = asyncio.run(add_file_to_ipfs(cached_result_file))
+            stored_file_ipfs_link = asyncio.run(store_file_to_ipfs(cached_result_file))
     except Exception as e:
         logger.error(f"Failed to get file from Pastel: {e}")
 

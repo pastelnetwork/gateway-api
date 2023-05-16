@@ -20,9 +20,8 @@ from app.core.status import DbStatus
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import store_file_to_ipfs, read_file_from_ipfs
-import app.utils.walletnode
 
-x
+
 async def process_request(
         *,
         worker,

@@ -18,6 +18,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             original_file_name=obj_in.original_file_name,
             original_file_content_type=obj_in.original_file_content_type,
             original_file_local_path=obj_in.original_file_local_path,
+            original_file_ipfs_link=obj_in.original_file_ipfs_link,
             work_id=obj_in.work_id,
             ticket_id=obj_in.ticket_id,
             wn_file_id=obj_in.wn_file_id,

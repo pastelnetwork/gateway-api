@@ -11,11 +11,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db_session() -> Generator:
+    session = None
     try:
         session = SessionLocal()
         yield session
     finally:
-        session.close()
+        if session:
+            session.close()
 
 
 db_context = contextmanager(get_db_session)

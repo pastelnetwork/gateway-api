@@ -224,6 +224,7 @@ class PastelAPITask(celery.Task):
 
         original_file_ipfs_link = task_from_db.original_file_ipfs_link
 
+        wn_task_id = None
         if not task_from_db.wn_task_id:
             logger.info(f'{service_name}: Calling "WN Start"... [Result ID: {result_id}]')
             burn_txid = task_from_db.burn_txid
