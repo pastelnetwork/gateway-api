@@ -23,8 +23,8 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_request(worker=sense, files=files, user_id=current_user.id,
-                                        service=wn.WalletNodeService.SENSE)
+    return await common.process_request(worker=sense, files=files, make_publicly_accessible=True,
+                                        user_id=current_user.id, service=wn.WalletNodeService.SENSE)
 
 
 # Get all Sense OpenAPI gateway_requests for the current user.

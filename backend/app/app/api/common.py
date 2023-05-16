@@ -26,6 +26,7 @@ async def process_request(
         *,
         worker,
         files: List[UploadFile],
+        make_publicly_accessible: bool,
         user_id: int,
         service: wn.WalletNodeService
 ) -> schemas.RequestResult:
@@ -54,7 +55,7 @@ async def process_request(
         await lf.save(file)
         ipfs_hash = await store_file_to_ipfs(lf.path)
         _ = (
-                worker.register_file.s(lf, request_id, result_id, user_id, ipfs_hash) |
+                worker.register_file.s(lf, request_id, result_id, user_id, ipfs_hash, make_publicly_accessible) |
                 worker.preburn_fee.s() |
                 worker.process.s()
         ).apply_async()
@@ -65,7 +66,13 @@ async def process_request(
             result_status=schemas.Status.PENDING,
             created_at=datetime.utcnow(),
             last_updated_at=datetime.utcnow(),
+            original_file_ipfs_link=ipfs_hash,
         )
+        if ipfs_hash:
+            reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{ipfs_hash}'
+        if service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT:
+            reg_result.make_publicly_accessible=make_publicly_accessible
+
         request_result.results.append(reg_result)
 
     all_failed = True

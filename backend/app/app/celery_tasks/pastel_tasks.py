@@ -55,6 +55,7 @@ class PastelAPITask(celery.Task):
 
     def register_file_task(self,
                            local_file, request_id, result_id, user_id, ipfs_hash,
+                           make_publicly_accessible,
                            create_klass,
                            get_task_from_db_by_task_id_func,
                            create_with_owner_func,
@@ -83,6 +84,7 @@ class PastelAPITask(celery.Task):
                     original_file_content_type=local_file.type,
                     original_file_local_path=local_file.path,
                     original_file_ipfs_link=ipfs_hash,
+                    make_publicly_accessible=make_publicly_accessible,
                     work_id=request_id,
                     ticket_id=result_id,
                     ticket_status=DbStatus.NEW.value,
@@ -229,11 +231,27 @@ class PastelAPITask(celery.Task):
             logger.info(f'{service_name}: Calling "WN Start"... [Result ID: {result_id}]')
             burn_txid = task_from_db.burn_txid
             wn_file_id = task_from_db.wn_file_id
+
+            if service == (wn.WalletNodeService.CASCADE or wn.WalletNodeService.NFT) \
+                    and task_from_db.make_publicly_accessible:
+                form = json.dumps(
+                    {
+                        "burn_txid": burn_txid,
+                        "app_pastelid": settings.PASTEL_ID,
+                        "make_publicly_accessible": task_from_db.make_publicly_accessible,
+                    })
+            else:
+                form = json.dumps(
+                    {
+                        "burn_txid": burn_txid,
+                        "app_pastelid": settings.PASTEL_ID,
+                    })
+
             try:
                 wn_task_id = wn.call(True,
                                      service,
                                      f'start/{wn_file_id}',
-                                     json.dumps({"burn_txid": burn_txid, "app_pastelid": settings.PASTEL_ID, }),
+                                     form,
                                      [],
                                      {
                                          'Authorization': settings.PASTEL_ID_PASSPHRASE,

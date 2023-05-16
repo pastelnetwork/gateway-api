@@ -22,6 +22,7 @@ class BaseTaskBase(BaseModel):
     original_file_ipfs_link: Optional[str] = None
     stored_file_aws_link: Optional[str] = None
     stored_file_other_links: Optional[Json] = None
+    make_publicly_accessible: Optional[bool] = None
     retry_num: Optional[int] = None
 
 
@@ -77,6 +78,7 @@ class ResultRegistrationResult(BaseModel):
     stored_file_ipfs_link: Optional[str] = None
     stored_file_aws_link: Optional[str] = None
     stored_file_other_links: Optional[Json] = None
+    make_publicly_accessible: Optional[bool] = None
     error: Optional[Any] = None
 
 

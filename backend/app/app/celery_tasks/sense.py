@@ -11,9 +11,9 @@ from app.utils.pasteld import PasteldException
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
              name='sense:register_file', base=SenseAPITask)
-def register_file(self, local_file, work_id, ticket_id, user_id, ipfs_hash) -> str:
+def register_file(self, local_file, work_id, ticket_id, user_id, ipfs_hash, make_publicly_accessible: bool) -> str:
     return self.register_file_task(
-        local_file, work_id, ticket_id, user_id, ipfs_hash,
+        local_file, work_id, ticket_id, user_id, ipfs_hash, make_publicly_accessible,
         schemas.SenseCreate,
         crud.sense.get_by_result_id,
         crud.sense.create_with_owner,

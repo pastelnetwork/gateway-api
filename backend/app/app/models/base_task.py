@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.base_class import Base, gen_rand_id
@@ -21,6 +21,7 @@ class BaseTask(Base):
     stored_file_ipfs_link = Column(String)
     stored_file_aws_link = Column(String)
     stored_file_other_links = Column(JSONB)
+    make_publicly_accessible= Column(Boolean, default=False)
 
     work_id = Column(String, index=True)
     ticket_id = Column(String, index=True)
