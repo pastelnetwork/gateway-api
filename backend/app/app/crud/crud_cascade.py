@@ -115,6 +115,15 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             .all()
         )
 
+    def get_all_in_registered_state(
+            self, db: Session
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(Cascade.ticket_status == DbStatus.REGISTERED.value)
+            .all()
+        )
+
     def get_all_started_not_finished(
             self, db: Session, *, skip: int = 0, limit: int = 1000
     ) -> List[Cascade]:

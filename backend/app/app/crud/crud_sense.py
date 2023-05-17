@@ -114,6 +114,15 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             .all()
         )
 
+    def get_all_in_registered_state(
+            self, db: Session
+    ) -> List[Sense]:
+        return (
+            db.query(self.model)
+            .filter(Sense.ticket_status == DbStatus.REGISTERED.value)
+            .all()
+        )
+
     def get_all_started_not_finished(
             self, db: Session, *, skip: int = 0, limit: int = 1000
     ) -> List[Sense]:

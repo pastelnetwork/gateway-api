@@ -35,6 +35,10 @@ def create_celery():
             'task': 'scheduled_tools:reg_tickets_finder',
             'schedule': 150.0,
         },
+        'scheduled_tools_ticket_activator': {
+            'task': 'scheduled_tools:ticket_activator',
+            'schedule': 500.0,
+        },
     }
     celery_app.conf.timezone = 'UTC'
 

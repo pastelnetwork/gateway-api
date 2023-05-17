@@ -119,6 +119,11 @@ class PastelAPITask(celery.Task):
             logger.info(f'{service_name}: Wrong WN Fee {preburn_fee} for file {local_file.name}, retrying...')
             retry_func()
 
+        if service == wn.WalletNodeService.SENSE or service == wn.WalletNodeService.CASCADE:
+            preburn_fee = preburn_fee*5
+        elif service == wn.WalletNodeService.NFT:
+            preburn_fee = preburn_fee*10
+
         logger.info(f'{service_name}: File was registered with WalletNode with\n:'
                     f'\twn_file_id = {wn_file_id} and fee = {preburn_fee}. [Result ID: {result_id}]')
         upd = {
@@ -334,6 +339,21 @@ class PastelAPITask(celery.Task):
         except Exception as e:
             logger.error(f'{service_name}: Error calling "WN Start" for result_id {result_id}: {e}')
             raise e
+
+        if not wn_file_id:
+            logger.info(f'{service_name}: Upload call failed for file '
+                        f'{task_from_db.original_file_name} - "wn_file_id" is empty. Retrying...')
+            raise PastelAPIException(f'{service_name}: Upload call failed for file {task_from_db.original_file_name}')
+        if preburn_fee <= 0:
+            logger.info(f'{service_name}: Wrong WN Fee {preburn_fee} for file {task_from_db.original_file_name},'
+                        f' retrying...')
+            raise PastelAPIException(f'{service_name}: Wrong WN Fee {preburn_fee} for file '
+                                     f'{task_from_db.original_file_name}')
+
+        if service == wn.WalletNodeService.SENSE or service == wn.WalletNodeService.CASCADE:
+            preburn_fee = preburn_fee*5
+        elif service == wn.WalletNodeService.NFT:
+            preburn_fee = preburn_fee*10
 
         with db_context() as session:
             upd = {

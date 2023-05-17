@@ -428,3 +428,66 @@ def registration_tickets_finder():
         logger.error(f"Error while processing cascade tickets {e}")
 
     logger.info(f"cascade_tickets_finder done, processed {len(tickets)} tickets")
+
+
+@shared_task(name="scheduled_tools:ticket_activator")
+def ticket_activator():
+    _ticket_activator(
+        crud.cascade.get_all_in_registered_state,
+        crud.cascade.update,
+        "Cascade"
+    )
+    _ticket_activator(
+        crud.sense.get_all_in_registered_state,
+        crud.sense.update,
+        "Sense"
+    )
+
+def _ticket_activator(all_in_registered_state_func, update_task_in_db_func, service_name: str):
+    logger.info(f"ticket_activator task started")
+    with db_context() as session:
+        tasks_from_db = all_in_registered_state_func(session)
+    logger.info(f"{service_name}: Found {len(tasks_from_db)} registered, but not activated tasks")
+    for task_from_db in tasks_from_db:
+        if task_from_db.pastel_id is None:
+            upd = {"ticket_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
+            with db_context() as session:
+                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+            continue
+        if settings.PASTEL_ID != task_from_db.pastel_id:
+            logger.info(f"{service_name}: Skipping ticket {task_from_db.reg_ticket_txid}, "
+                        f"caller pastel_id {task_from_db.pastel_id} is not ours")
+            continue
+        try:
+            logger.info(f"{service_name}: Activating registration ticket {task_from_db.reg_ticket_txid}")
+            act_txid = create_action_act_ticket(task_from_db)
+            if act_txid:
+                upd = {"act_ticket_txid": act_txid,
+                       "ticket_status": DbStatus.DONE.value,
+                       "updated_at": datetime.utcnow()}
+                with db_context() as session:
+                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+        except Exception as e:
+            logger.error(f"Error while creating activation for registration ticket {task_from_db.reg_ticket_txid}: {e}")
+            if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                error_msg = e.response.text
+                msg = f"The Action Registration ticket with this txid [{task_from_db.reg_ticket_txid}] is invalid"
+                if msg in error_msg:
+                    upd = {"ticket_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
+                    with db_context() as session:
+                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+
+def create_action_act_ticket(task_from_db):
+    action_activation_ticket = psl.call('tickets', ['register', 'action-act',
+                                        task_from_db.reg_ticket_txid,
+                                        task_from_db.height,
+                                        task_from_db.wn_fee,
+                                        settings.PASTEL_ID,
+                                        settings.PASTEL_ID_PASSPHRASE],
+                            )
+    if action_activation_ticket and 'txid' in action_activation_ticket:
+        logger.info(f"Created action-act ticket {action_activation_ticket['txid']}")
+        return action_activation_ticket['txid']
+    else:
+        logger.error(f"Error while creating action-act ticket {action_activation_ticket}")
+        return None
