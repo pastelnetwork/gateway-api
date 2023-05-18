@@ -32,6 +32,7 @@ def preburn_fee(self, ticket_id) -> str:
                                  crud.sense.get_by_result_id,
                                  crud.sense.update,
                                  preburn_fee.retry,
+                                 WalletNodeService.SENSE,
                                  "Sense")
 
 

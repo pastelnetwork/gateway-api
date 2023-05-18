@@ -141,6 +141,7 @@ class PastelAPITask(celery.Task):
                          get_task_from_db_by_task_id_func,
                          update_task_in_db_func,
                          retry_func,
+                         service: wn.WalletNodeService,
                          service_name: str) -> str:
         logger.info(f'{service_name}: Searching for pre-burn tx for registration... [Result ID: {result_id}]')
 
@@ -156,7 +157,11 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        burn_amount = task_from_db.wn_fee
+        fee = task_from_db.wn_fee
+        if service == wn.WalletNodeService.SENSE or service == wn.WalletNodeService.CASCADE:
+            preburn_fee = fee/5
+        elif service == wn.WalletNodeService.NFT:
+            preburn_fee = fee/10
         height = psl.call("getblockcount", [])
 
         if task_from_db.burn_txid:
@@ -170,12 +175,12 @@ class PastelAPITask(celery.Task):
                 logger.info(f'{service_name}: Found burn tx [{burn_tx.txid}] already '
                             f'bound to the task [Result ID: {result_id}]')
             else:
-                burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=burn_amount)
+                burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
                 if not burn_tx:
                     logger.info(f'{service_name}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
-                    burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])
+                    burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, preburn_fee])
                     burn_tx = crud.preburn_tx.create_new_bound(session,
-                                                               fee=burn_amount,
+                                                               fee=preburn_fee,
                                                                height=height,
                                                                txid=burn_txid,
                                                                result_id=result_id)

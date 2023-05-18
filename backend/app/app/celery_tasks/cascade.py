@@ -32,6 +32,7 @@ def preburn_fee(self, ticket_id) -> str:
                                  crud.cascade.get_by_result_id,
                                  crud.cascade.update,
                                  preburn_fee.retry,
+                                 WalletNodeService.CASCADE,
                                  "Cascade")
 
 
