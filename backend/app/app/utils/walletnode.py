@@ -16,14 +16,14 @@ class WalletNodeService(Enum):
         return self.value
 
 
-def call(post, service: WalletNodeService, url_cmd, payload, files, headers, return_item1, return_item2, no_throw=False):
+def call(post, service: WalletNodeService, url_cmd, payload, files, headers, return_item1, return_item2, nothrow=False):
     wn_url = f'{settings.WN_BASE_URL}/{service.value}/{url_cmd}'
 
     if post:
         response = requests.post(wn_url, headers=headers, data=payload, files=files)
     else:
         response = requests.get(wn_url, headers=headers, data=payload, files=files)
-    if no_throw and response.status_code != 200:
+    if nothrow and response.status_code != 200:
         return response
     response.raise_for_status()
 

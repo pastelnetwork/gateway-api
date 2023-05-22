@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import traceback
 from datetime import datetime
@@ -459,12 +460,26 @@ def _ticket_activator(all_in_registered_state_func, update_task_in_db_func, serv
                         f"caller pastel_id {task_from_db.pastel_id} is not ours")
             continue
         try:
+            logger.info(f"{service_name}: Parsing registration ticket {task_from_db.reg_ticket_txid}")
+            reg_ticket = parse_registration_ticket(task_from_db.reg_ticket_txid, service_name.lower())
+            if not reg_ticket:
+                logger.error(f"{service_name}: Error while parsing registration ticket {task_from_db.reg_ticket_txid}")
+                continue
+            if 'ticket' in reg_ticket and 'action_ticket' in reg_ticket['ticket'] and \
+                    'blocknum' in reg_ticket['ticket']['action_ticket']:
+                height = reg_ticket['ticket']['action_ticket']['blocknum']
+            else:
+                height = task_from_db.height
+
             logger.info(f"{service_name}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-            act_txid = create_action_act_ticket(task_from_db)
+            act_txid = create_action_act_ticket(task_from_db, height)
             if act_txid:
-                upd = {"act_ticket_txid": act_txid,
-                       "ticket_status": DbStatus.DONE.value,
-                       "updated_at": datetime.utcnow()}
+                upd = {
+                    "act_ticket_txid": act_txid,
+                    "ticket_status": DbStatus.DONE.value,
+                    "updated_at": datetime.utcnow(),
+                    "height": height,
+                }
                 with db_context() as session:
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         except Exception as e:
@@ -477,17 +492,25 @@ def _ticket_activator(all_in_registered_state_func, update_task_in_db_func, serv
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
-def create_action_act_ticket(task_from_db):
+def create_action_act_ticket(task_from_db, height):
     action_activation_ticket = psl.call('tickets', ['register', 'action-act',
                                         task_from_db.reg_ticket_txid,
-                                        task_from_db.height,
+                                        height,
                                         task_from_db.wn_fee,
                                         settings.PASTEL_ID,
-                                        settings.PASTEL_ID_PASSPHRASE],
-                            )
+                                        settings.PASTEL_ID_PASSPHRASE]
+                                        )
     if action_activation_ticket and 'txid' in action_activation_ticket:
         logger.info(f"Created action-act ticket {action_activation_ticket['txid']}")
         return action_activation_ticket['txid']
     else:
         logger.error(f"Error while creating action-act ticket {action_activation_ticket}")
         return None
+
+def parse_registration_ticket(reg_txid, expected_action_type):
+    try:
+        reg_ticket = psl.call("tickets", ['get', reg_txid])
+        return asyncio.run(psl.parse_registration_action_ticket(reg_ticket, "action-reg", [expected_action_type]))
+    except Exception as e:
+        logger.error(f"Invalid action-reg ticket {reg_txid}")
+    return None

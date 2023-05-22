@@ -14,6 +14,8 @@ def call(method, parameters, nothrow=False):
     payload = json.dumps(payload_getinfo)
     auth = HTTPBasicAuth(settings.PASTEL_RPC_USER, settings.PASTEL_RPC_PWD)
     response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth)
+    if nothrow and response.status_code != 200:
+        return response
     response.raise_for_status()
     resp = response.json()
     if not resp or not resp["result"]:
