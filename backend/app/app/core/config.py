@@ -144,6 +144,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[EmailStr] = None
     EMAILS_FROM_NAME: Optional[str] = None
+    ALERTS_EMAIL_RCPT: Optional[EmailStr] = None
 
     @validator("SMTP_PASSWORD", pre=True)
     def get_smtp_pwd(cls, v: Optional[str], values: Dict[str, Any]) -> str:

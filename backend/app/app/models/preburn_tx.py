@@ -8,6 +8,7 @@ class PBTXStatus(enum.Enum):
     NEW = 1
     PENDING = 2
     USED = 3
+    BAD = 4
 
 
 class PreBurnTx(Base):

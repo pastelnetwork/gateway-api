@@ -18,6 +18,7 @@ from app.celery_tasks.task_lock import task_lock
 from app.models.preburn_tx import PBTXStatus
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
+from utils.authentication import send_alert_email
 
 logger = logging.getLogger(__name__)
 
@@ -315,23 +316,21 @@ def fee_pre_burner():
     logger.info(f"fee_pre_burner task started")
     logger.info(f"first: release non used")
     with db_context() as session:
-        all_used = crud.preburn_tx.get_all_used(session)
-        for used in all_used:
-            if used.status != PBTXStatus.USED:
-                continue
-            tx = psl.call("tickets", ["find", "nft", used.txid])
+        all_used_or_pending = crud.preburn_tx.get_all_used_or_pending(session)
+        for transaction in all_used_or_pending:
+            tx = psl.call("tickets", ["find", "nft", transaction.txid])
             if tx and (isinstance(tx, dict) or isinstance(tx, list)):
                 continue
-            tx = psl.call("tickets", ["find", "action", used.txid])
+            tx = psl.call("tickets", ["find", "action", transaction.txid])
             if tx and (isinstance(tx, dict) or isinstance(tx, list)):
                 continue
-            from_cascade = crud.cascade.get_by_preburn_txid(session, txid=used.txid)
+            from_cascade = crud.cascade.get_by_preburn_txid(session, txid=transaction.txid)
             if from_cascade and from_cascade.ticket_status != 'DEAD':
                 continue
-            from_sense = crud.sense.get_by_preburn_txid(session, txid=used.txid)
+            from_sense = crud.sense.get_by_preburn_txid(session, txid=transaction.txid)
             if from_sense and from_sense.ticket_status != 'DEAD':
                 continue
-            crud.preburn_tx.mark_non_used(session, used.txid)
+            crud.preburn_tx.mark_non_used(session, transaction.txid)
 
     with db_context() as session:
         all_new = crud.preburn_tx.get_all_new(session)
@@ -340,6 +339,9 @@ def fee_pre_burner():
             if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
                 tx = psl.call("tickets", ["find", "action", new.txid])
                 if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+                    tx = psl.call("getrawtransaction", [new.txid], True)
+                    if not tx or tx.status_code != 200 or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
+                        crud.preburn_tx.mark_bad(session, new.txid)
                     continue
             crud.preburn_tx.mark_used(session, new.txid)
 
@@ -367,6 +369,7 @@ def fee_pre_burner():
             balance = psl.call("getbalance", [])
             if balance < burn_amount:
                 logger.error(f"Insufficient funds: balance {balance}")
+                send_alert_email(f"Insufficient funds: balance {balance}")
                 return
             burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])
             crud.preburn_tx.create_new(session,
@@ -514,3 +517,8 @@ def parse_registration_ticket(reg_txid, expected_action_type):
     except Exception as e:
         logger.error(f"Invalid action-reg ticket {reg_txid}")
     return None
+
+@shared_task(name="scheduled_tools:watchdog")
+def watchdog():
+    logger.info(f"watchdog task started")
+    logger.info(f"watchdog task ended")

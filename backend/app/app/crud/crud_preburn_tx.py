@@ -62,6 +62,9 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
     def mark_used(self, db: Session, preburn_txid: str):
         self.change_status(db, preburn_txid, PBTXStatus.USED)
 
+    def mark_bad(self, db: Session, preburn_txid: str):
+        self.change_status(db, preburn_txid, PBTXStatus.BAD)
+
     def mark_non_used(self, db: Session, preburn_txid: str):
         db_obj = db.query(self.model).filter(PreBurnTx.txid == preburn_txid).first()
         if db_obj:
@@ -102,8 +105,24 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
     def get_all_used(self, db: Session) -> list[PreBurnTx]:
         return db.query(self.model).filter(PreBurnTx.status == PBTXStatus.USED).all()
 
+    def get_all_used_or_pending(self, db: Session) -> list[PreBurnTx]:
+        return (
+            db.query(self.model)
+            .filter(
+                sa.or_(
+                    PreBurnTx.status == PBTXStatus.USED,
+                    PreBurnTx.status == PBTXStatus.PENDING
+                )
+            )
+            .all())
+
     def get_all_new(self, db: Session) -> list[PreBurnTx]:
         return db.query(self.model).filter(PreBurnTx.status == PBTXStatus.NEW).all()
 
+    def get_all_bad(self, db: Session) -> list[PreBurnTx]:
+        return db.query(self.model).filter(PreBurnTx.status == PBTXStatus.BAD).all()
+
+    def get_all_pending(self, db: Session) -> list[PreBurnTx]:
+        return db.query(self.model).filter(PreBurnTx.status == PBTXStatus.PENDING).all()
 
 preburn_tx = CRUDPreBurnTx(PreBurnTx)

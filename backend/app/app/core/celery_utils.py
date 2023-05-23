@@ -39,6 +39,10 @@ def create_celery():
             'task': 'scheduled_tools:ticket_activator',
             'schedule': 500.0,
         },
+        'scheduled_tools_watchdog': {
+            'task': 'scheduled_tools:watchdog',
+            'schedule': 1200.0,
+        },
     }
     celery_app.conf.timezone = 'UTC'
 

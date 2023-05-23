@@ -33,6 +33,17 @@ def send_email(
     logging.info(f"send email result: {response}")
 
 
+def send_alert_email(alert_message: str) -> None:
+    project_name = settings.PROJECT_NAME
+    subject = f"{project_name} - ALERT!!!"
+    send_email(
+        email_to=settings.ALERTS_EMAIL_RCPT,
+        subject_template=subject,
+        html_template=f"<p>ALERT: {alert_message}</p>",
+        environment={"project_name": settings.PROJECT_NAME, "email": settings.ALERTS_EMAIL_RCPT},
+    )
+
+
 def send_test_email(email_to: str) -> None:
     project_name = settings.PROJECT_NAME
     subject = f"{project_name} - Test email"
