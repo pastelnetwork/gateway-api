@@ -20,9 +20,39 @@ from app.core.status import DbStatus
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import store_file_to_ipfs, read_file_from_ipfs
+import app.celery_tasks.nft as nft
 
 
-async def process_request(
+async def process_nft_request(
+        *,
+        file: UploadFile,
+        make_publicly_accessible: bool,
+        collection_act_txid: str,
+        open_api_group_id: str,
+        nft_details_payload: schemas.NftPropertiesExternal,
+        user_id: int,
+) -> schemas.ResultRegistrationResult:
+    is_image, reg_result = check_if_image(file)
+    if not is_image:
+        return reg_result
+
+    request_id = str(uuid.uuid4())
+    result_id = str(uuid.uuid4())
+    lf = LocalFile(file.filename, file.content_type, result_id)
+    await lf.save(file)
+    ipfs_hash = await store_file_to_ipfs(lf.path)
+    _ = (
+            nft.register_file.s(request_id, lf, result_id, user_id, ipfs_hash, make_publicly_accessible,
+                                collection_act_txid, open_api_group_id, nft_details_payload) |
+            nft.process.s()
+    ).apply_async()
+
+    reg_result = await make_pending_result(file, ipfs_hash, result_id)
+    reg_result.make_publicly_accessible = make_publicly_accessible
+    return reg_result
+
+
+async def process_action_request(
         *,
         worker,
         files: List[UploadFile],
@@ -37,42 +67,25 @@ async def process_request(
         results=[]
     )
     for file in files:
-        if service == wn.WalletNodeService.SENSE and "image" not in file.content_type:
-            reg_result = schemas.ResultRegistrationResult(
-                file_name=file.filename,
-                file_type=file.content_type,
-                result_id="",
-                status_messages=["File type not supported"],
-                result_status=schemas.Status.ERROR,
-                created_at=datetime.utcnow(),
-                last_updated_at=datetime.utcnow(),
-            )
-            request_result.results.append(reg_result)
-            continue
+        if service == wn.WalletNodeService.SENSE:
+            is_image, reg_result = check_if_image(file)
+            if not is_image:
+                request_result.results.append(reg_result)
+                continue
 
         result_id = str(uuid.uuid4())
         lf = LocalFile(file.filename, file.content_type, result_id)
         await lf.save(file)
         ipfs_hash = await store_file_to_ipfs(lf.path)
         _ = (
-                worker.register_file.s(lf, request_id, result_id, user_id, ipfs_hash, make_publicly_accessible) |
+                worker.register_file.s(request_id, lf, result_id, user_id, ipfs_hash, make_publicly_accessible) |
                 worker.preburn_fee.s() |
                 worker.process.s()
         ).apply_async()
-        reg_result = schemas.ResultRegistrationResult(
-            file_name=file.filename,
-            file_type=file.content_type,
-            result_id=result_id,
-            result_status=schemas.Status.PENDING,
-            created_at=datetime.utcnow(),
-            last_updated_at=datetime.utcnow(),
-            original_file_ipfs_link=ipfs_hash,
-        )
-        if ipfs_hash:
-            reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{ipfs_hash}'
-        if service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT:
-            reg_result.make_publicly_accessible=make_publicly_accessible
 
+        reg_result = await make_pending_result(file, ipfs_hash, result_id)
+        if service == wn.WalletNodeService.CASCADE:
+            reg_result.make_publicly_accessible=make_publicly_accessible
         request_result.results.append(reg_result)
 
     all_failed = True
@@ -82,6 +95,35 @@ async def process_request(
         else schemas.Status.PENDING
 
     return request_result
+
+
+def check_if_image(file: UploadFile) -> (bool, schemas.ResultRegistrationResult):
+    if "image" not in file.content_type:
+        return False, schemas.ResultRegistrationResult(
+            file_name=file.filename,
+            file_type=file.content_type,
+            result_id="",
+            status_messages=["File type not supported"],
+            result_status=schemas.Status.ERROR,
+            created_at=datetime.utcnow(),
+            last_updated_at=datetime.utcnow(),
+        )
+    return True, None
+
+
+async def make_pending_result(file, ipfs_hash, result_id):
+    reg_result = schemas.ResultRegistrationResult(
+        file_name=file.filename,
+        file_type=file.content_type,
+        result_id=result_id,
+        result_status=schemas.Status.PENDING,
+        created_at=datetime.utcnow(),
+        last_updated_at=datetime.utcnow(),
+        original_file_ipfs_link=ipfs_hash,
+    )
+    if ipfs_hash:
+        reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{ipfs_hash}'
+    return reg_result
 
 
 async def check_result_registration_status(task_from_db, service: wn.WalletNodeService) \
@@ -229,13 +271,14 @@ async def process_websocket_for_result(websocket, tasks_from_db, service: wn.Wal
         await asyncio.sleep(150)  # 2.5 minutes
 
 
+# search_gateway_file searches for file in 1) local cache; 2) Pastel network; 3) IPFS
+# Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
 async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func) -> bytes:
 
     if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in [DbStatus.DONE.value]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
-    file_bytes = None
-    if service == wn.WalletNodeService.CASCADE \
+    if (service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT) \
             and task_from_db.pastel_id != settings.PASTEL_ID:  # and not task_from_db.public:
         logging.error("Backend does not have correct Pastel ID")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
@@ -244,30 +287,30 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
     file_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid)
     not_locally_cached = not file_bytes
 
-    if not file_bytes and task_from_db.stored_file_ipfs_link:
-        file_bytes = await read_file_from_ipfs(task_from_db.stored_file_ipfs_link)
-
     if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value]:
         file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, wn_service=service)
+
+    if not file_bytes and task_from_db.stored_file_ipfs_link:
+        file_bytes = await read_file_from_ipfs(task_from_db.stored_file_ipfs_link)
 
     if not file_bytes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
     # cache file in local storage and IPFS
     if not_locally_cached:
-        await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, file_bytes=file_bytes)
-
-    if not task_from_db.stored_file_ipfs_link:
-        cached_result_file = \
-            f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.reg_ticket_txid}"
-        stored_file_ipfs_link = await store_file_to_ipfs(cached_result_file)
-        if stored_file_ipfs_link:
-            upd = {"stored_file_ipfs_link": stored_file_ipfs_link, "updated_at": datetime.utcnow()}
-            update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
+        cached_result_file = await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                               file_bytes=file_bytes)
+        if cached_result_file and not task_from_db.stored_file_ipfs_link:
+            stored_file_ipfs_link = await store_file_to_ipfs(cached_result_file)
+            if stored_file_ipfs_link:
+                upd = {"stored_file_ipfs_link": stored_file_ipfs_link, "updated_at": datetime.utcnow()}
+                update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
 
     return file_bytes
 
 
+# search_pastel_file searches for file in 1) local cache; 2) Pastel network
+# Is used to search for files that were not processed by Gateway: for Sense dd data and NFT dd data
 async def search_pastel_file(*, reg_ticket_txid: str, service: wn.WalletNodeService, throw=True) -> bytes:
 
     file_bytes = await search_file_in_local_cache(reg_ticket_txid=reg_ticket_txid)
@@ -284,6 +327,60 @@ async def search_pastel_file(*, reg_ticket_txid: str, service: wn.WalletNodeServ
         await store_file_into_local_cache(reg_ticket_txid=reg_ticket_txid, file_bytes=file_bytes)
 
     return file_bytes
+
+
+# search_gateway_file searches for file in 1) local cache; 2) Pastel network; 3) IPFS
+# Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
+async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_func) -> bytes:
+
+    if task_from_db.ticket_status not in [DbStatus.DONE.value]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
+
+    dd_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, extra_suffix="_dd")
+    not_locally_cached = not dd_bytes
+
+    if not dd_bytes:
+        dd_bytes = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid)
+
+    if not dd_bytes and task_from_db.nft_dd_file_ipfs_link:
+        dd_bytes = await read_file_from_ipfs(task_from_db.nft_dd_file_ipfs_link)
+
+    if not dd_bytes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Dupe detection data is not found")
+
+    # cache file in local storage and IPFS
+    if not_locally_cached:
+        cached_dd_file = asyncio.run(store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                                 file_bytes=dd_bytes,
+                                                                 extra_suffix=".dd"))
+        if cached_dd_file and not task_from_db.nft_dd_file_ipfs_link:
+            nft_dd_file_ipfs_link = await store_file_to_ipfs(cached_dd_file)
+            if nft_dd_file_ipfs_link:
+                upd = {"nft_dd_file_ipfs_link": nft_dd_file_ipfs_link, "updated_at": datetime.utcnow()}
+                update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
+
+    return dd_bytes
+
+
+# search_gateway_file searches for file in 1) local cache; 2) Pastel network; 3) IPFS
+# Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
+async def search_nft_dd_result_pastel(*, reg_ticket_txid: str, throw=True) -> bytes:
+
+    dd_bytes = await search_file_in_local_cache(reg_ticket_txid=reg_ticket_txid, extra_suffix="_dd")
+    not_locally_cached = not dd_bytes
+
+    if not dd_bytes:
+        dd_bytes = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=reg_ticket_txid)
+
+    if not dd_bytes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Dupe detection data is not found")
+
+    # cache file in local storage and IPFS
+    if not_locally_cached:
+        cached_dd_file = asyncio.run(store_file_into_local_cache(reg_ticket_txid=reg_ticket_txid,
+                                                                 extra_suffix=".dd"))
+
+    return dd_bytes
 
 
 async def get_all_reg_ticket_from_request(*, gateway_request_id, tasks_from_db,
@@ -338,14 +435,12 @@ async def get_all_sense_data_from_request(*, db, tasks_from_db, gateway_request_
                              content_type="application/zip")
 
 
-async def get_all_sense_data_for_pastelid(*, pastel_id: str, parse=False):
+async def get_all_sense_data_for_pastelid(*, pastel_id: str, search_data_lambda, parse=False):
     registration_ticket_txids = await get_reg_txids_by_pastel_id(pastel_id=pastel_id)
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for txid in registration_ticket_txids:
-            raw_file_bytes = await search_pastel_file(reg_ticket_txid=txid,
-                                                      service=wn.WalletNodeService.SENSE,
-                                                      throw=False)
+            raw_file_bytes = await search_data_lambda(txid)
             if not raw_file_bytes:
                 continue
             if parse:
@@ -362,7 +457,7 @@ async def get_all_sense_data_for_pastelid(*, pastel_id: str, parse=False):
                              content_type="application/zip")
 
 
-async def create_offer_ticket(task_from_db, pastel_id, service: wn.WalletNodeService):
+async def create_offer_ticket(task_from_db, pastel_id):
     offer_ticket = psl.call('tickets', ['register', 'offer',
                                         task_from_db.act_ticket_txid,
                                         1,
@@ -387,20 +482,23 @@ async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeServ
     try:
         reg_ticket = psl.call("tickets", ['get', ticket_txid])
     except psl.PasteldException as e:
-        raise HTTPException(status_code=404, detail=f"{expected_action_type} registration ticket not found")
+        raise HTTPException(status_code=404, detail=f"{expected_action_type} registration ticket not found - {e}")
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Failed to get {expected_action_type} registration ticket - {e}")
 
     return await psl.parse_registration_action_ticket(reg_ticket, expected_ticket_type, [expected_action_type])
 
 
-async def get_activation_action_ticket(ticket_txid, service: wn.WalletNodeService):
-    expected_ticket_type = "action-act"
-
+async def get_activation_ticket(ticket_txid, service: wn.WalletNodeService):
     if service == wn.WalletNodeService.CASCADE:
+        expected_ticket_type = "action-act"
         expected_action_type = "cascade"
     elif service == wn.WalletNodeService.SENSE:
+        expected_ticket_type = "action-act"
         expected_action_type = "sense"
+    elif service == wn.WalletNodeService.NFT:
+        expected_ticket_type = "nft-act"
+        expected_action_type = "nft"
     else:
         raise HTTPException(status_code=501, detail=f"Invalid service type - {service}")
 
@@ -424,7 +522,18 @@ async def get_activation_action_ticket(ticket_txid, service: wn.WalletNodeServic
     return act_ticket
 
 
-async def parse_sense_data(raw_bytes: bytes, throw=True) -> bytearray:
+async def get_registration_nft_ticket(ticket_txid):
+    try:
+        reg_ticket = psl.call("tickets", ['get', ticket_txid])
+    except psl.PasteldException as e:
+        raise HTTPException(status_code=404, detail=f"NFT registration ticket not found - {e}")
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Failed to get NFT registration ticket - {e}")
+
+    return await psl.parse_registration_nft_ticket(reg_ticket)
+
+
+async def parse_sense_data(raw_bytes: bytes, throw=True) -> bytearray|None:
     try:
         sense_data_json = json.loads(raw_bytes)
     except Exception as e:
@@ -458,7 +567,7 @@ async def parse_sense_data(raw_bytes: bytes, throw=True) -> bytearray:
             decode_decompress_item(sense_data_json['internet_rareness'],
                                    'alternative_rare_on_internet_dict_as_json_compressed_b64')
 
-    return json.dumps(sense_data_json)
+    return bytearray(json.dumps(sense_data_json), 'utf-8')
 
 
 def decode_decompress_item(json_object: dict, key: str):
@@ -502,6 +611,24 @@ async def get_reg_txids_by_pastel_id(pastel_id: str) -> List[str]:
             txids.append(reg_ticket['txid'])
 
     return txids
+
+
+async def get_public_file(db, ticket_type: str, registration_ticket_txid: str, wn_service: wn.WalletNodeService):
+    shadow_ticket = crud.reg_ticket.get_by_reg_ticket_txid_and_type(
+        db=db,
+        txid=registration_ticket_txid,
+        ticket_type=ticket_type)
+    if not shadow_ticket:
+        # reg_ticket = await common.get_registration_action_ticket(registration_ticket_txid, wn_service)
+        raise HTTPException(status_code=404, detail="File not found")
+    if shadow_ticket.ticket_type == 'sense':
+        raise HTTPException(status_code=404, detail="File not found")
+    if not shadow_ticket.is_public:
+        raise HTTPException(status_code=403, detail="Non authorized access to file")
+
+    file_bytes = await search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+                                                 service=wn_service)
+    return await stream_file(file_bytes=file_bytes, original_file_name=f"{shadow_ticket.file_name}")
 
 
 # import asyncio

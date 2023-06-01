@@ -25,9 +25,9 @@ class LocalFile:
         return open(self.path, 'rb')
 
 
-async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes):
+async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes, extra_suffix: str ="") -> str:
     cached_result_file = \
-        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
+        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}{extra_suffix}"
     try:
         if not os.path.exists(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}"):
             os.makedirs(f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}")
@@ -36,11 +36,11 @@ async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes):
             f.write(file_bytes)
     except Exception as e:
         logging.error(f"File not saved in the local storage - {e}")
+    return cached_result_file
 
-
-async def search_file_in_local_cache(*, reg_ticket_txid) -> bytes:
+async def search_file_in_local_cache(*, reg_ticket_txid, extra_suffix: str ="") -> bytes:
     cached_result_file = \
-        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}"
+        f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{reg_ticket_txid}{extra_suffix}"
     try:
         with open(cached_result_file, 'rb') as f:
             return f.read()

@@ -1,17 +1,17 @@
 [tool.poetry]
-name = "openapi"
-version = "0.1.0"
+name = "psl-gateway"
+version = "1.0.1"
 description = ""
 authors = ["a-ok123 <alexey@pastel.network>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-fastapi = {extras = ["all"], version = "^0.88.0"}
-uvicorn = {version = "^0.17.6", extras = ["standard"]}
+fastapi = {extras = ["all"], version = "^0.95.2"}
+uvicorn = {version = "^0.22.0", extras = ["standard"]}
 celery = "^5.2.7"
 flower = "^1.2.0"
-httpx = "^0.23.1"
-aiofiles = "^22.0.0"
+httpx = "^0.24.1"
+aiofiles = "^23.1.0"
 SQLAlchemy = "^1.4.40"
 psycopg2-binary = "^2.9.5"
 alembic = "^1.8.1"
@@ -21,13 +21,14 @@ passlib = {extras = ["bcrypt"], version = "^1.7.2"}
 emails = "^0.6"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 kombu = "^5.2.4"
-redis = "4.4.0"
+redis = "4.5.5"
 ipfshttpclient = "^0.7.0"
 zstd = "^1.5.4"
-python-redis-cache = "^1.2.0"
+python-redis-cache = "^2.1.2"
 redlock = "^1.2.0"
 boto3 = "^1.26.92"
 gunicorn = "^20.1.0"
+pillow = "^9.5.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.3"

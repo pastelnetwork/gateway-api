@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import traceback
 from datetime import datetime
@@ -15,10 +14,9 @@ from app.db.session import db_context
 import app.utils.walletnode as wn
 from app.celery_tasks import cascade, sense
 from app.celery_tasks.task_lock import task_lock
-from app.models.preburn_tx import PBTXStatus
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
-from utils.authentication import send_alert_email
+from app.utils.authentication import send_alert_email
 
 logger = logging.getLogger(__name__)
 
@@ -164,12 +162,24 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
         file_bytes = asyncio.run(wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
                                                          wn_service=wn_service))
         if file_bytes:
-            asyncio.run(
-                store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, file_bytes=file_bytes))
-        if not task_from_db.stored_file_ipfs_link:
-            cached_result_file = \
-                f"{settings.FILE_STORAGE}/{settings.FILE_STORAGE_FOR_RESULTS_SUFFIX}/{task_from_db.reg_ticket_txid}"
-            stored_file_ipfs_link = asyncio.run(store_file_to_ipfs(cached_result_file))
+            cached_result_file = asyncio.run(store_file_into_local_cache(
+                reg_ticket_txid=task_from_db.reg_ticket_txid,
+                file_bytes=file_bytes))
+            if not task_from_db.stored_file_ipfs_link:
+                # store_file_into_local_cache throws exception, so if we are here, file is in local cache
+                stored_file_ipfs_link = asyncio.run(store_file_to_ipfs(cached_result_file))
+
+        if wn_service == wn.WalletNodeService.NFT:
+            dd_bytes = asyncio.run(wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid))
+            if dd_bytes:
+                cached_dd_file = asyncio.run(store_file_into_local_cache(
+                    reg_ticket_txid=task_from_db.reg_ticket_txid,
+                    file_bytes=dd_bytes,
+                    extra_suffix=".dd"))
+                if not task_from_db.nft_dd_file_ipfs_link:
+                    # store_file_into_local_cache throws exception, so if we are here, file is in local cache
+                    nft_dd_file_ipfs_link = asyncio.run(store_file_to_ipfs(cached_dd_file))
+
     except Exception as e:
         logger.error(f"Failed to get file from Pastel: {e}")
 
@@ -179,10 +189,12 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
         "stored_file_ipfs_link": stored_file_ipfs_link,
         "updated_at": datetime.utcnow()
     }
+    if wn_service == wn.WalletNodeService.NFT:
+        upd["nft_dd_file_ipfs_link"] = nft_dd_file_ipfs_link
+
     with db_context() as session:
         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
-
 
 
 def _mark_task_in_db_as_failed(session,
@@ -386,7 +398,7 @@ def registration_tickets_finder():
     try:
         with db_context() as session:
             last_processed_block = crud.reg_ticket.get_last_blocknum(session)
-            tickets = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)
+        tickets = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)
         if not tickets:
             logger.info(f"No new tickets found after block {last_processed_block}")
             return

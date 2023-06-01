@@ -98,3 +98,46 @@ async def parse_registration_action_ticket(reg_ticket, expected_ticket_type, exp
                                 f"registration ticket: {ve}")
 
     return reg_ticket
+
+
+async def parse_registration_nft_ticket(reg_ticket):
+    if not reg_ticket or "ticket" not in reg_ticket or "nft_ticket" not in reg_ticket["ticket"]:
+        raise HTTPException(status_code=501, detail=f"Invalid NFT registration ticket")
+
+    # Base64decode the ticket
+    reg_ticket_nft_ticket_str = base64.b64decode(reg_ticket["ticket"]["nft_ticket"]).decode('utf-8')
+
+    # Convert to json
+    reg_ticket["ticket"]["nft_ticket"] = json.loads(reg_ticket_nft_ticket_str)
+
+    if not reg_ticket["ticket"]["nft_ticket"] or \
+            "nft_ticket_version" not in reg_ticket["ticket"]["nft_ticket"] or \
+            "app_ticket" not in reg_ticket["ticket"]["nft_ticket"]:
+        raise HTTPException(status_code=501, detail=f"Failed to decode action_ticket in the "
+                                                    f"NFT registration ticket")
+
+    try:
+        # ASCII85decode the app_ticket
+        app_ticket_str = base64.a85decode(reg_ticket["ticket"]["nft_ticket"]["app_ticket"])
+        reg_ticket["ticket"]["nft_ticket"]["app_ticket"] = json.loads(app_ticket_str)
+    except ValueError as ve:
+        logging.warning(f"Failed to ascii85 decode app_ticket in the NFT registration ticket: {ve}")
+        try:
+            # Base64decode the app_ticket
+            app_ticket_str = base64.b64decode(reg_ticket["ticket"]["nft_ticket"]["app_ticket"])
+            reg_ticket["ticket"]["nft_ticket"]["app_ticket"] = json.loads(app_ticket_str)
+        except ValueError as ve:
+            if str(ve) == "Incorrect padding":
+                try:
+                    app_ticket_str = reg_ticket["ticket"]["nft_ticket"]["app_ticket"]
+                    app_ticket_str += '=='
+                    app_ticket_str = base64.b64decode(app_ticket_str)
+                    reg_ticket["ticket"]["nft_ticket"]["app_ticket"] = json.loads(app_ticket_str)
+                except ValueError as ve:
+                    logging.warning(f"Failed to base64 decode api_ticket in the NFT "
+                                    f"with extra padding registration ticket: {ve}")
+            else:
+                logging.warning(f"Failed to base64 decode app_ticket in the NFT "
+                                f"registration ticket: {ve}")
+
+    return reg_ticket

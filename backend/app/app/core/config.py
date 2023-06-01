@@ -108,6 +108,8 @@ class Settings(BaseSettings):
     FILE_STORAGE_FOR_RESULTS_SUFFIX: str = "results"
     FILE_STORAGE_FOR_PARSED_RESULTS_SUFFIX: str = "parsed_results"
 
+    NFT_DEFAULT_MAX_FILE_SIZE_FOR_FEE_IN_MB: int = 100
+    NFT_THUMBNAIL_SIZE_IN_PIXELS: int = 256
 
     POSTGRES_SERVER: Optional[str]
     POSTGRES_USER: Optional[str]

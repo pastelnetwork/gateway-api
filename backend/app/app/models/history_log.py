@@ -31,3 +31,8 @@ class CascadeHistory(HistoryLog):
 class SenseHistory(HistoryLog):
     sense_task_id = Column(Integer, ForeignKey("sense.id"))
     sense_task = relationship("Sense", back_populates="sense_history")
+
+
+class NftHistory(HistoryLog):
+    nft_task_id = Column(Integer, ForeignKey("nft.id"))
+    nft_task = relationship("Nft", back_populates="nft_history")

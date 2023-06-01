@@ -23,8 +23,8 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_request(worker=sense, files=files, make_publicly_accessible=True,
-                                        user_id=current_user.id, service=wn.WalletNodeService.SENSE)
+    return await common.process_action_request(worker=sense, files=files, make_publicly_accessible=True,
+                                               user_id=current_user.id, service=wn.WalletNodeService.SENSE)
 
 
 # Get all Sense OpenAPI gateway_requests for the current user.
@@ -46,7 +46,7 @@ async def get_all_requests(
 # Note: Only authenticated user with API key
 @router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult,
             response_model_exclude_none=True)
-async def get_request(
+async def get_request_by_request_id(
         *,
         gateway_request_id: str,
         db: Session = Depends(session.get_db_session),
@@ -62,7 +62,7 @@ async def get_request(
 # Get all Sense gateway_results for the current user.
 # Note: Only authenticated user with API key
 @router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
-async def get_results(
+async def get_all_results(
         *,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
@@ -82,7 +82,7 @@ async def get_results(
 # Note: Only authenticated user with API key
 @router.get("/gateway_results/{gateway_result_id}",
             response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
-async def get_ticket(
+async def get_result_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -238,7 +238,7 @@ async def get_raw_output_file_by_activation_ticket(
 # Get the underlying Sense parsed_output_file from the corresponding Sense Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/parsed_output_file_by_activation_txid/{activation_ticket_txid}")
-async def parsed_raw_output_file_by_act_txid(
+async def parsed_output_file_by_act_txid(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
@@ -264,17 +264,29 @@ async def get_raw_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
 ):
-    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user)
+    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user,
+                                                        search_data_lambda=lambda txid:
+                                                            common.search_pastel_file(
+                                                                reg_ticket_txid=txid,
+                                                                service=wn.WalletNodeService.SENSE,
+                                                                throw=False)
+                                                        )
 
 
 # Get a list of the Sense parsed_output_files for the given pastel_id
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/parsed_output_file_by_pastel_id/{pastel_id_of_user}")
-async def parsed_raw_output_file_by_pastel_id(
+async def parsed_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
 ):
-    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user, parse=True)
+    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user,
+                                                        search_data_lambda=lambda txid:
+                                                            common.search_pastel_file(
+                                                                reg_ticket_txid=txid,
+                                                                service=wn.WalletNodeService.SENSE,
+                                                                throw=False),
+                                                        parse=True)
 
 
 # Get the ORIGINAL uploaded from the corresponding gateway_result_id
@@ -284,7 +296,7 @@ async def get_originally_submitted_file_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     task_from_db = crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
@@ -351,7 +363,7 @@ async def get_pastel_sense_activation_ticket_by_result_id(
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
 
-    return await common.get_activation_action_ticket(task_from_db.act_ticket_txid, wn.WalletNodeService.SENSE)
+    return await common.get_activation_ticket(task_from_db.act_ticket_txid, wn.WalletNodeService.SENSE)
 
 
 # Get the Pastel Sense Registration Ticket from the blockchain from its Transaction ID
@@ -373,7 +385,7 @@ async def get_pastel_activation_ticket_by_its_txid(
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
 ):
-    return await common.get_activation_action_ticket(activation_ticket_txid, wn.WalletNodeService.SENSE)
+    return await common.get_activation_ticket(activation_ticket_txid, wn.WalletNodeService.SENSE)
 
 
 # Get the set of Pastel Sense ticket from the blockchain corresponding to a particular media_file_sha256_hash;

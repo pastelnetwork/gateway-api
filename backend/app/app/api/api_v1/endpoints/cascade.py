@@ -26,8 +26,8 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_request(worker=cascade, files=files, make_publicly_accessible=make_publicly_accessible,
-                                        user_id=current_user.id, service=wn.WalletNodeService.CASCADE)
+    return await common.process_action_request(worker=cascade, files=files, make_publicly_accessible=make_publicly_accessible,
+                                               user_id=current_user.id, service=wn.WalletNodeService.CASCADE)
 
 
 # Get all Cascade OpenAPI gateway_requests for the current user
@@ -110,7 +110,7 @@ async def get_all_files_from_request(
         *,
         gateway_request_id: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     tasks_from_db = crud.cascade.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
@@ -154,13 +154,13 @@ async def get_stored_file_by_result_id(
 
 # Get the underlying Cascade stored_file from the corresponding Cascade Registration Ticket Transaction ID
 # Only succeeds if the user owns the Cascade file (authenticated user with API key)
-#    - in the context of OpanAPI it means that file was registered by that instance of OpenAPI with its PastelID
+#    - in the context of Gateway it means that file was registered by that instance of Gateway with its PastelID
 @router.get("/stored_file_from_registration_ticket/{registration_ticket_txid}")
 async def get_stored_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     task_from_db = crud.cascade.get_by_reg_txid_and_owner(db=db, owner_id=current_user.id,
@@ -177,13 +177,13 @@ async def get_stored_file_by_registration_ticket(
 
 # Get the underlying Cascade stored_file from the corresponding Cascade Activation Ticket Transaction ID
 # Only succeeds if the user owns the Cascade file (authenticated user with API key)
-#    - in the context of OpanAPI it means that file was registered by that instance of OpenAPI with its PastelID
+#    - in the context of Gateway it means that file was registered by that instance of Gateway with its PastelID
 @router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}")
 async def get_stored_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     task_from_db = crud.cascade.get_by_act_txid_and_owner(db=db, owner_id=current_user.id,
@@ -207,22 +207,10 @@ async def get_public_stored_file_by_registration_ticket(
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
 ):
-    shadow_ticket = crud.reg_ticket.get_by_reg_ticket_txid_and_type(
-        db=db,
-        txid=registration_ticket_txid,
-        ticket_type='cascade')
-    if not shadow_ticket:
-        # reg_ticket = await common.get_registration_action_ticket(registration_ticket_txid, wn.WalletNodeService.CASCADE)
-        raise HTTPException(status_code=404, detail="File not found")
-    if shadow_ticket.ticket_type == 'sense':
-        raise HTTPException(status_code=404, detail="File not found")
-    if not shadow_ticket.is_public:
-        raise HTTPException(status_code=403, detail="Non authorized access to file")
-
-    file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
-                                                 service=wn.WalletNodeService.CASCADE)
-    return await common.stream_file(file_bytes=file_bytes,
-                                    original_file_name=f"{shadow_ticket.file_name}")
+    return common.get_public_file(db=db,
+                                  ticket_type="cascade",
+                                  registration_ticket_txid=registration_ticket_txid,
+                                  wn_service=wn.WalletNodeService.CASCADE)
 
 
 # Get the ORIGINAL uploaded from the corresponding gateway_result_id
@@ -298,7 +286,7 @@ async def get_pastel_cascade_activation_ticket_by_result_id(
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
 
-    return await common.get_activation_action_ticket(task_from_db.act_ticket_txid, wn.WalletNodeService.CASCADE)
+    return await common.get_activation_ticket(task_from_db.act_ticket_txid, wn.WalletNodeService.CASCADE)
 
 
 # Get the Pastel Cascade registration ticket from the blockchain from its Transaction ID
@@ -320,7 +308,7 @@ async def get_pastel_activation_ticket_by_its_txid(
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
 ):
-    return await common.get_activation_action_ticket(activation_ticket_txid, wn.WalletNodeService.CASCADE)
+    return await common.get_activation_ticket(activation_ticket_txid, wn.WalletNodeService.CASCADE)
 
 
 # Get the set of Pastel Cascade tickets from the blockchain corresponding to a particular stored_file_sha256_hash.
@@ -385,7 +373,7 @@ async def transfer_pastel_ticket_to_another_pastelid(
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
 
-    offer_ticket = await common.create_offer_ticket(task_from_db, pastel_id, wn.WalletNodeService.CASCADE)
+    offer_ticket = await common.create_offer_ticket(task_from_db, pastel_id)
 
     if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
         upd = {"offer_ticket_txid": offer_ticket['txid'],

@@ -21,6 +21,7 @@ class BaseConfig:
         # custom queue
         Queue("cascade"),
         Queue("sense"),
+        Queue("nft"),
     )
 
     task_routes = (route_task,)

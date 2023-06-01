@@ -67,3 +67,31 @@ class SenseHistoryLog(SenseHistoryLogInDBBase):
 # Properties stored in DB
 class SenseHistoryLogInDB(SenseHistoryLogInDBBase):
     pass
+
+
+class NftHistoryLogBase(HistoryLogBase):
+    sense_task_id: int
+
+
+class NftHistoryLogCreate(NftHistoryLogBase):
+    pass
+
+
+class NftHistoryLogUpdate(NftHistoryLogBase):
+    pass
+
+
+# Properties shared by models stored in DB
+class NftHistoryLogInDBBase(NftHistoryLogBase):
+    class Config:
+        orm_mode = True
+
+
+# Properties to return to client
+class NftHistoryLog(NftHistoryLogInDBBase):
+    pass
+
+
+# Properties stored in DB
+class NftHistoryLogInDB(NftHistoryLogInDBBase):
+    pass
