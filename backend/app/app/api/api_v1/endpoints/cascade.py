@@ -207,7 +207,7 @@ async def get_public_stored_file_by_registration_ticket(
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
 ):
-    return common.get_public_file(db=db,
+    return await common.get_public_file(db=db,
                                   ticket_type="cascade",
                                   registration_ticket_txid=registration_ticket_txid,
                                   wn_service=wn.WalletNodeService.CASCADE)

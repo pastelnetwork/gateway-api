@@ -70,7 +70,7 @@ class SenseHistoryLogInDB(SenseHistoryLogInDBBase):
 
 
 class NftHistoryLogBase(HistoryLogBase):
-    sense_task_id: int
+    nft_task_id: int
 
 
 class NftHistoryLogCreate(NftHistoryLogBase):

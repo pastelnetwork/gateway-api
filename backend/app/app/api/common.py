@@ -336,7 +336,7 @@ async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_fu
     if task_from_db.ticket_status not in [DbStatus.DONE.value]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
-    dd_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, extra_suffix="_dd")
+    dd_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, extra_suffix=".dd")
     not_locally_cached = not dd_bytes
 
     if not dd_bytes:
@@ -350,9 +350,9 @@ async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_fu
 
     # cache file in local storage and IPFS
     if not_locally_cached:
-        cached_dd_file = asyncio.run(store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid,
-                                                                 file_bytes=dd_bytes,
-                                                                 extra_suffix=".dd"))
+        cached_dd_file = await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                           file_bytes=dd_bytes,
+                                                           extra_suffix=".dd")
         if cached_dd_file and not task_from_db.nft_dd_file_ipfs_link:
             nft_dd_file_ipfs_link = await store_file_to_ipfs(cached_dd_file)
             if nft_dd_file_ipfs_link:
@@ -366,20 +366,29 @@ async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_fu
 # Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
 async def search_nft_dd_result_pastel(*, reg_ticket_txid: str, throw=True) -> bytes:
 
-    dd_bytes = await search_file_in_local_cache(reg_ticket_txid=reg_ticket_txid, extra_suffix="_dd")
-    not_locally_cached = not dd_bytes
+    dd_data = await search_file_in_local_cache(reg_ticket_txid=reg_ticket_txid, extra_suffix=".dd")
+    not_locally_cached = not dd_data
 
-    if not dd_bytes:
-        dd_bytes = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=reg_ticket_txid)
+    if not dd_data:
+        dd_data = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=reg_ticket_txid)
 
-    if not dd_bytes:
+    if not dd_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Dupe detection data is not found")
 
-    # cache file in local storage and IPFS
-    if not_locally_cached:
-        cached_dd_file = asyncio.run(store_file_into_local_cache(reg_ticket_txid=reg_ticket_txid,
-                                                                 extra_suffix=".dd"))
+    if isinstance(dd_data, dict):
+        dd_bytes = json.dumps(dd_data).encode('utf-8')
+    elif isinstance(dd_data, bytes):
+        dd_bytes = dd_data
+    elif isinstance(dd_data, str):
+        dd_bytes = dd_data.encode('utf-8')
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Dupe detection data is not found")
 
+    # cache file in local storage only
+    if not_locally_cached:
+        await store_file_into_local_cache(reg_ticket_txid=reg_ticket_txid,
+                                          file_bytes=dd_bytes,
+                                          extra_suffix=".dd")
     return dd_bytes
 
 
@@ -435,12 +444,16 @@ async def get_all_sense_data_from_request(*, db, tasks_from_db, gateway_request_
                              content_type="application/zip")
 
 
-async def get_all_sense_data_for_pastelid(*, pastel_id: str, search_data_lambda, parse=False):
-    registration_ticket_txids = await get_reg_txids_by_pastel_id(pastel_id=pastel_id)
+async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_type: str, search_data_lambda, parse=False):
+    registration_ticket_txids = await get_reg_txids_by_pastel_id(pastel_id=pastel_id, ticket_type=ticket_type)
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for txid in registration_ticket_txids:
-            raw_file_bytes = await search_data_lambda(txid)
+            try:
+                raw_file_bytes = await search_data_lambda(txid)
+            except Exception as e:
+                logging.error(f"Error getting sense data for txid={txid}: {e}")
+                continue
             if not raw_file_bytes:
                 continue
             if parse:
@@ -533,7 +546,7 @@ async def get_registration_nft_ticket(ticket_txid):
     return await psl.parse_registration_nft_ticket(reg_ticket)
 
 
-async def parse_sense_data(raw_bytes: bytes, throw=True) -> bytearray|None:
+async def parse_sense_data(raw_bytes: bytes, throw=True) -> str|None:
     try:
         sense_data_json = json.loads(raw_bytes)
     except Exception as e:
@@ -567,7 +580,7 @@ async def parse_sense_data(raw_bytes: bytes, throw=True) -> bytearray|None:
             decode_decompress_item(sense_data_json['internet_rareness'],
                                    'alternative_rare_on_internet_dict_as_json_compressed_b64')
 
-    return bytearray(json.dumps(sense_data_json), 'utf-8')
+    return json.dumps(sense_data_json)
 
 
 def decode_decompress_item(json_object: dict, key: str):
@@ -597,10 +610,10 @@ async def get_reg_txid_by_act_txid(act_txid: str) -> str:
     return act_ticket['ticket']['reg_txid']
 
 
-async def get_reg_txids_by_pastel_id(pastel_id: str) -> List[str]:
+async def get_reg_txids_by_pastel_id(pastel_id: str, ticket_type: str) -> List[str]:
     txids = []
     try:
-        reg_tickets = psl.call("tickets", ['find', 'action', pastel_id])
+        reg_tickets = psl.call("tickets", ['find', ticket_type, pastel_id])
     except psl.PasteldException as e:
         raise HTTPException(status_code=501, detail=f"Action registration ticket not found - {e}")
     except Exception as e:

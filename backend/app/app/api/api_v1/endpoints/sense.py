@@ -264,13 +264,14 @@ async def get_raw_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
 ):
-    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                        search_data_lambda=lambda txid:
-                                                            common.search_pastel_file(
-                                                                reg_ticket_txid=txid,
-                                                                service=wn.WalletNodeService.SENSE,
-                                                                throw=False)
-                                                        )
+    return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
+                                                                  ticket_type="action",
+                                                                  search_data_lambda=lambda txid:
+                                                                    common.search_pastel_file(
+                                                                        reg_ticket_txid=txid,
+                                                                        service=wn.WalletNodeService.SENSE,
+                                                                        throw=False)
+                                                                  )
 
 
 # Get a list of the Sense parsed_output_files for the given pastel_id
@@ -280,13 +281,14 @@ async def parsed_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
 ):
-    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                        search_data_lambda=lambda txid:
-                                                            common.search_pastel_file(
-                                                                reg_ticket_txid=txid,
-                                                                service=wn.WalletNodeService.SENSE,
-                                                                throw=False),
-                                                        parse=True)
+    return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
+                                                                  ticket_type="action",
+                                                                  search_data_lambda=lambda txid:
+                                                                    common.search_pastel_file(
+                                                                        reg_ticket_txid=txid,
+                                                                        service=wn.WalletNodeService.SENSE,
+                                                                        throw=False),
+                                                                  parse=True)
 
 
 # Get the ORIGINAL uploaded from the corresponding gateway_result_id

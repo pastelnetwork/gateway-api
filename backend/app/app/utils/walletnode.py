@@ -84,8 +84,7 @@ async def get_file_from_pastel(*, reg_ticket_txid, wn_service: WalletNodeService
 
 
 async def get_nft_dd_result_from_pastel(*, reg_ticket_txid):
-    data_bytes = None
-    wn_resp = call(False,
+    data_bytes = call(False,
                    WalletNodeService.NFT,
                    f'get_dd_results?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
                    {},
@@ -93,6 +92,6 @@ async def get_nft_dd_result_from_pastel(*, reg_ticket_txid):
                    {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
                    "", "", True)    # This call will not throw!
 
-    if not wn_resp:
+    if not data_bytes:
         logging.error(f"NFT DD result for file not found - reg ticket txid = {reg_ticket_txid}")
     return data_bytes

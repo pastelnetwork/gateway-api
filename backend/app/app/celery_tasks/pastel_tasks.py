@@ -84,14 +84,14 @@ class PastelAPITask(celery.Task):
         data = local_file.read()
 
         if service == wn.WalletNodeService.NFT:
-            service_url = f"{service}/register"
+            cmd = f"register/upload"
         else:
-            service_url = service
+            cmd = 'upload'
 
         try:
             wn_file_id, preburn_fee = wn.call(True,
-                                              service_url,
-                                              'upload',
+                                              service,
+                                              cmd,
                                               {},
                                               [('file', (local_file.name, data, local_file.type))],
                                               {},
@@ -232,14 +232,14 @@ class PastelAPITask(celery.Task):
             form = self.get_request_form(task_from_db)
 
             if service == wn.WalletNodeService.NFT:
-                url_suffix = 'register'
+                cmd = 'register'
             else:
-                url_suffix = f'start/{task_from_db.wn_file_id}'
+                cmd = f'start/{task_from_db.wn_file_id}'
 
             try:
                 wn_task_id = wn.call(True,
                                      service,
-                                     url_suffix,
+                                     cmd,
                                      form,
                                      [],
                                      {

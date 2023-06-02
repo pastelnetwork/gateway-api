@@ -150,7 +150,7 @@ async def get_public_stored_file_by_registration_ticket(
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
 ):
-    return common.get_public_file(db=db,
+    return await common.get_public_file(db=db,
                                   ticket_type="nft",
                                   registration_ticket_txid=registration_ticket_txid,
                                   wn_service=wn.WalletNodeService.NFT)
@@ -375,12 +375,13 @@ async def get_raw_dd_result_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
 ):
-    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                        search_data_lambda=lambda txid:
-                                                            common.search_nft_dd_result_pastel(
-                                                                reg_ticket_txid=txid,
-                                                                throw=False)
-                                                        )
+    return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
+                                                                  ticket_type="nft",
+                                                                  search_data_lambda=lambda txid:
+                                                                    common.search_nft_dd_result_pastel(
+                                                                        reg_ticket_txid=txid,
+                                                                        throw=False)
+                                                                  )
 
 
 # Get a list of the NFT parsed_dd_result_file for the given pastel_id
@@ -390,12 +391,13 @@ async def parsed_raw_dd_result_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
 ):
-    return await common.get_all_sense_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                        search_data_lambda=lambda txid:
-                                                            common.search_nft_dd_result_pastel(
-                                                                reg_ticket_txid=txid,
-                                                                throw=False),
-                                                        parse=True)
+    return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
+                                                                  ticket_type="nft",
+                                                                  search_data_lambda=lambda txid:
+                                                                    common.search_nft_dd_result_pastel(
+                                                                        reg_ticket_txid=txid,
+                                                                        throw=False),
+                                                                  parse=True)
 
 
 @router.websocket("/status/result")

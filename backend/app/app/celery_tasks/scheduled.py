@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import traceback
 from datetime import datetime
@@ -37,6 +38,13 @@ def registration_finisher():
         wn.WalletNodeService.SENSE,
         "Sense"
     )
+    _registration_finisher(
+        crud.nft.get_all_started_not_finished,
+        crud.nft.update,
+        crud.nft.get_by_preburn_txid,
+        wn.WalletNodeService.NFT,
+        "NFT"
+    )
 
 
 def _registration_finisher(
@@ -57,6 +65,11 @@ def _registration_finisher(
     #  "UPLOADED"
     #  "PREBURN_FEE"
     #
+    if wn_service == wn.WalletNodeService.CASCADE or wn_service == wn.WalletNodeService.SENSE:
+        verb = "action-act"
+    else:    # if wn_service == wn.WalletNodeService.NFT:
+        verb = "act"
+
     for task_from_db in tasks_from_db:
         if task_from_db.wn_task_id:
             try:
@@ -115,12 +128,12 @@ def _registration_finisher(
                         continue
                 if not task_from_db.act_ticket_txid:
                     if task_from_db.reg_ticket_txid:
-                        act_ticket = psl.call("tickets", ['find', 'action-act', task_from_db.reg_ticket_txid])
+                        act_ticket = psl.call("tickets", ['find', verb, task_from_db.reg_ticket_txid])
                         if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                             logger.info(f"Found act ticket txid from Pastel network: {act_ticket['txid']}")
                             _finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
                             break
-                    act = status.split(f'Activated {service_name} Action Ticket TXID: ', 1)
+                    act = status.split(f'Activated {service_name} Registration Ticket TXID: ', 1)
                     if len(act) == 2:
                         logger.info(f"Found act ticket txid from WalletNode: {act[2]}")
                         _finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
@@ -152,12 +165,24 @@ def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
                     sense_task_id=task_from_db.id,
                 )
                 crud.sense_log.create(session, obj_in=log)
+            elif wn_service == wn.WalletNodeService.NFT:
+                log = schemas.NftHistoryLog(
+                    wn_file_id=task_from_db.wn_file_id,
+                    wn_task_id=task_from_db.wn_task_id,
+                    task_status=task_from_db.ticket_status,
+                    status_messages=str(wn_task_status),
+                    retry_count=task_from_db.retry_num,
+                    pastel_id=task_from_db.pastel_id,
+                    nft_task_id=task_from_db.id,
+                )
+                crud.nft_log.create(session, obj_in=log)
 
 
 def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):
     logger.info(f"Finalizing registration: {task_from_db.id}")
 
     stored_file_ipfs_link = task_from_db.stored_file_ipfs_link
+    nft_dd_file_ipfs_link = task_from_db.nft_dd_file_ipfs_link
     try:
         file_bytes = asyncio.run(wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
                                                          wn_service=wn_service))
@@ -170,8 +195,12 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
                 stored_file_ipfs_link = asyncio.run(store_file_to_ipfs(cached_result_file))
 
         if wn_service == wn.WalletNodeService.NFT:
-            dd_bytes = asyncio.run(wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid))
-            if dd_bytes:
+            dd_data = asyncio.run(wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid))
+            if dd_data:
+                if isinstance(dd_data, dict):
+                    dd_bytes = json.dumps(dd_data).encode('utf-8')
+                else:
+                    dd_bytes = dd_data.encode('utf-8')
                 cached_dd_file = asyncio.run(store_file_into_local_cache(
                     reg_ticket_txid=task_from_db.reg_ticket_txid,
                     file_bytes=dd_bytes,

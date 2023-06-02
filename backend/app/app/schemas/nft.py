@@ -34,6 +34,7 @@ class NftBase(BaseTaskBase):
     nft_properties: Optional[NftPropertiesInternal]
     collection_act_txid: Optional[str]
     open_api_group_id: Optional[str]
+    nft_dd_file_ipfs_link: Optional[str]
 
 
 # Properties to receive on Nft creation

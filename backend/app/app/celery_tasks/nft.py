@@ -191,4 +191,4 @@ def re_register_file(self, result_id) -> str:
                                       crud.nft.get_by_result_id,
                                       crud.nft.update,
                                       WalletNodeService.NFT,
-                                      "Nft")
+                                      "NFT")

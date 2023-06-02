@@ -100,7 +100,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             .all()
         )
 
-    def get_all_in_work_started(
+    def get_all_in_request_started(
             self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
     ) -> List[Nft]:
         return (
@@ -188,6 +188,20 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
     def get_by_act_txid(self, db: Session, *, act_txid: str) -> Optional[Nft]:
         return (
             db.query(self.model)
+            .filter(Nft.act_ticket_txid == act_txid)
+            .first())
+
+    def get_by_reg_txid_and_owner(self, db: Session, *, reg_txid: str, owner_id: int) -> Optional[Nft]:
+        return (
+            db.query(self.model)
+            .filter(Nft.owner_id == owner_id)
+            .filter(Nft.reg_ticket_txid == reg_txid)
+            .first())
+
+    def get_by_act_txid_and_owner(self, db: Session, *, act_txid: str, owner_id: int) -> Optional[Nft]:
+        return (
+            db.query(self.model)
+            .filter(Nft.owner_id == owner_id)
             .filter(Nft.act_ticket_txid == act_txid)
             .first())
 
