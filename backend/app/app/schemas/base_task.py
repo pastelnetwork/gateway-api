@@ -62,6 +62,23 @@ class Status(str, Enum):
     ERROR = "ERROR"
     UNKNOWN = "UNKNOWN"
 
+# Life cycle of a request visible to the caller (Status):
+#
+# PENDING (DbStatus.NEW, DbStatus.UPLOADED, DbStatus.PREBURN_FEE, DbStatus.STARTED, DbStatus.ERROR, DbStatus.RESTARTED)
+#   -> "RESULT COMPLETE. PENDING REGISTRATION" (DbStatus.STARTED and 'Request Accepted' received from WN)
+#       -> "REGISTRATION COMPLETE. PENDING ACTIVATION  (DbStatus.REGISTERED)
+#           -> SUCCESS (DbStatus.DONE)
+#
+#  ERROR
+#       1) if "image" not in file.content_type) - we cannot proceed at all
+#       2) DbStatus.ERROR and settings.RETURN_DETAILED_WN_ERROR == True
+#       3) DbStatus.ERROR and settings.RETURN_DETAILED_WN_ERROR == True
+#
+# FAILED:
+#       1) DbStatus.DEAD
+
+
+
 
 class ResultRegistrationResult(BaseModel):
     file_name: str

@@ -381,7 +381,8 @@ def fee_pre_burner():
                 tx = psl.call("tickets", ["find", "action", new.txid])
                 if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
                     tx = psl.call("getrawtransaction", [new.txid], True)
-                    if not tx or tx.status_code != 200 or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
+                    if not tx or not isinstance(tx, str):
+                            # tx.status_code != 200 or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
                         crud.preburn_tx.mark_bad(session, new.txid)
                     continue
             crud.preburn_tx.mark_used(session, new.txid)

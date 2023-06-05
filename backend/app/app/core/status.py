@@ -13,10 +13,15 @@ class DbStatus(str, Enum):
     REGISTERED = "REGISTERED"       # task is registered, reg ticket txid is received
 
 
-# Life cycle of a request:
+# Internal Life cycle of a request (DbStatus):
 #
-# NEW -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
+# (sense, cascade)  NEW -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
+# (nft)             NEW -> UPLOADED -> STARTED -> DONE
+#
+# the request can go into error state at any of the above states
 # ERROR -> RESTARTED -> UPLOADED -> PREBURN_FEE -> STARTED -> DONE
 # ERROR, BUT has reg_txid -> REGISTERED
-# REGISTERED ->
+#
+# REGISTERED -> DONE
+#
 # ERROR -> ... -> ERROR 10 times -> DEAD

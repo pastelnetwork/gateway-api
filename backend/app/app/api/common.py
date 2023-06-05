@@ -136,6 +136,8 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
             result_registration_status = schemas.Status.PENDING
         if task_from_db.ticket_status in [DbStatus.ERROR.value, DbStatus.RESTARTED.value]:
             result_registration_status = schemas.Status.PENDING
+        elif task_from_db.ticket_status == DbStatus.REGISTERED.value:
+            result_registration_status = schemas.Status.PENDING_ACT
         elif task_from_db.ticket_status == DbStatus.DONE.value:
             result_registration_status = schemas.Status.SUCCESS
         elif task_from_db.ticket_status == DbStatus.DEAD.value:
