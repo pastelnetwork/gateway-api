@@ -182,7 +182,8 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
     logger.info(f"Finalizing registration: {task_from_db.id}")
 
     stored_file_ipfs_link = task_from_db.stored_file_ipfs_link
-    nft_dd_file_ipfs_link = task_from_db.nft_dd_file_ipfs_link
+    if wn_service == wn.WalletNodeService.NFT:
+        nft_dd_file_ipfs_link = task_from_db.nft_dd_file_ipfs_link
     try:
         file_bytes = asyncio.run(wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
                                                          wn_service=wn_service))
@@ -254,6 +255,13 @@ def registration_re_processor():
         crud.sense.update,
         _start_reprocess_sense,
         "Sense"
+    )
+
+    _registration_re_processor(
+        crud.nft.get_all_failed,
+        crud.nft.update,
+        _start_reprocess_nft,
+        "NFT"
     )
 
 
@@ -352,6 +360,14 @@ def _start_reprocess_sense(task_from_db):
     logger.info(f"Sense Registration restarted for result {task_from_db.ticket_id} with task id {res.task_id}")
 
 
+def _start_reprocess_nft(task_from_db):
+    res = (
+            sense.re_register_file.s(task_from_db.ticket_id) |
+            sense.process.s()
+    ).apply_async()
+    logger.info(f"NFT Registration restarted for result {task_from_db.ticket_id} with task id {res.task_id}")
+
+
 @shared_task(name="scheduled_tools:fee_pre_burner")
 def fee_pre_burner():
     logger.info(f"fee_pre_burner task started")
@@ -424,56 +440,118 @@ def fee_pre_burner():
 @task_lock(main_key="registration_tickets_finder", timeout=5*60)
 def registration_tickets_finder():
     logger.info(f"cascade_tickets_finder started")
-    tickets = []
     try:
         with db_context() as session:
             last_processed_block = crud.reg_ticket.get_last_blocknum(session)
-        tickets = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)
-        if not tickets:
-            logger.info(f"No new tickets found after block {last_processed_block}")
-            return
-        logger.info(f"Fount {len(tickets)} new tickets after block {last_processed_block}")
-        for ticket in tickets:
-            parsed_ticket = asyncio.run(psl.parse_registration_action_ticket(ticket,
-                                                                             "action-reg",
-                                                                             ["cascade", "sense"]))
-            if parsed_ticket:
-                with db_context() as session:
-                    if 'txid' not in parsed_ticket:
-                        continue
-                    reg_ticket_txid = parsed_ticket['txid']
-                    if 'data_hash' not in parsed_ticket['ticket']['action_ticket']['api_ticket']:
-                        continue
-                    data_hash = parsed_ticket['ticket']['action_ticket']['api_ticket']['data_hash']
 
-                    height = parsed_ticket['height'] if 'height' in parsed_ticket else 0
+        nft_tickets = psl.call("tickets", ['list', 'nft', 'active', last_processed_block+1], nothrow=True)
+        process_nft_tickets(nft_tickets, last_processed_block)
 
-                    file_name = parsed_ticket['ticket']['action_ticket']['api_ticket']['file_name'] \
-                        if 'file_name' in parsed_ticket['ticket']['action_ticket']['api_ticket'] else ''
+        action_ticket = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)
+        process_action_tickets(action_ticket, last_processed_block)
 
-                    is_public = parsed_ticket['ticket']['action_ticket']['api_ticket']['make_publicly_accessible'] \
-                        if 'make_publicly_accessible' \
-                           in parsed_ticket['ticket']['action_ticket']['api_ticket'] else False
-
-                    ticket_type = parsed_ticket['ticket']['action_ticket']['action_type'] \
-                        if 'action_type' in parsed_ticket['ticket']['action_ticket'] else ''
-
-                    caller_pastel_id = parsed_ticket['ticket']['action_ticket']['caller'] \
-                        if 'caller' in parsed_ticket['ticket']['action_ticket'] else ''
-
-                    crud.reg_ticket.create_new(session,
-                                               reg_ticket_txid=reg_ticket_txid,
-                                               data_hash=data_hash,
-                                               blocknum=height,
-                                               file_name=file_name,
-                                               ticket_type=ticket_type,
-                                               caller_pastel_id=caller_pastel_id,
-                                               is_public=is_public)
 
     except Exception as e:
         logger.error(f"Error while processing cascade tickets {e}")
 
-    logger.info(f"cascade_tickets_finder done, processed {len(tickets)} tickets")
+
+def get_value_from_nft_app_ticket(ticket, key, def_value) -> (str, bool):
+    if key in ticket['ticket']['nft_ticket']['app_ticket']:
+        return ticket['ticket']['nft_ticket']['app_ticket'][key], True
+    else:
+        return def_value, False
+
+
+def get_value_from_nft_ticket(ticket, key, def_value) -> (str, bool):
+    if key in ticket['ticket']['nft_ticket']:
+        return ticket['ticket']['nft_ticket'][key], True
+    else:
+        return def_value, False
+
+
+def get_value_from_action_api_ticket(ticket, key, def_value) -> (str, bool):
+    if key in ticket['ticket']['action_ticket']['api_ticket']:
+        return ticket['ticket']['action_ticket']['api_ticket'][key], True
+    else:
+        return def_value, False
+
+
+def get_value_from_action_ticket(ticket, key, def_value) -> (str, bool):
+    if key in ticket['ticket']['action_ticket']:
+        return ticket['ticket']['action_ticket'][key], True
+    else:
+        return def_value, False
+
+
+def process_nft_tickets(tickets, last_processed_block):
+    if not tickets:
+        logger.info(f"No new tickets found after block {last_processed_block}")
+        return
+    logger.info(f"Fount {len(tickets)} new tickets after block {last_processed_block}")
+    for ticket in tickets:
+        parsed_ticket = asyncio.run(psl.parse_registration_nft_ticket(ticket))
+        if parsed_ticket:
+            with db_context() as session:
+                if 'txid' not in parsed_ticket:
+                    continue
+                reg_ticket_txid = parsed_ticket['txid']
+
+                data_hash, found = get_value_from_nft_app_ticket(parsed_ticket, 'data_hash', '')
+                if not found:
+                    continue
+
+                height = parsed_ticket['height'] if 'height' in parsed_ticket else 0
+
+                file_name, _ = get_value_from_nft_app_ticket(parsed_ticket, 'file_name', '')
+                is_public, _ = get_value_from_nft_app_ticket(parsed_ticket, 'make_publicly_accessible', False)
+                author_pastel_id, _ = get_value_from_nft_ticket(parsed_ticket, 'author', '')
+
+                crud.reg_ticket.create_new(session,
+                                           reg_ticket_txid=reg_ticket_txid,
+                                           data_hash=data_hash,
+                                           blocknum=height,
+                                           file_name=file_name,
+                                           ticket_type='nft',
+                                           caller_pastel_id=author_pastel_id,
+                                           is_public=is_public)
+    logger.info(f"process_nft_tickets done, processed {len(tickets)} tickets")
+
+
+def process_action_tickets(tickets, last_processed_block):
+    if not tickets:
+        logger.info(f"No new tickets found after block {last_processed_block}")
+        return
+    logger.info(f"Fount {len(tickets)} new tickets after block {last_processed_block}")
+    for ticket in tickets:
+        parsed_ticket = asyncio.run(psl.parse_registration_action_ticket(ticket,
+                                                                         "action-reg",
+                                                                         ["cascade", "sense"]))
+        if parsed_ticket:
+            with db_context() as session:
+                if 'txid' not in parsed_ticket:
+                    continue
+                reg_ticket_txid = parsed_ticket['txid']
+
+                data_hash, found = get_value_from_action_api_ticket(parsed_ticket, 'data_hash', '')
+                if not found:
+                    continue
+
+                height = parsed_ticket['height'] if 'height' in parsed_ticket else 0
+
+                file_name, _ = get_value_from_action_api_ticket(parsed_ticket, 'file_name', '')
+                is_public, _ = get_value_from_action_api_ticket(parsed_ticket, 'make_publicly_accessible', False)
+                caller_pastel_id, _ = get_value_from_action_ticket(parsed_ticket, 'caller', '')
+                ticket_type, _ = get_value_from_action_ticket(parsed_ticket, 'action_type', '')
+
+                crud.reg_ticket.create_new(session,
+                                           reg_ticket_txid=reg_ticket_txid,
+                                           data_hash=data_hash,
+                                           blocknum=height,
+                                           file_name=file_name,
+                                           ticket_type=ticket_type,
+                                           caller_pastel_id=caller_pastel_id,
+                                           is_public=is_public)
+    logger.info(f"process_action_tickets done, processed {len(tickets)} tickets")
 
 
 @shared_task(name="scheduled_tools:ticket_activator")
@@ -481,15 +559,27 @@ def ticket_activator():
     _ticket_activator(
         crud.cascade.get_all_in_registered_state,
         crud.cascade.update,
+        wn.WalletNodeService.CASCADE,
         "Cascade"
     )
     _ticket_activator(
         crud.sense.get_all_in_registered_state,
         crud.sense.update,
+        wn.WalletNodeService.SENSE,
         "Sense"
     )
+    _ticket_activator(
+        crud.nft.get_all_in_registered_state,
+        crud.nft.update,
+        wn.WalletNodeService.NFT,
+        "NFT"
+    )
 
-def _ticket_activator(all_in_registered_state_func, update_task_in_db_func, service_name: str):
+
+def _ticket_activator(all_in_registered_state_func,
+                      update_task_in_db_func,
+                      service: wn.WalletNodeService,
+                      service_name: str):
     logger.info(f"ticket_activator task started")
     with db_context() as session:
         tasks_from_db = all_in_registered_state_func(session)
@@ -516,8 +606,12 @@ def _ticket_activator(all_in_registered_state_func, update_task_in_db_func, serv
             else:
                 height = task_from_db.height
 
+            if service == wn.WalletNodeService.NFT:
+                ticket_type = 'act'
+            else:
+                ticket_type = 'action-act'
             logger.info(f"{service_name}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-            act_txid = create_action_act_ticket(task_from_db, height)
+            act_txid = create_activation_ticket(task_from_db, height, ticket_type)
             if act_txid:
                 upd = {
                     "act_ticket_txid": act_txid,
@@ -537,20 +631,22 @@ def _ticket_activator(all_in_registered_state_func, update_task_in_db_func, serv
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
-def create_action_act_ticket(task_from_db, height):
-    action_activation_ticket = psl.call('tickets', ['register', 'action-act',
-                                        task_from_db.reg_ticket_txid,
-                                        height,
-                                        task_from_db.wn_fee,
-                                        settings.PASTEL_ID,
-                                        settings.PASTEL_ID_PASSPHRASE]
-                                        )
-    if action_activation_ticket and 'txid' in action_activation_ticket:
-        logger.info(f"Created action-act ticket {action_activation_ticket['txid']}")
-        return action_activation_ticket['txid']
+
+def create_activation_ticket(task_from_db, height, ticket_type):
+    activation_ticket = psl.call('tickets', ['register', ticket_type,
+                                             task_from_db.reg_ticket_txid,
+                                             height,
+                                             task_from_db.wn_fee,
+                                             settings.PASTEL_ID,
+                                             settings.PASTEL_ID_PASSPHRASE]
+                                 )
+    if activation_ticket and 'txid' in activation_ticket:
+        logger.info(f"Created {ticket_type} ticket {activation_ticket['txid']}")
+        return activation_ticket['txid']
     else:
-        logger.error(f"Error while creating action-act ticket {action_activation_ticket}")
+        logger.error(f"Error while creating {ticket_type} ticket {activation_ticket}")
         return None
+
 
 def parse_registration_ticket(reg_txid, expected_action_type):
     try:
@@ -559,6 +655,7 @@ def parse_registration_ticket(reg_txid, expected_action_type):
     except Exception as e:
         logger.error(f"Invalid action-reg ticket {reg_txid}")
     return None
+
 
 @shared_task(name="scheduled_tools:watchdog")
 def watchdog():

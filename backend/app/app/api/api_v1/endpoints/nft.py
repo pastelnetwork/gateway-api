@@ -199,7 +199,7 @@ async def get_pastel_nft_registration_ticket_by_result_id(
 # Get Pastel NFT activation ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
 @router.get("/pastel_activation_ticket/{gateway_result_id}")
-async def get_pastel_sense_activation_ticket_by_result_id(
+async def get_pastel_nft_activation_ticket_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -248,7 +248,7 @@ async def get_pastel_ticket_data_from_media_file_hash(
     tickets = crud.reg_ticket.get_by_hash(db=db, data_hash=media_file_sha256_hash)
     for ticket in tickets:
         if ticket.ticket_type == "nft":
-            reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.NFT)
+            reg_ticket = await common.get_registration_nft_ticket(ticket.reg_ticket_txid)
             output.append(reg_ticket)
     return output
 
@@ -288,7 +288,7 @@ async def get_parsed_dd_result_file(
     raw_file_bytes = await common.search_nft_dd_result_gateway(db=db,
                                                                task_from_db=task_from_db,
                                                                update_task_in_db_func=crud.nft.update)
-    parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
+    parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
 
@@ -310,7 +310,7 @@ async def get_raw_dd_result_file_by_registration_ticket(
     return Response(content=raw_file_bytes, media_type="application/json")
 
 
-# Get the underlying Sense parsed_dd_result_file from the corresponding NFT Registration Ticket Transaction ID
+# Get the underlying NFT parsed_dd_result_file from the corresponding NFT Registration Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/parsed_dd_result_file_by_registration_ticket/{registration_ticket_txid}")
 async def get_parsed_dd_result_file_by_registration_ticket(
@@ -325,11 +325,11 @@ async def get_parsed_dd_result_file_by_registration_ticket(
                                                                    update_task_in_db_func=crud.nft.update)
     else:
         raw_file_bytes = await common.search_nft_dd_result_pastel(reg_ticket_txid=registration_ticket_txid)
-    parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
+    parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
 
-# Get the underlying Sense raw_dd_result_file from the corresponding NFT Activation Ticket Transaction ID
+# Get the underlying NFT raw_dd_result_file from the corresponding NFT Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/raw_dd_result_file_by_activation_ticket/{activation_ticket_txid}")
 async def get_raw_dd_result_file_by_activation_ticket(
@@ -348,10 +348,10 @@ async def get_raw_dd_result_file_by_activation_ticket(
     return Response(content=raw_file_bytes, media_type="application/json")
 
 
-# Get the underlying Sense parsed_dd_result_file from the corresponding NFT Activation Ticket Transaction ID
+# Get the underlying NFT parsed_dd_result_file from the corresponding NFT Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/parsed_dd_result_file_by_activation_txid/{activation_ticket_txid}")
-async def parsed_dd_result_file_by_act_txid(
+async def get_parsed_dd_result_file_by_activation_txid(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session)
@@ -364,7 +364,7 @@ async def parsed_dd_result_file_by_act_txid(
     else:
         registration_ticket_txid = await common.get_reg_txid_by_act_txid(activation_ticket_txid)
         raw_file_bytes = await common.search_nft_dd_result_pastel(reg_ticket_txid=registration_ticket_txid)
-    parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
+    parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
 
@@ -387,7 +387,7 @@ async def get_raw_dd_result_file_by_pastel_id(
 # Get a list of the NFT parsed_dd_result_file for the given pastel_id
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/parsed_dd_result_file_by_pastel_id/{pastel_id_of_user}")
-async def parsed_raw_dd_result_file_by_pastel_id(
+async def get_parsed_dd_result_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
 ):

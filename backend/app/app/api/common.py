@@ -12,6 +12,7 @@ import zstd as zstd
 
 from fastapi import UploadFile, HTTPException, status
 from fastapi.responses import StreamingResponse
+from requests import HTTPError
 
 from app.utils.filestorage import LocalFile, store_file_into_local_cache, search_file_in_local_cache
 from app import schemas, crud
@@ -433,7 +434,7 @@ async def get_all_sense_data_from_request(*, db, tasks_from_db, gateway_request_
                                                        service=wn.WalletNodeService.SENSE,
                                                        update_task_in_db_func=crud.sense.update)
             if parse:
-                file_bytes = await parse_sense_data(raw_file_bytes, False)
+                file_bytes = await parse_dd_data(raw_file_bytes, False)
                 if not file_bytes:
                     file_bytes = raw_file_bytes
             else:
@@ -459,7 +460,7 @@ async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_ty
             if not raw_file_bytes:
                 continue
             if parse:
-                file_bytes = await parse_sense_data(raw_file_bytes, False)
+                file_bytes = await parse_dd_data(raw_file_bytes, False)
                 if not file_bytes:
                     file_bytes = raw_file_bytes
             else:
@@ -498,6 +499,8 @@ async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeServ
         reg_ticket = psl.call("tickets", ['get', ticket_txid])
     except psl.PasteldException as e:
         raise HTTPException(status_code=404, detail=f"{expected_action_type} registration ticket not found - {e}")
+    except HTTPError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to get {expected_action_type} activation ticket - {e.response.text}")
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Failed to get {expected_action_type} registration ticket - {e}")
 
@@ -521,6 +524,8 @@ async def get_activation_ticket(ticket_txid, service: wn.WalletNodeService):
         act_ticket = psl.call("tickets", ['get', ticket_txid])
     except psl.PasteldException as e:
         raise HTTPException(status_code=501, detail=f"{expected_action_type} activation ticket not found - {e}")
+    except HTTPError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to get {expected_action_type} activation ticket - {e.response.text}")
     except Exception as e:
         raise HTTPException(status_code=501, detail=f"Failed to get {expected_action_type} activation ticket - {e}")
 
@@ -542,15 +547,17 @@ async def get_registration_nft_ticket(ticket_txid):
         reg_ticket = psl.call("tickets", ['get', ticket_txid])
     except psl.PasteldException as e:
         raise HTTPException(status_code=404, detail=f"NFT registration ticket not found - {e}")
+    except HTTPError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to get NFT registration ticket - {e.response.text}")
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Failed to get NFT registration ticket - {e}")
 
     return await psl.parse_registration_nft_ticket(reg_ticket)
 
 
-async def parse_sense_data(raw_bytes: bytes, throw=True) -> str|None:
+async def parse_dd_data(raw_bytes: bytes, throw=True) -> str | None:
     try:
-        sense_data_json = json.loads(raw_bytes)
+        dd_data_json = json.loads(raw_bytes)
     except Exception as e:
         logging.error(f"Invalid sense data - {e}")
         if throw:
@@ -558,31 +565,31 @@ async def parse_sense_data(raw_bytes: bytes, throw=True) -> str|None:
         else:
             return None
 
-    if not sense_data_json:
+    if not dd_data_json:
         logging.error(f"Invalid sense data")
         if throw:
             raise HTTPException(status_code=501, detail=f"Invalid sense data")
         else:
             return None
 
-    if 'rareness_scores_table_json_compressed_b64' in sense_data_json:
-        decode_decompress_item(sense_data_json,
+    if 'rareness_scores_table_json_compressed_b64' in dd_data_json:
+        decode_decompress_item(dd_data_json,
                                'rareness_scores_table_json_compressed_b64')
 
-    if 'internet_rareness' in sense_data_json:
-        if 'rare_on_internet_summary_table_as_json_compressed_b64' in sense_data_json['internet_rareness']:
-            decode_decompress_item(sense_data_json['internet_rareness'],
+    if 'internet_rareness' in dd_data_json:
+        if 'rare_on_internet_summary_table_as_json_compressed_b64' in dd_data_json['internet_rareness']:
+            decode_decompress_item(dd_data_json['internet_rareness'],
                                    'rare_on_internet_summary_table_as_json_compressed_b64')
 
-        if 'rare_on_internet_graph_json_compressed_b64' in sense_data_json['internet_rareness']:
-            decode_decompress_item(sense_data_json['internet_rareness'],
+        if 'rare_on_internet_graph_json_compressed_b64' in dd_data_json['internet_rareness']:
+            decode_decompress_item(dd_data_json['internet_rareness'],
                                    'rare_on_internet_graph_json_compressed_b64')
 
-        if 'alternative_rare_on_internet_dict_as_json_compressed_b64' in sense_data_json['internet_rareness']:
-            decode_decompress_item(sense_data_json['internet_rareness'],
+        if 'alternative_rare_on_internet_dict_as_json_compressed_b64' in dd_data_json['internet_rareness']:
+            decode_decompress_item(dd_data_json['internet_rareness'],
                                    'alternative_rare_on_internet_dict_as_json_compressed_b64')
 
-    return json.dumps(sense_data_json)
+    return json.dumps(dd_data_json)
 
 
 def decode_decompress_item(json_object: dict, key: str):
@@ -635,8 +642,6 @@ async def get_public_file(db, ticket_type: str, registration_ticket_txid: str, w
         ticket_type=ticket_type)
     if not shadow_ticket:
         # reg_ticket = await common.get_registration_action_ticket(registration_ticket_txid, wn_service)
-        raise HTTPException(status_code=404, detail="File not found")
-    if shadow_ticket.ticket_type == 'sense':
         raise HTTPException(status_code=404, detail="File not found")
     if not shadow_ticket.is_public:
         raise HTTPException(status_code=403, detail="Non authorized access to file")

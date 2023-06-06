@@ -169,7 +169,7 @@ async def get_parsed_output_file(
                                                       task_from_db=task_from_db,
                                                       service=wn.WalletNodeService.SENSE,
                                                       update_task_in_db_func=crud.sense.update)
-    parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
+    parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
 
@@ -210,7 +210,7 @@ async def get_parsed_output_file_by_registration_ticket(
     else:
         raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
                                                          service=wn.WalletNodeService.SENSE)
-    parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
+    parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
 
@@ -253,7 +253,7 @@ async def parsed_output_file_by_act_txid(
         registration_ticket_txid = await common.get_reg_txid_by_act_txid(activation_ticket_txid)
         raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
                                                          service=wn.WalletNodeService.SENSE)
-    parsed_file_bytes = await common.parse_sense_data(raw_file_bytes)
+    parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
 
 
