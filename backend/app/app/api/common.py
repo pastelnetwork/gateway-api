@@ -43,7 +43,7 @@ async def process_nft_request(
     await lf.save(file)
     ipfs_hash = await store_file_to_ipfs(lf.path)
     _ = (
-            nft.register_file.s(request_id, lf, result_id, user_id, ipfs_hash, make_publicly_accessible,
+            nft.register_file.s(result_id, lf, request_id, user_id, ipfs_hash, make_publicly_accessible,
                                 collection_act_txid, open_api_group_id, nft_details_payload) |
             nft.process.s()
     ).apply_async()
@@ -79,7 +79,7 @@ async def process_action_request(
         await lf.save(file)
         ipfs_hash = await store_file_to_ipfs(lf.path)
         _ = (
-                worker.register_file.s(request_id, lf, result_id, user_id, ipfs_hash, make_publicly_accessible) |
+                worker.register_file.s(result_id, lf, request_id, user_id, ipfs_hash, make_publicly_accessible) |
                 worker.preburn_fee.s() |
                 worker.process.s()
         ).apply_async()
