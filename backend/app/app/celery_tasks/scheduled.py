@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import traceback
 from datetime import datetime
@@ -15,10 +14,10 @@ from app.db.session import db_context
 import app.utils.walletnode as wn
 from app.celery_tasks import cascade, sense
 from app.celery_tasks.task_lock import task_lock
-from app.models.preburn_tx import PBTXStatus
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
 from app.utils.authentication import send_alert_email
+from celery_tasks.pastel_tasks import check_preburn_tx
 
 logger = logging.getLogger(__name__)
 
@@ -339,19 +338,7 @@ def fee_pre_burner():
     with db_context() as session:
         all_new = crud.preburn_tx.get_all_new(session)
         for new in all_new:
-            tx = psl.call("tickets", ["find", "nft", new.txid])
-            if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-                tx = psl.call("tickets", ["find", "action", new.txid])
-                if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-                    tx = psl.call("getrawtransaction", [new.txid], True)
-                    if not tx \
-                            or ("status_code" in tx and tx.status_code != 200) \
-                            or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
-                        logger.info(f"Transaction {new.txid} is in the table but is not in the blockchain, marking as BAD")
-                        crud.preburn_tx.mark_bad(session, new.txid)
-                    continue
-            logger.info(f"Transaction {new.txid} is already used, marking as USED")
-            crud.preburn_tx.mark_used(session, new.txid)
+            check_preburn_tx(session, new.txid)
 
     with db_context() as session:
         fees = []

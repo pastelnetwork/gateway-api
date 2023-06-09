@@ -6,12 +6,15 @@ from celery.result import AsyncResult
 import celery
 from celery.utils.log import get_task_logger
 
+import crud
 from app import crud
 from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
 from app.core.status import DbStatus
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
+from celery_tasks.scheduled import logger
+from utils import pasteld as psl
 
 logger = get_task_logger(__name__)
 
@@ -157,11 +160,11 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        fee = task_from_db.wn_fee
+        preburn_fee = task_from_db.wn_fee
         if service == wn.WalletNodeService.SENSE or service == wn.WalletNodeService.CASCADE:
-            preburn_fee = fee/5
+            preburn_fee = preburn_fee/5
         elif service == wn.WalletNodeService.NFT:
-            preburn_fee = fee/10
+            preburn_fee = preburn_fee/10
         height = psl.call("getblockcount", [])
 
         if task_from_db.burn_txid:
@@ -175,7 +178,13 @@ class PastelAPITask(celery.Task):
                 logger.info(f'{service_name}: Found burn tx [{burn_tx.txid}] already '
                             f'bound to the task [Result ID: {result_id}]')
             else:
-                burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
+                while True:
+                    burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
+                    if not burn_tx:
+                        break
+                    if check_preburn_tx(session, burn_tx):
+                        break
+
                 if not burn_tx:
                     logger.info(f'{service_name}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
                     burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, preburn_fee])
@@ -407,3 +416,22 @@ class PastelAPIException(Exception):
     def __init__(self, message):
         self.message = message or "PastelAPIException"
         super().__init__(self.message)
+
+
+def check_preburn_tx(session, txid: str):
+    tx = psl.call("tickets", ["find", "nft", txid])
+    if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+        tx = psl.call("tickets", ["find", "action", txid])
+        if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+            tx = psl.call("getrawtransaction", [txid], True)
+            if not tx \
+                    or ("status_code" in tx and tx.status_code != 200) \
+                    or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
+                logger.info(f"Transaction {txid} is in the table but is not in the blockchain, marking as BAD")
+                crud.preburn_tx.mark_bad(session, txid)
+                return False    # tx is not used by any reg ticket, BUT it is not in the blockchain
+            else:
+                return True    # tx is not used by any reg ticket, and it is in the blockchain
+    logger.info(f"Transaction {txid} is already used, marking as USED")
+    crud.preburn_tx.mark_used(session, txid)
+    return False    # tx is used by some reg ticket
