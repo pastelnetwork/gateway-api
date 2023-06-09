@@ -13,7 +13,7 @@ from app import crud
 from app import schemas
 from app.db.session import db_context
 import app.utils.walletnode as wn
-from app.celery_tasks import cascade, sense
+from app.celery_tasks import cascade, sense, nft
 from app.celery_tasks.task_lock import task_lock
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
@@ -247,29 +247,30 @@ def registration_re_processor():
         crud.cascade.get_all_failed,
         crud.cascade.update,
         _start_reprocess_cascade,
-        "Cascade"
+        wn.WalletNodeService.CASCADE,
     )
+
 
     _registration_re_processor(
         crud.sense.get_all_failed,
         crud.sense.update,
         _start_reprocess_sense,
-        "Sense"
+        wn.WalletNodeService.SENSE,
     )
-
     _registration_re_processor(
         crud.nft.get_all_failed,
         crud.nft.update,
         _start_reprocess_nft,
-        "NFT"
+        wn.WalletNodeService.NFT,
     )
 
 
-def _registration_re_processor(all_failed_func, update_task_in_db_func, reprocess_func, service_name: str):
-    logger.info(f"{service_name} registration_re_processor started")
+def _registration_re_processor(all_failed_func, update_task_in_db_func, reprocess_func,
+                               wn_service: wn.WalletNodeService):
+    logger.info(f"{wn_service} registration_re_processor started")
     with db_context() as session:
         tasks_from_db = all_failed_func(session)
-    logger.info(f"{service_name}: Found {len(tasks_from_db)} failed tasks")
+    logger.info(f"{wn_service}: Found {len(tasks_from_db)} failed tasks")
     for task_from_db in tasks_from_db:
         try:
             if task_from_db.retry_num and task_from_db.retry_num > 10:
@@ -286,7 +287,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                         or not task_from_db.burn_txid \
                         or not task_from_db.wn_file_id:
                     logger.debug(f"Task status is empty, clearing and reprocessing: {task_from_db.ticket_id}")
-                    _clear_task_in_db(task_from_db, update_task_in_db_func)
+                    _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
                     # clear_task_in_db sets task's status to RESTARTED
                     reprocess_func(task_from_db)
                     continue
@@ -309,7 +310,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                     continue
                 logger.debug(f"Task status is {DbStatus.ERROR.value}, "
                              f"clearing and reprocessing: {task_from_db.ticket_id}")
-                _clear_task_in_db(task_from_db, update_task_in_db_func)
+                _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
                 # clear_task_in_db sets task's status to RESTARTED
                 reprocess_func(task_from_db)
         except Exception as e:
@@ -318,7 +319,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
             continue
 
 
-def _clear_task_in_db(task_from_db, update_task_in_db_func):
+def _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service: wn.WalletNodeService):
     logger.info(f"Clearing task: {task_from_db.ticket_id}")
     if task_from_db.retry_num:
         retries = task_from_db.retry_num + 1
@@ -327,7 +328,6 @@ def _clear_task_in_db(task_from_db, update_task_in_db_func):
     cleanup = {
         "wn_file_id": None,
         "wn_fee": 0,
-        "burn_txid": None,
         "wn_task_id": None,
         "pastel_id": None,
         "reg_ticket_txid": None,
@@ -336,9 +336,12 @@ def _clear_task_in_db(task_from_db, update_task_in_db_func):
         "retry_num": retries,
         "updated_at": datetime.utcnow()
     }
+
     with db_context() as session:
-        if task_from_db.burn_txid:
-            crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
+        if wn_service != wn.WalletNodeService.NFT:
+            cleanup["burn_txid"] = None
+            if task_from_db.burn_txid:
+                crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
         update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup)
 
 
@@ -362,8 +365,8 @@ def _start_reprocess_sense(task_from_db):
 
 def _start_reprocess_nft(task_from_db):
     res = (
-            sense.re_register_file.s(task_from_db.ticket_id) |
-            sense.process.s()
+            nft.re_register_file.s(task_from_db.ticket_id) |
+            nft.process.s()
     ).apply_async()
     logger.info(f"NFT Registration restarted for result {task_from_db.ticket_id} with task id {res.task_id}")
 

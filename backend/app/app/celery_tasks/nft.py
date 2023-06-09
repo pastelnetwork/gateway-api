@@ -166,7 +166,7 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash, m
         crud.nft.update,
         register_file.retry,
         WalletNodeService.NFT,
-        "image_id", "estimated_fee", 1)
+        "register/upload", "image_id", "estimated_fee", 1)
 
 # NFT registration does not require preburning
 
@@ -191,4 +191,4 @@ def re_register_file(self, result_id) -> str:
                                       crud.nft.get_by_result_id,
                                       crud.nft.update,
                                       WalletNodeService.NFT,
-                                      "NFT")
+                                      "register/upload", "image_id", "estimated_fee", 1)

@@ -60,7 +60,7 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash, m
         crud.cascade.update,
         register_file.retry,
         WalletNodeService.CASCADE,
-        "file_id", "required_preburn_amount", 5)
+        "upload", "file_id", "required_preburn_amount", 5)
 
 
 @shared_task(bind=True,
@@ -97,4 +97,4 @@ def re_register_file(self, result_id) -> str:
                                       crud.cascade.get_by_result_id,
                                       crud.cascade.update,
                                       WalletNodeService.CASCADE,
-                                      "Cascade")
+                                      "upload", "file_id", "required_preburn_amount", 5)
