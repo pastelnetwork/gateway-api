@@ -70,7 +70,7 @@ class Status(str, Enum):
 #           -> SUCCESS (DbStatus.DONE)
 #
 #  ERROR
-#       1) if "image" not in file.content_type) - we cannot proceed at all
+#       1) if "image" not in file.content_type - we cannot proceed at all
 #       2) DbStatus.ERROR and settings.RETURN_DETAILED_WN_ERROR == True
 #       3) DbStatus.ERROR and settings.RETURN_DETAILED_WN_ERROR == True
 #

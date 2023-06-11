@@ -122,43 +122,47 @@ class PastelAPITask(celery.Task):
                          get_task_from_db_by_task_id_func,
                          update_task_in_db_func,
                          retry_func,
-                         service: wn.WalletNodeService,
-                         service_name: str) -> str:
-        logger.info(f'{service_name}: Searching for pre-burn tx for registration... [Result ID: {result_id}]')
+                         service: wn.WalletNodeService) -> str:
+        if service == wn.WalletNodeService.NFT:
+            return result_id
+
+        logger.info(f'{service}: Searching for pre-burn tx for registration... [Result ID: {result_id}]')
 
         with db_context() as session:
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
         if not task_from_db:
-            raise PastelAPIException(f'{service_name}: No task found for result_id {result_id}')
+            raise PastelAPIException(f'{service}: No task found for result_id {result_id}')
 
         if task_from_db.ticket_status != DbStatus.UPLOADED.value:
-            logger.info(f'{service_name}: preburn_fee_task: Wrong task state - "{task_from_db.ticket_status}", '
+            logger.info(f'{service}: preburn_fee_task: Wrong task state - "{task_from_db.ticket_status}", '
                         f'Should be {DbStatus.UPLOADED.value}'
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        preburn_fee = task_from_db.wn_fee
-        if service == wn.WalletNodeService.SENSE or service == wn.WalletNodeService.CASCADE:
-            preburn_fee = preburn_fee/5
-        elif service == wn.WalletNodeService.NFT:
-            preburn_fee = preburn_fee
+        preburn_fee = task_from_db.wn_fee/5
         height = psl.call("getblockcount", [])
 
         if task_from_db.burn_txid:
-            logger.info(f'{service_name}: Pre-burn tx [{task_from_db.burn_txid}] already associated with result...'
+            logger.info(f'{service}: Pre-burn tx [{task_from_db.burn_txid}] already associated with result...'
                         f' [Result ID: {result_id}]')
             return result_id
 
         with db_context() as session:
             burn_tx = crud.preburn_tx.get_bound_to_result(session, result_id=result_id)
             if burn_tx:
-                logger.info(f'{service_name}: Found burn tx [{burn_tx.txid}] already '
+                logger.info(f'{service}: Found burn tx [{burn_tx.txid}] already '
                             f'bound to the task [Result ID: {result_id}]')
             else:
-                burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
+                while True:
+                    burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
+                    if not burn_tx:
+                        break
+                    if check_preburn_tx(session, burn_tx):
+                        break
+
                 if not burn_tx:
-                    logger.info(f'{service_name}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
+                    logger.info(f'{service}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
                     burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, preburn_fee])
                     burn_tx = crud.preburn_tx.create_new_bound(session,
                                                                fee=preburn_fee,
@@ -166,16 +170,16 @@ class PastelAPITask(celery.Task):
                                                                txid=burn_txid,
                                                                result_id=result_id)
                 else:
-                    logger.info(f'{service_name}: Found pre-burn tx [{burn_tx.txid}], '
+                    logger.info(f'{service}: Found pre-burn tx [{burn_tx.txid}], '
                                 f'bounding it to the task [Result ID: {result_id}]')
                     burn_tx = crud.preburn_tx.bind_pending_to_result(session, burn_tx,
                                                                      result_id=result_id)
             if burn_tx.height > height - 5:
-                logger.info(f'{service_name}: Pre-burn tx [{burn_tx.txid}] not confirmed yet, '
+                logger.info(f'{service}: Pre-burn tx [{burn_tx.txid}] not confirmed yet, '
                             f'retrying... [Result ID: {result_id}]')
                 retry_func()
 
-            logger.info(f'{service_name}: Have burn tx [{burn_tx.txid}], for the task [Result ID: {result_id}]')
+            logger.info(f'{service}: Have burn tx [{burn_tx.txid}], for the task [Result ID: {result_id}]')
             upd = {
                 "burn_txid": burn_tx.txid,
                 "ticket_status": DbStatus.PREBURN_FEE.value,
@@ -361,3 +365,22 @@ class PastelAPIException(Exception):
     def __init__(self, message):
         self.message = message or "PastelAPIException"
         super().__init__(self.message)
+
+
+def check_preburn_tx(session, txid: str):
+    tx = psl.call("tickets", ["find", "nft", txid])
+    if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+        tx = psl.call("tickets", ["find", "action", txid])
+        if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+            tx = psl.call("getrawtransaction", [txid], True)
+            if not tx \
+                    or ("status_code" in tx and tx.status_code != 200) \
+                    or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
+                logger.info(f"Transaction {txid} is in the table but is not in the blockchain, marking as BAD")
+                crud.preburn_tx.mark_bad(session, txid)
+                return False    # tx is not used by any reg ticket, BUT it is not in the blockchain
+            else:
+                return True    # tx is not used by any reg ticket, and it is in the blockchain
+    logger.info(f"Transaction {txid} is already used, marking as USED")
+    crud.preburn_tx.mark_used(session, txid)
+    return False    # tx is used by some reg ticket

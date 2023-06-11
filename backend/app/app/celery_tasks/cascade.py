@@ -72,8 +72,7 @@ def preburn_fee(self, result_id) -> str:
                                  crud.cascade.get_by_result_id,
                                  crud.cascade.update,
                                  preburn_fee.retry,
-                                 WalletNodeService.CASCADE,
-                                 "Cascade")
+                                 WalletNodeService.CASCADE)
 
 
 @shared_task(bind=True,

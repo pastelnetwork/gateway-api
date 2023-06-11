@@ -8,7 +8,7 @@ Restart=on-failure
 RestartSec=10
 Environment=PYTHONPATH=/home/ubuntu/openapi/backend/app
 WorkingDirectory=/home/ubuntu/openapi/backend/app/app
-ExecStart=/home/ubuntu/.local/bin/poetry run celery -A app.main.celery worker -Q cascade,sense -n worker1@%h --loglevel=info
+ExecStart=/home/ubuntu/.local/bin/poetry run celery -A app.main.celery worker -Q scheduled_tools -n worker3@%h --loglevel=info
 User=ubuntu
 Group=ubuntu
 KillSignal=SIGINT

@@ -18,6 +18,7 @@ from app.celery_tasks.task_lock import task_lock
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
 from app.utils.authentication import send_alert_email
+from celery_tasks.pastel_tasks import check_preburn_tx
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,22 @@ def _registration_finisher(
                 wn_task_status = []
 
             if not wn_task_status:
+                # Check using pre-burn txid if somehow reg ticket was registered but WN is not ware of that
+                if task_from_db.preburn_txid:
+                    reg_ticket = None
+                    if wn_service == wn.WalletNodeService.NFT:
+                        reg_ticket = psl.call("tickets", ["find", "nft", task_from_db.preburn_txid])
+                    elif wn_service == wn.WalletNodeService.CASCADE or wn_service == wn.WalletNodeService.SENSE:
+                        reg_ticket = psl.call("tickets", ["find", "action", task_from_db.preburn_txid])
+                    if reg_ticket and 'txid' in reg_ticket and reg_ticket['txid']:
+                        upd = {
+                            "reg_ticket_txid": reg_ticket.get("txid"),
+                            "status": DbStatus.REGISTERED,
+                            "updated_at": datetime.utcnow(),
+                        }
+                        with db_context() as session:
+                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+
                 logger.error(f"No result from WalletNode: wn_task_id - {task_from_db.wn_task_id}, "
                              f"ResultId - {task_from_db.ticket_id}")
                 # check how old is the result, if height is more than 48 (2 h), then mark it as ERROR
@@ -110,7 +127,10 @@ def _registration_finisher(
                                                  f"wn_task_id - {task_from_db.wn_task_id}, "
                                                  f"ResultId - {task_from_db.ticket_id}")
                                     with db_context() as session:
-                                        crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+                                        if task_from_db.burn_txid:
+                                            crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+                                        cleanup_burn_txid = {"burn_txid": None,}
+                                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
                     # mark result as failed, and requires reprocessing
                     with db_context() as session:
                         _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
@@ -277,7 +297,8 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                 logger.error(f"Result {task_from_db.ticket_id} failed 10 times, marking as DEAD")
                 upd = {"ticket_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
                 with db_context() as session:
-                    crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
+                    if task_from_db.burn_txid:
+                        crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                 continue
             if not task_from_db.ticket_status or task_from_db.ticket_status == "":
@@ -395,16 +416,7 @@ def fee_pre_burner():
     with db_context() as session:
         all_new = crud.preburn_tx.get_all_new(session)
         for new in all_new:
-            tx = psl.call("tickets", ["find", "nft", new.txid])
-            if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-                tx = psl.call("tickets", ["find", "action", new.txid])
-                if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-                    tx = psl.call("getrawtransaction", [new.txid], True)
-                    if not tx or not isinstance(tx, str):
-                            # tx.status_code != 200 or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
-                        crud.preburn_tx.mark_bad(session, new.txid)
-                    continue
-            crud.preburn_tx.mark_used(session, new.txid)
+            check_preburn_tx(session, new.txid)
 
     with db_context() as session:
         fees = []
