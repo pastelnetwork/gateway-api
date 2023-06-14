@@ -593,6 +593,8 @@ async def parse_dd_data(raw_bytes: bytes, throw=True) -> str | None:
 
 
 def decode_decompress_item(json_object: dict, key: str):
+    if json_object[key] is None or json_object[key] == "" or json_object[key] == "NA":
+        return
     compressed_value = base64.b64decode(json_object[key])
     if compressed_value:
         decompressed_value = zstd.decompress(compressed_value)

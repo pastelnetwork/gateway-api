@@ -158,7 +158,7 @@ class PastelAPITask(celery.Task):
                     burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
                     if not burn_tx:
                         break
-                    if check_preburn_tx(session, burn_tx):
+                    if check_preburn_tx(session, burn_tx.txid):
                         break
 
                 if not burn_tx:

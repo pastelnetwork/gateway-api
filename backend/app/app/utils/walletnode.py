@@ -60,38 +60,66 @@ class WalletnodeException(Exception):
 
 
 async def get_file_from_pastel(*, reg_ticket_txid, wn_service: WalletNodeService):
-    file_bytes = None
+    if wn_service == WalletNodeService.SENSE:
+        file_key = "file"
+    else:
+        file_key = "file_id"
     wn_resp = call(False,
                    wn_service,
                    f'download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
                    {},
                    [],
                    {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
-                   "file", "", True)    # This call will not throw!
+                   file_key, "", True)    # This call will not throw!
 
     if not wn_resp:
         logging.error(f"Pastel file not found - reg ticket txid = {reg_ticket_txid}")
     elif not isinstance(wn_resp, requests.models.Response):
-        try:
-            file_bytes = base64.b64decode(wn_resp)
-        except Exception as e:
-            logging.error(f"Exception while decoding pastel file {e} - reg ticket txid = {reg_ticket_txid}")
-        if not file_bytes:
-            logging.error(f"Pastel file is incorrect - reg ticket txid = {reg_ticket_txid}")
+        if wn_service == WalletNodeService.SENSE:
+            return await decode_wn_return(wn_resp, reg_ticket_txid)
+        else:
+            return await download_file_from_wn_by_id(wn_resp, reg_ticket_txid)
     else:
         logging.error(wn_resp.text)
-    return file_bytes
-
+    return None
 
 async def get_nft_dd_result_from_pastel(*, reg_ticket_txid):
-    data_bytes = call(False,
+    wn_resp = call(False,
                    WalletNodeService.NFT,
-                   f'get_dd_results?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
+                   f'get_dd_result_file?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
                    {},
                    [],
                    {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
-                   "", "", True)    # This call will not throw!
+                   "file", "", True)    # This call will not throw!
 
-    if not data_bytes:
+    if not wn_resp:
         logging.error(f"NFT DD result for file not found - reg ticket txid = {reg_ticket_txid}")
+    elif not isinstance(wn_resp, requests.models.Response):
+        return await decode_wn_return(wn_resp, reg_ticket_txid)
+    return None
+
+async def download_file_from_wn_by_id(file_id, reg_ticket_txid):
+    try:
+        file_url = f'{settings.WN_BASE_URL}/files/{file_id}?pid={settings.PASTEL_ID}'
+        payload = {}
+        headers = {
+            'Authorization': settings.PASTEL_ID_PASSPHRASE,
+        }
+        file_response = requests.request("GET", file_url, headers=headers, data=payload)
+        if file_response.status_code != 200:
+            logging.error(f"Pastel file not found - reg ticket txid = {reg_ticket_txid}: error in wn/files response")
+        else:
+            return file_response.content
+    except Exception as e:
+        logging.error(f"Exception while downloading file from WN {e} - reg ticket txid = {reg_ticket_txid}")
+    return None
+
+async def decode_wn_return(wn_data, reg_ticket_txid):
+    data_bytes = None
+    try:
+        data_bytes = base64.b64decode(wn_data)
+    except Exception as e:
+        logging.error(f"Exception while decoding dd data {e} - reg ticket txid = {reg_ticket_txid}")
+    if not data_bytes:
+        logging.error(f"DD data is incorrect - reg ticket txid = {reg_ticket_txid}")
     return data_bytes
