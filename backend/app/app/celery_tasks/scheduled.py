@@ -85,9 +85,9 @@ def _registration_finisher(
 
             if not wn_task_status:
                 # Check using pre-burn txid if somehow reg ticket was registered but WN is not ware of that
-                # This can only be used with Sense and Cascade, as NFT does not have preburn_txid
-                if wn_service != wn.WalletNodeService.NFT and task_from_db.preburn_txid:
-                    reg_ticket = psl.call("tickets", ["find", "action", task_from_db.preburn_txid])
+                # This can only be used with Sense and Cascade, as NFT does not have burn_txid
+                if wn_service != wn.WalletNodeService.NFT and task_from_db.burn_txid:
+                    reg_ticket = psl.call("tickets", ["find", "action", task_from_db.burn_txid])
                     if reg_ticket and 'txid' in reg_ticket and reg_ticket['txid']:
                         upd = {
                             "reg_ticket_txid": reg_ticket.get("txid"),
@@ -295,14 +295,18 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
     logger.info(f"{wn_service}: Found {len(tasks_from_db)} failed tasks")
     for task_from_db in tasks_from_db:
         try:
-            if task_from_db.retry_num and task_from_db.retry_num > 10:
-                logger.error(f"Result {task_from_db.ticket_id} failed 10 times, marking as DEAD")
-                upd = {"ticket_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
-                with db_context() as session:
-                    if wn_service != wn.WalletNodeService.NFT and task_from_db.burn_txid:
-                        crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
-                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+            # get interval from previous update
+            # if that interval less than reprocess interval multiplied by number of retries, skip
+            interval = datetime.utcnow() - task_from_db.updated_at
+            if interval.seconds < settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num:
+                logger.debug(f"Task {task_from_db.id} was reprocessed recently, skipping: time from last update: "
+                             f"{interval.seconds} seconds; wait time for the next reprocess after previous: "
+                             f"{settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num} seconds "
+                             f"(this is retry number {task_from_db.retry_num}); next re-process in "
+                             f"{settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num - interval.seconds} "
+                             f"seconds")
                 continue
+
             if not task_from_db.ticket_status or task_from_db.ticket_status == "":
                 logger.debug(f"Task status is empty, check if other data is empty too: {task_from_db.ticket_id}")
                 if (not task_from_db.reg_ticket_txid and not task_from_db.act_ticket_txid) \

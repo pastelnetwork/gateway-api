@@ -183,6 +183,16 @@ class Settings(BaseSettings):
     USERS_OPEN_REGISTRATION: bool = False
     RETURN_DETAILED_WN_ERROR: bool = True
 
+    # registration_helpers
+    REGISTRATION_FINISHER_INTERVAL: float = 600.0
+    REGISTRATION_RE_PROCESSOR_INTERVAL: float = 700.0
+
+    # scheduled_tools
+    FEE_PRE_BURNER_INTERVAL: float = 500.0
+    REG_TICKETS_FINDER_INTERVAL: float = 150.0
+    TICKET_ACTIVATOR_INTERVAL: float = 500.0
+    WATCHDOG_INTERVAL: float = 1200.0
+
     class Config:
         env_file = find_dotenv(usecwd=True)
         print("env_file is "+env_file)
