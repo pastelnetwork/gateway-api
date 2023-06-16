@@ -24,6 +24,7 @@ async def process_request(
         make_publicly_accessible: bool = Query(True, description="Make the file publicly accessible"),
         collection_act_txid: Optional[str] = Query("", description="Transaction ID of the collection, if any"),
         open_api_group_id: Optional[str] = Query("pastel", description="Group ID for the NFT, in most cases you don't need to change it"),
+        after_activation_transfer_to_pastelid: Optional[str] = Query("pastel", description="PastelID to transfer the NFT to after activation, if any"),
         nft_details_payload: str = Body(...),
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
@@ -427,6 +428,10 @@ async def transfer_pastel_ticket_to_another_pastelid(
     task_from_db = crud.nft.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
+
+    if task_from_db.offer_ticket_intended_rcpt_pastel_id:
+        raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
+                                                    f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
 
     offer_ticket = await common.create_offer_ticket(task_from_db, pastel_id)
 

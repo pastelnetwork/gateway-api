@@ -5,7 +5,8 @@ from .base_task import BaseTaskBase, BaseTaskCreate, BaseTaskUpdate, BaseTaskInD
 
 # Shared properties
 class CascadeBase(BaseTaskBase):
-    pass
+    offer_ticket_txid: Optional[str]
+    offer_ticket_intended_rcpt_pastel_id: Optional[str]
 
 
 # Properties to receive on Cascade creation

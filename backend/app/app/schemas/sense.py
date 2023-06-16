@@ -5,7 +5,8 @@ from .base_task import BaseTaskBase, BaseTaskCreate, BaseTaskUpdate, BaseTaskInD
 
 # Shared properties
 class SenseBase(BaseTaskBase):
-    pass
+    collection_act_txid: Optional[str]
+    open_api_group_id: Optional[str]
 
 
 # Properties to receive on Sense creation

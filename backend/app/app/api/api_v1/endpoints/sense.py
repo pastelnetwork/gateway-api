@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
@@ -19,12 +19,20 @@ router = APIRouter()
 async def process_request(
         *,
         files: List[UploadFile],
+        collection_act_txid: Optional[str] = Query("", description="Transaction ID of the collection, if any"),
+        open_api_group_id: Optional[str] = Query("pastel", description="Group ID for the NFT, in most cases you don't need to change it"),
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_action_request(worker=sense, files=files, make_publicly_accessible=True,
-                                               user_id=current_user.id, service=wn.WalletNodeService.SENSE)
+    return await common.process_action_request(worker=sense,
+                                               files=files,
+                                               make_publicly_accessible=True,
+                                               collection_act_txid=collection_act_txid,
+                                               open_api_group_id=open_api_group_id,
+                                               after_activation_transfer_to_pastelid=None,
+                                               user_id=current_user.id,
+                                               service=wn.WalletNodeService.SENSE)
 
 
 # Get all Sense OpenAPI gateway_requests for the current user.

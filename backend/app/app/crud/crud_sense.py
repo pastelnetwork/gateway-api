@@ -25,6 +25,8 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             wn_file_id=obj_in.wn_file_id,
             wn_fee=obj_in.wn_fee,
             height=obj_in.height,
+            collection_act_txid=obj_in.collection_act_txid,
+            open_api_group_id=obj_in.open_api_group_id,
             owner_id=owner_id
         )
         db.add(db_obj)

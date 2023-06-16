@@ -127,8 +127,10 @@ def get_thumbnail_coordinates(image_path: str, thumbnail_size: int) -> schemas.T
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
              name='nft:register_file', base=NftAPITask)
-def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash, make_publicly_accessible: bool,
-                  collection_act_txid: str, open_api_group_id: str, nft_details_payload: schemas.NftPropertiesExternal) -> str:
+def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash,
+                  make_publicly_accessible: bool, collection_act_txid: str, open_api_group_id: str,
+                  nft_details_payload: schemas.NftPropertiesExternal,
+                  after_activation_transfer_to_pastelid: str) -> str:
     return self.register_file_task(
         result_id, local_file, user_id,
         lambda height: schemas.NftCreate(
@@ -137,6 +139,7 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash, m
             original_file_local_path=local_file.path,
             original_file_ipfs_link=ipfs_hash,
             make_publicly_accessible=make_publicly_accessible,
+            offer_ticket_intended_rcpt_pastel_id=after_activation_transfer_to_pastelid,
             work_id=request_id,
             ticket_id=result_id,
             ticket_status=DbStatus.NEW.value,

@@ -20,6 +20,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             original_file_local_path=obj_in.original_file_local_path,
             original_file_ipfs_link=obj_in.original_file_ipfs_link,
             make_publicly_accessible=obj_in.make_publicly_accessible,
+            offer_ticket_intended_rcpt_pastel_id=obj_in.offer_ticket_intended_rcpt_pastel_id,
             work_id=obj_in.work_id,
             ticket_id=obj_in.ticket_id,
             wn_file_id=obj_in.wn_file_id,

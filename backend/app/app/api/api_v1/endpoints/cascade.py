@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query
 import zipfile
 import io
-from typing import List
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -22,12 +22,19 @@ async def process_request(
         *,
         files: List[UploadFile],
         make_publicly_accessible: bool = Query(True, description="Make the file publicly accessible"),
+        after_activation_transfer_to_pastelid: Optional[str] = Query("pastel", description="PastelID to transfer the NFT to after activation, if any"),
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_action_request(worker=cascade, files=files, make_publicly_accessible=make_publicly_accessible,
-                                               user_id=current_user.id, service=wn.WalletNodeService.CASCADE)
+    return await common.process_action_request(worker=cascade,
+                                               files=files,
+                                               make_publicly_accessible=make_publicly_accessible,
+                                               collection_act_txid=None,
+                                               open_api_group_id=None,
+                                               after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
+                                               user_id=current_user.id,
+                                               service=wn.WalletNodeService.CASCADE)
 
 
 # Get all Cascade OpenAPI gateway_requests for the current user
@@ -372,6 +379,10 @@ async def transfer_pastel_ticket_to_another_pastelid(
     task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
+
+    if task_from_db.offer_ticket_intended_rcpt_pastel_id:
+        raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
+                                                    f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
 
     offer_ticket = await common.create_offer_ticket(task_from_db, pastel_id)
 
