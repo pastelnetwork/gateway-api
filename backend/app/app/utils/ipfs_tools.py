@@ -7,7 +7,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-async def search_file_locally_or_in_ipfs(file_local_path, file_ipfs_link):
+async def search_file_locally_or_in_ipfs(file_local_path, file_ipfs_link, no_throw=False):
     path = Path(file_local_path)
     if not path.is_file():
         if file_ipfs_link:
@@ -16,10 +16,16 @@ async def search_file_locally_or_in_ipfs(file_local_path, file_ipfs_link):
                 ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
                 ipfs_client.get(file_ipfs_link, path.parent)
             except Exception as e:
+                if no_throw:
+                    logging.error(f'File not found locally and no IPFS link provided')
+                    return None
                 raise IPFSException(f'File not found neither locally nor in IPFS: {e}')
             new_path = path.parent / file_ipfs_link
             new_path.rename(path)
         else:
+            if no_throw:
+                logging.error(f'File not found locally and no IPFS link provided')
+                return None
             raise IPFSException(f'File not found locally and no IPFS link provided')
     data = open(path, 'rb')
     return data

@@ -305,7 +305,14 @@ class PastelAPITask(celery.Task):
         logger.info(f'{service}: New File - calling WN... [Result ID: {result_id}]')
 
         data = asyncio.run(search_file_locally_or_in_ipfs(task_from_db.original_file_local_path,
-                                                          task_from_db.original_file_ipfs_link))
+                                                          task_from_db.original_file_ipfs_link, True))
+        if not data:
+            logger.info(f'{service}: File not found locally or in IPFS... [Result ID: {result_id}]')
+            # marking task as DEAD
+            with db_context() as session:
+                upd = {"ticket_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
+                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+            return result_id
 
         try:
             wn_file_id, returned_fee = wn.call(True,

@@ -1,0 +1,12 @@
+[Unit]
+Description=Pastel API Gateway
+
+[Install]
+WantedBy=multi-user.target
+
+[Unit]
+Wants=psl-gateway-beat.service
+Wants=psl-gateway-registration-helpers.service
+Wants=psl-gateway-scheduled-tools.service
+Wants=psl-gateway-server.service
+Wants=psl-gateway-workers.service
