@@ -22,6 +22,8 @@ class SenseAPITask(PastelAPITask):
             {
                 "burn_txid": task_from_db.burn_txid,
                 "app_pastelid": settings.PASTEL_ID,
+                "collection_act_txid": task_from_db.collection_act_txid,
+                "open_api_group_id": task_from_db.open_api_group_id,
             })
 
     def check_specific_conditions(self, task_from_db) -> (bool, str):

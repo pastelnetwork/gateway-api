@@ -10,6 +10,7 @@ import app.db.session as session
 from app.api import deps, common
 from app import models, crud, schemas
 import app.utils.walletnode as wn
+import app.utils.pasteld as psl
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs
 
 router = APIRouter()
@@ -22,7 +23,7 @@ async def process_request(
         *,
         files: List[UploadFile],
         make_publicly_accessible: bool = Query(True, description="Make the file publicly accessible"),
-        after_activation_transfer_to_pastelid: Optional[str] = Query("pastel", description="PastelID to transfer the NFT to after activation, if any"),
+        after_activation_transfer_to_pastelid: Optional[str] = Query(None, description="PastelID to transfer the NFT to after activation, if any"),
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
@@ -384,8 +385,7 @@ async def transfer_pastel_ticket_to_another_pastelid(
         raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
                                                     f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
 
-    offer_ticket = await common.create_offer_ticket(task_from_db, pastel_id)
-
+    offer_ticket = await psl.create_offer_ticket(task_from_db, pastel_id)
     if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
         upd = {"offer_ticket_txid": offer_ticket['txid'],
                "offer_ticket_intended_rcpt_pastel_id": pastel_id,

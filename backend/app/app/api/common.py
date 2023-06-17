@@ -197,6 +197,11 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
             reg_result.stored_file_ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.stored_file_ipfs_link}'
         reg_result.stored_file_aws_link = task_from_db.stored_file_aws_link
         reg_result.stored_file_other_links = task_from_db.stored_file_other_links
+        if service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT:
+            if task_from_db.offer_ticket_txid:
+                reg_result.offer_ticket_txid = task_from_db.offer_ticket_txid
+            if task_from_db.offer_ticket_intended_rcpt_pastel_id:
+                reg_result.offer_ticket_intended_rcpt_pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
         if wn_task_status:
             reg_result.status_messages = wn_task_status
     else:
@@ -478,18 +483,6 @@ async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_ty
     return await stream_file(file_bytes=zip_buffer.getvalue(),
                              original_file_name=f"{pastel_id}-sense-data.zip",
                              content_type="application/zip")
-
-
-async def create_offer_ticket(task_from_db, pastel_id):
-    offer_ticket = psl.call('tickets', ['register', 'offer',
-                                        task_from_db.act_ticket_txid,
-                                        1,
-                                        settings.PASTEL_ID,
-                                        settings.PASTEL_ID_PASSPHRASE,
-                                        0, 0, 1, "",
-                                        pastel_id],
-                            )
-    return offer_ticket
 
 
 async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeService):

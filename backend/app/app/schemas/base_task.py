@@ -96,6 +96,8 @@ class ResultRegistrationResult(BaseModel):
     stored_file_aws_link: Optional[str] = None
     stored_file_other_links: Optional[Json] = None
     make_publicly_accessible: Optional[bool] = None
+    offer_ticket_txid: Optional[str] = None
+    offer_ticket_intended_rcpt_pastel_id: Optional[str] = None
     error: Optional[Any] = None
 
 

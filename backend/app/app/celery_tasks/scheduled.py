@@ -246,6 +246,24 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
         if wn_service != wn.WalletNodeService.NFT:
             crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
 
+    # Now when all is finalized, see if we need to transfer the ticket to another PastelID
+    if wn_service == wn.WalletNodeService.CASCADE or wn_service == wn.WalletNodeService.NFT:
+        if task_from_db.offer_ticket_intended_rcpt_pastel_id:
+            pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
+            logger.info(f"Have intended recipient {pastel_id} "
+                        f"for ticket transfer!!!")
+            # check this just for sanity, should not happen!
+            if task_from_db.offer_ticket_txid:
+                logger.info(f"Offer ticket already exists: {task_from_db.offer_ticket_txid}")
+                return
+            offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db, pastel_id))
+            if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
+                upd = {"offer_ticket_txid": offer_ticket['txid'],
+                       "offer_ticket_intended_rcpt_pastel_id": pastel_id,
+                       "updated_at": datetime.utcnow()}
+                with db_context() as session:
+                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+
 
 def _mark_task_in_db_as_failed(session,
                                task_from_db,
