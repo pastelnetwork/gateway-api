@@ -60,7 +60,7 @@ class PastelAPITask(celery.Task):
                            retry_func,
                            service: wn.WalletNodeService,
                            upload_cmd, id_field_name, fee_field_name, fee_multiplier=1):
-        logger.info(f'{service}: Starting file registration... [Result ID: {result_id}]')
+        logger.debug(f'{service}: Starting file registration... [Result ID: {result_id}]')
 
         with db_context() as session:
             task_in_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
@@ -75,10 +75,11 @@ class PastelAPITask(celery.Task):
         if not task_in_db:
             height = psl.call("getblockcount", [])
             logger.info(f'{service}: New file - adding record to DB... [Result ID: {result_id}]')
+            logger.debug(f'{service}: Ticket will be created at height {height} [Result ID: {result_id}]')
             with db_context() as session:
                 new_task = create_klass_lambda(height)
                 task_in_db = create_with_owner_func(session, obj_in=new_task, owner_id=user_id)
-            logger.info(f'{service}: New record created... [Result ID: {result_id}]')
+            logger.debug(f'{service}: New record created... [Result ID: {result_id}]')
 
         logger.info(f'{service}: New file - calling WN Upload... [Result ID: {result_id}]')
         data = local_file.read()
@@ -92,15 +93,15 @@ class PastelAPITask(celery.Task):
                                               {},
                                               id_field_name, fee_field_name)
         except Exception as e:
-            logger.info(f'{service}: Upload call failed for file {local_file.name} - {e}. retrying...')
+            logger.warn(f'{service}: Upload call failed for file {local_file.name} - {e}. retrying...')
             retry_func()
 
         if not wn_file_id:
-            logger.info(f'{service}: Upload call failed for file {local_file.name} - "wn_file_id" is empty. '
+            logger.warn(f'{service}: Upload call failed for file {local_file.name} - "wn_file_id" is empty. '
                         f'retrying...')
             retry_func()
         if returned_fee <= 0:
-            logger.info(f'{service}: Wrong WN Fee {returned_fee} for file {local_file.name}, retrying...')
+            logger.warn(f'{service}: Wrong WN Fee {returned_fee} for file {local_file.name}, retrying...')
             retry_func()
 
         total_fee = returned_fee*fee_multiplier
@@ -115,6 +116,7 @@ class PastelAPITask(celery.Task):
         with db_context() as session:
             update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
 
+        logger.debug(f'{service}: File uploaded to WN. Exiting... [Result ID: {result_id}]')
         return result_id
 
     def preburn_fee_task(self,
@@ -126,16 +128,17 @@ class PastelAPITask(celery.Task):
         if service == wn.WalletNodeService.NFT:
             return result_id
 
-        logger.info(f'{service}: Searching for pre-burn tx for registration... [Result ID: {result_id}]')
+        logger.debug(f'{service}: Searching for pre-burn tx for registration... [Result ID: {result_id}]')
 
         with db_context() as session:
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
         if not task_from_db:
+            logger.error(f'{service}: No task found for result_id {result_id}')
             raise PastelAPIException(f'{service}: No task found for result_id {result_id}')
 
         if task_from_db.process_status != DbStatus.UPLOADED.value:
-            logger.info(f'{service}: preburn_fee_task: Wrong task state - "{task_from_db.process_status}", '
+            logger.warn(f'{service}: preburn_fee_task: Wrong task state - "{task_from_db.process_status}", '
                         f'Should be {DbStatus.UPLOADED.value}'
                         f' ... [Result ID: {result_id}]')
             return result_id
@@ -144,21 +147,24 @@ class PastelAPITask(celery.Task):
         height = psl.call("getblockcount", [])
 
         if task_from_db.burn_txid:
-            logger.info(f'{service}: Pre-burn tx [{task_from_db.burn_txid}] already associated with result...'
+            logger.warn(f'{service}: Pre-burn tx [{task_from_db.burn_txid}] already associated with result...'
                         f' [Result ID: {result_id}]')
             return result_id
 
         with db_context() as session:
             burn_tx = crud.preburn_tx.get_bound_to_result(session, result_id=result_id)
             if burn_tx:
-                logger.info(f'{service}: Found burn tx [{burn_tx.txid}] already '
+                logger.debug(f'{service}: Found burn tx [{burn_tx.txid}] already '
                             f'bound to the task [Result ID: {result_id}]')
             else:
+                logger.debug(f'{service}: Searching burn tx in preburn table... [Result ID: {result_id}]')
                 while True:
                     burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
                     if not burn_tx:
                         break
                     if check_preburn_tx(session, burn_tx.txid):
+                        logger.debug(f'{service}: Found burn tx in [{burn_tx.txid}] preburn table... '
+                                     f'[Result ID: {result_id}]')
                         break
 
                 if not burn_tx:
@@ -170,7 +176,7 @@ class PastelAPITask(celery.Task):
                                                                txid=burn_txid,
                                                                result_id=result_id)
                 else:
-                    logger.info(f'{service}: Found pre-burn tx [{burn_tx.txid}], '
+                    logger.debug(f'{service}: Found pre-burn tx [{burn_tx.txid}], '
                                 f'bounding it to the task [Result ID: {result_id}]')
                     burn_tx = crud.preburn_tx.bind_pending_to_result(session, burn_tx,
                                                                      result_id=result_id)
@@ -179,7 +185,7 @@ class PastelAPITask(celery.Task):
                             f'retrying... [Result ID: {result_id}]')
                 retry_func()
 
-            logger.info(f'{service}: Have burn tx [{burn_tx.txid}], for the task [Result ID: {result_id}]')
+            logger.info(f'{service}: Have confirmed burn tx [{burn_tx.txid}], for the task [Result ID: {result_id}]')
             upd = {
                 "burn_txid": burn_tx.txid,
                 "process_status": DbStatus.PREBURN_FEE.value,
@@ -187,6 +193,7 @@ class PastelAPITask(celery.Task):
             }
             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
+        logger.debug(f'{service}: Found pre-burn tx for registration. Exiting... [Result ID: {result_id}]')
         return result_id
 
     @abc.abstractmethod
@@ -203,18 +210,21 @@ class PastelAPITask(celery.Task):
                      update_task_in_db_func,
                      retry_func,
                      service: wn.WalletNodeService) -> str:
-        logger.info(f'{service}: Register file in the Pastel Network... [Result ID: {result_id}]')
+        logger.debug(f'{service}: Register file in the Pastel Network... [Result ID: {result_id}]')
 
         with db_context() as session:
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
         if not task_from_db:
+            logger.error(f'{service}: No task found for result_id {result_id}')
             raise PastelAPIException(f'{service}: No task found for result_id {result_id}')
 
         if task_from_db.wn_fee == 0:
+            logger.error(f'{service}: Wrong WN Fee for result_id {result_id}')
             raise PastelAPIException(f'{service}: Wrong WN Fee for result_id {result_id}')
 
         if not task_from_db.wn_file_id:
+            logger.error(f'{service}: Wrong WN file ID for result_id {result_id}')
             raise PastelAPIException(f'{service}: Wrong WN file ID for result_id {result_id}')
 
         ok, err_msg = self.check_specific_conditions(task_from_db)
@@ -272,12 +282,12 @@ class PastelAPITask(celery.Task):
             with db_context() as session:
                 task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
-                logger.info(f'{service}: Storing file into IPFS... [Result ID: {result_id}]')
+                logger.debug(f'{service}: Storing file into IPFS... [Result ID: {result_id}]')
 
                 original_file_ipfs_link = asyncio.run(store_file_to_ipfs(task_from_db.original_file_local_path))
 
                 if original_file_ipfs_link:
-                    logger.info(f'{service}: Updating DB with IPFS link... '
+                    logger.debug(f'{service}: Updating DB with IPFS link... '
                                 f'[Result ID: {result_id}; IPFS Link: https://ipfs.io/ipfs/{original_file_ipfs_link}]')
                     upd = {"original_file_ipfs_link": original_file_ipfs_link, "updated_at": datetime.utcnow()}
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
@@ -291,13 +301,14 @@ class PastelAPITask(celery.Task):
                               update_task_in_db_func,
                               service: wn.WalletNodeService,
                               upload_cmd, id_field_name, fee_field_name, fee_multiplier=1) -> str:
-        logger.info(f'{service}: Starting file re-registration... [Result ID: {result_id}]')
+        logger.debug(f'{service}: Starting file re-registration... [Result ID: {result_id}]')
 
         with db_context() as session:
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
         if not task_from_db:
-            raise PastelAPIException(f'{service}: No cascade result found for result_id {result_id}')
+            logger.error(f'{service}: No task found for result_id {result_id}')
+            raise PastelAPIException(f'{service}: No task found for result_id {result_id}')
 
         if task_from_db.process_status != DbStatus.RESTARTED.value:
             logger.info(f'{service}: re_register_file_task: Wrong task state - "{task_from_db.process_status}", '
@@ -305,7 +316,8 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        logger.info(f'{service}: New File - calling WN... [Result ID: {result_id}]')
+        logger.debug(f'{service}: Searching for file locally at {task_from_db.original_file_local_path}; or'
+                     f' in IPFS at {task_from_db.original_file_ipfs_link}... [Result ID: {result_id}]')
 
         data = asyncio.run(search_file_locally_or_in_ipfs(task_from_db.original_file_local_path,
                                                           task_from_db.original_file_ipfs_link, True))
@@ -317,6 +329,7 @@ class PastelAPITask(celery.Task):
                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
             return result_id
 
+        logger.info(f'{service}: Re-uploading file - calling WN... [Result ID: {result_id}]')
         try:
             wn_file_id, returned_fee = wn.call(True,
                                               service,
@@ -333,11 +346,11 @@ class PastelAPITask(celery.Task):
             raise e
 
         if not wn_file_id:
-            logger.info(f'{service}: Upload call failed for file '
+            logger.error(f'{service}: Upload call failed for file '
                         f'{task_from_db.original_file_name} - "wn_file_id" is empty. Retrying...')
             raise PastelAPIException(f'{service}: Upload call failed for file {task_from_db.original_file_name}')
         if returned_fee <= 0:
-            logger.info(f'{service}: Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name},'
+            logger.error(f'{service}: Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name},'
                         f' retrying...')
             raise PastelAPIException(f'{service}: Wrong WN Fee {returned_fee} for file '
                                      f'{task_from_db.original_file_name}')
@@ -353,6 +366,7 @@ class PastelAPITask(celery.Task):
             }
             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
+        logger.debug(f'{service}: File re-registration started. Exiting... [Result ID: {result_id}]')
         return result_id
 
 
