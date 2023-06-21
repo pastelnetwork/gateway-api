@@ -31,7 +31,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
             height=height,
             txid=txid,
             status=PBTXStatus.PENDING,
-            ticket_id=result_id,
+            result_id=result_id,
         )
         db.add(db_obj)
         db.commit()
@@ -68,7 +68,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
     def mark_non_used(self, db: Session, preburn_txid: str):
         db_obj = db.query(self.model).filter(PreBurnTx.txid == preburn_txid).first()
         if db_obj:
-            update_data = {"status": PBTXStatus.NEW, "ticket_id": None}
+            update_data = {"status": PBTXStatus.NEW, "result_id": None}
             super().update(db, db_obj=db_obj, obj_in=update_data)
 
     def mark_pending(self, db: Session, preburn_txid: str):
@@ -80,7 +80,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
             height=db_obj.height,
             txid=db_obj.txid,
             status=db_obj.status,
-            ticket_id=result_id,
+            result_id=result_id,
         )
         return super().update(db, db_obj=db_obj, obj_in=update_data)
 
@@ -89,7 +89,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
             db.query(self.model)
             .filter(
                 sa.and_(
-                    PreBurnTx.ticket_id == result_id,
+                    PreBurnTx.result_id == result_id,
                     PreBurnTx.status != "USED"
                 )
             )

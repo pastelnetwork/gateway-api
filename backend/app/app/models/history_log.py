@@ -36,3 +36,8 @@ class SenseHistory(HistoryLog):
 class NftHistory(HistoryLog):
     nft_task_id = Column(Integer, ForeignKey("nft.id"))
     nft_task = relationship("Nft", back_populates="nft_history")
+
+
+class CollectionHistory(HistoryLog):
+    collection_task_id = Column(Integer, ForeignKey("collection.id"))
+    collection_task = relationship("Collection", back_populates="collection_history")

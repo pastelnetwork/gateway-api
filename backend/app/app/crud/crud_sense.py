@@ -20,8 +20,8 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             original_file_local_path=obj_in.original_file_local_path,
             original_file_ipfs_link=obj_in.original_file_ipfs_link,
             make_publicly_accessible=obj_in.make_publicly_accessible,
-            work_id=obj_in.work_id,
-            ticket_id=obj_in.ticket_id,
+            request_id=obj_in.request_id,
+            result_id=obj_in.result_id,
             wn_file_id=obj_in.wn_file_id,
             wn_fee=obj_in.wn_fee,
             height=obj_in.height,
@@ -37,21 +37,21 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
     def get_by_result_id(self, db: Session, *, result_id: str) -> Optional[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.ticket_id == result_id)
+            .filter(Sense.result_id == result_id)
             .first())
 
     def get_by_result_id_and_owner(self, db: Session, *, result_id: str, owner_id) -> Optional[Sense]:
         return (
             db.query(self.model)
             .filter(Sense.owner_id == owner_id)
-            .filter(Sense.ticket_id == result_id)
+            .filter(Sense.result_id == result_id)
             .first())
 
     def get_by_request_id_and_name(self, db: Session, *, request_id: str, file_name: str, owner_id) -> Optional[Sense]:
         return (
             db.query(self.model)
             .filter(Sense.owner_id == owner_id)
-            .filter(Sense.work_id == request_id)
+            .filter(Sense.request_id == request_id)
             .filter(Sense.original_file_name == file_name)
             .first()
         )
@@ -61,7 +61,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
         return (
             db.query(self.model)
             .filter(Sense.owner_id == owner_id)
-            .filter(Sense.work_id == request_id)
+            .filter(Sense.request_id == request_id)
             .offset(skip)
             .limit(limit)
             .all()
@@ -72,7 +72,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
     ) -> List[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.work_id == request_id)
+            .filter(Sense.request_id == request_id)
             .filter(
                 sa.and_(
                     Sense.burn_txid.is_(None),
@@ -88,7 +88,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
     ) -> List[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.work_id == request_id)
+            .filter(Sense.request_id == request_id)
             .filter(
                 sa.and_(
                     Sense.burn_txid.isnot(None),
@@ -100,12 +100,12 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             .all()
         )
 
-    def get_all_in_work_started(
+    def get_all_in_request_started(
             self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
     ) -> List[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.work_id == request_id)
+            .filter(Sense.request_id == request_id)
             .filter(
                 sa.and_(
                     Sense.burn_txid.isnot(None),
@@ -122,7 +122,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
     ) -> List[Sense]:
         return (
             db.query(self.model)
-            .filter(Sense.ticket_status == DbStatus.REGISTERED.value)
+            .filter(Sense.process_status == DbStatus.REGISTERED.value)
             .all()
         )
 
@@ -133,7 +133,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             db.query(self.model)
             .filter(
                 sa.and_(
-                    Sense.ticket_status == DbStatus.STARTED.value,
+                    Sense.process_status == DbStatus.STARTED.value,
                     sa.or_(
                         Sense.reg_ticket_txid.is_(None),
                         Sense.act_ticket_txid.is_(None),
@@ -152,9 +152,9 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             db.query(self.model)
             .filter(
                 sa.or_(
-                    Sense.ticket_status == DbStatus.ERROR.value,
-                    Sense.ticket_status == '',
-                    Sense.ticket_status.is_(None),
+                    Sense.process_status == DbStatus.ERROR.value,
+                    Sense.process_status == '',
+                    Sense.process_status.is_(None),
                 )
             )
             .offset(skip)

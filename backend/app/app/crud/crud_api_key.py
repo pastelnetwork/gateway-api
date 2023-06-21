@@ -10,10 +10,11 @@ from app.schemas.api_key import ApiKeyCreate, ApiKeyUpdate
 
 class CRUDApiKey(CRUDBase[ApiKey, ApiKeyCreate, ApiKeyUpdate]):
     def get_by_api_key(self, db: Session, *, api_key: str) -> Optional[ApiKey]:
-        return db.query(ApiKey).filter(ApiKey.api_key == api_key).first()
+        return db.query(self.model).filter(ApiKey.api_key == api_key).first()
 
+    @staticmethod
     def create_with_owner(
-        self, db: Session, *, obj_in: ApiKeyCreate, owner_id: int
+        db: Session, *, obj_in: ApiKeyCreate, owner_id: int
     ) -> ApiKey:
         # obj_in_data = jsonable_encoder(obj_in)
         # db_obj = self.model(**obj_in_data, owner_id=owner_id)

@@ -21,8 +21,8 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             original_file_ipfs_link=obj_in.original_file_ipfs_link,
             make_publicly_accessible=obj_in.make_publicly_accessible,
             offer_ticket_intended_rcpt_pastel_id=obj_in.offer_ticket_intended_rcpt_pastel_id,
-            work_id=obj_in.work_id,
-            ticket_id=obj_in.ticket_id,
+            request_id=obj_in.request_id,
+            result_id=obj_in.result_id,
             wn_file_id=obj_in.wn_file_id,
             wn_fee=obj_in.wn_fee,
             height=obj_in.height,
@@ -36,21 +36,21 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     def get_by_result_id(self, db: Session, *, result_id: str) -> Optional[Cascade]:
         return (
             db.query(self.model)
-            .filter(Cascade.ticket_id == result_id)
+            .filter(Cascade.result_id == result_id)
             .first())
 
     def get_by_result_id_and_owner(self, db: Session, *, result_id: str, owner_id) -> Optional[Cascade]:
         return (
             db.query(self.model)
             .filter(Cascade.owner_id == owner_id)
-            .filter(Cascade.ticket_id == result_id)
+            .filter(Cascade.result_id == result_id)
             .first())
 
     def get_by_request_id_and_name(self, db: Session, *, request_id: str, file_name: str, owner_id) -> Optional[Cascade]:
         return (
             db.query(self.model)
             .filter(Cascade.owner_id == owner_id)
-            .filter(Cascade.work_id == request_id)
+            .filter(Cascade.request_id == request_id)
             .filter(Cascade.original_file_name == file_name)
             .first()
         )
@@ -60,7 +60,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
         return (
             db.query(self.model)
             .filter(Cascade.owner_id == owner_id)
-            .filter(Cascade.work_id == request_id)
+            .filter(Cascade.request_id == request_id)
             .offset(skip)
             .limit(limit)
             .all()
@@ -71,7 +71,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     ) -> List[Cascade]:
         return (
             db.query(self.model)
-            .filter(Cascade.work_id == request_id)
+            .filter(Cascade.request_id == request_id)
             .filter(
                 sa.and_(
                     Cascade.burn_txid.is_(None),
@@ -87,7 +87,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     ) -> List[Cascade]:
         return (
             db.query(self.model)
-            .filter(Cascade.work_id == request_id)
+            .filter(Cascade.request_id == request_id)
             .filter(
                 sa.and_(
                     Cascade.burn_txid.isnot(None),
@@ -104,7 +104,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     ) -> List[Cascade]:
         return (
             db.query(self.model)
-            .filter(Cascade.work_id == request_id)
+            .filter(Cascade.request_id == request_id)
             .filter(
                 sa.and_(
                     Cascade.burn_txid.isnot(None),
@@ -121,7 +121,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     ) -> List[Cascade]:
         return (
             db.query(self.model)
-            .filter(Cascade.ticket_status == DbStatus.REGISTERED.value)
+            .filter(Cascade.process_status == DbStatus.REGISTERED.value)
             .all()
         )
 
@@ -132,7 +132,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             db.query(self.model)
             .filter(
                 sa.and_(
-                    Cascade.ticket_status == DbStatus.STARTED.value,
+                    Cascade.process_status == DbStatus.STARTED.value,
                     sa.or_(
                         Cascade.reg_ticket_txid.is_(None),
                         Cascade.act_ticket_txid.is_(None),
@@ -151,9 +151,9 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             db.query(self.model)
             .filter(
                 sa.or_(
-                    Cascade.ticket_status == DbStatus.ERROR.value,
-                    Cascade.ticket_status == '',
-                    Cascade.ticket_status.is_(None),
+                    Cascade.process_status == DbStatus.ERROR.value,
+                    Cascade.process_status == '',
+                    Cascade.process_status.is_(None),
                 )
             )
             .offset(skip)

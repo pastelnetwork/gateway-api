@@ -9,9 +9,9 @@ class BaseTaskBase(BaseModel):
     original_file_name: str
     original_file_content_type: str
     original_file_local_path: str
-    work_id: str
-    ticket_status: str
-    ticket_id: str
+    request_id: str
+    process_status: str
+    result_id: str
     wn_file_id: str
     wn_fee: int
     height: int
@@ -81,8 +81,8 @@ class Status(str, Enum):
 
 
 class ResultRegistrationResult(BaseModel):
-    file_name: str
-    file_type: str
+    file_name: Optional[str] = None
+    file_type: Optional[str] = None
     result_id: str
     created_at: datetime
     last_updated_at: datetime
@@ -105,3 +105,4 @@ class RequestResult(BaseModel):
     request_id: str
     request_status: Status
     results: List[ResultRegistrationResult]
+

@@ -26,13 +26,13 @@ class CascadeAPITask(PastelAPITask):
             })
 
     def check_specific_conditions(self, task_from_db) -> (bool, str):
-        if task_from_db.ticket_status != DbStatus.PREBURN_FEE.value:
-            err_msg = f'Cascade: process_task: Wrong task state - "{task_from_db.ticket_status}", ' \
+        if task_from_db.process_status != DbStatus.PREBURN_FEE.value:
+            err_msg = f'Cascade: process_task: Wrong task state - "{task_from_db.process_status}", ' \
                       f'Should be {DbStatus.PREBURN_FEE.value}' \
-                      f'... [Result ID: {task_from_db.ticket_id}]'
+                      f'... [Result ID: {task_from_db.v}]'
             return False, err_msg
         if not task_from_db.burn_txid:
-            raise PastelAPIException(f'Cascade: No burn txid for result_id {task_from_db.ticket_id}')
+            raise PastelAPIException(f'Cascade: No burn txid for result_id {task_from_db.result_id}')
         return True, ''
 
 @shared_task(bind=True,
@@ -51,9 +51,9 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: s
             original_file_ipfs_link=ipfs_hash,
             make_publicly_accessible=make_publicly_accessible,
             offer_ticket_intended_rcpt_pastel_id=after_activation_transfer_to_pastelid,
-            work_id=request_id,
-            ticket_id=result_id,
-            ticket_status=DbStatus.NEW.value,
+            request_id=request_id,
+            result_id=result_id,
+            process_status=DbStatus.NEW.value,
             wn_file_id='',
             wn_fee=0,
             height=height,
@@ -82,8 +82,8 @@ def preburn_fee(self, result_id) -> str:
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=10,
              name='cascade:process', base=CascadeAPITask)
-def process(self, ticket_id) -> str:
-    return self.process_task(ticket_id,
+def process(self, result_id) -> str:
+    return self.process_task(result_id,
                              crud.cascade.get_by_result_id,
                              crud.cascade.update,
                              process.retry,

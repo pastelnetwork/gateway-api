@@ -11,6 +11,7 @@ class WalletNodeService(Enum):
     NFT = 'nfts'
     CASCADE = 'openapi/cascade'
     SENSE = 'openapi/sense'
+    COLLECTION = 'collection'
 
     def __str__(self):
         return self.value

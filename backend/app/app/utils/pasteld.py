@@ -7,7 +7,6 @@ from fastapi import HTTPException
 from requests.auth import HTTPBasicAuth
 
 from app.core.config import settings
-from core.config import settings
 
 
 def call(method, parameters, nothrow=False):
@@ -145,12 +144,12 @@ async def parse_registration_nft_ticket(reg_ticket):
 
 
 async def create_offer_ticket(task_from_db, pastel_id):
-    offer_ticket = psl.call('tickets', ['register', 'offer',
-                                        task_from_db.act_ticket_txid,
-                                        1,
-                                        settings.PASTEL_ID,
-                                        settings.PASTEL_ID_PASSPHRASE,
-                                        0, 0, 1, "",
-                                        pastel_id],
+    offer_ticket = call('tickets', ['register', 'offer',
+                                    task_from_db.act_ticket_txid,
+                                    1,
+                                    settings.PASTEL_ID,
+                                    settings.PASTEL_ID_PASSPHRASE,
+                                    0, 0, 1, "",
+                                    pastel_id],
                             )
     return offer_ticket

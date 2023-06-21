@@ -27,13 +27,13 @@ class SenseAPITask(PastelAPITask):
             })
 
     def check_specific_conditions(self, task_from_db) -> (bool, str):
-        if task_from_db.ticket_status != DbStatus.PREBURN_FEE.value:
-            err_msg = f'Sense: process_task: Wrong task state - "{task_from_db.ticket_status}", ' \
+        if task_from_db.process_status != DbStatus.PREBURN_FEE.value:
+            err_msg = f'Sense: process_task: Wrong task state - "{task_from_db.process_status}", ' \
                       f'Should be {DbStatus.PREBURN_FEE.value}' \
-                      f'... [Result ID: {task_from_db.ticket_id}]'
+                      f'... [Result ID: {task_from_db.result_id}]'
             return False, err_msg
         if not task_from_db.burn_txid:
-            raise PastelAPIException(f'Sense: No burn txid for result_id {task_from_db.ticket_id}')
+            raise PastelAPIException(f'Sense: No burn txid for result_id {task_from_db.result_id}')
         return True, ''
 
 
@@ -54,9 +54,9 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: s
             make_publicly_accessible=make_publicly_accessible,
             collection_act_txid=collection_act_txid,
             open_api_group_id=open_api_group_id,
-            work_id=request_id,
-            ticket_id=result_id,
-            ticket_status=DbStatus.NEW.value,
+            request_id=request_id,
+            result_id=result_id,
+            process_status=DbStatus.NEW.value,
             wn_file_id='',
             wn_fee=0,
             height=height,
@@ -85,8 +85,8 @@ def preburn_fee(self, result_id) -> str:
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=10,
              name='sense:process', base=SenseAPITask)
-def process(self, ticket_id) -> str:
-    return self.process_task(ticket_id,
+def process(self, result_id) -> str:
+    return self.process_task(result_id,
                              crud.sense.get_by_result_id,
                              crud.sense.update,
                              process.retry,

@@ -121,14 +121,16 @@ def check_if_image(file: UploadFile) -> (bool, schemas.ResultRegistrationResult)
 
 async def make_pending_result(file, ipfs_hash, result_id):
     reg_result = schemas.ResultRegistrationResult(
-        file_name=file.filename,
-        file_type=file.content_type,
         result_id=result_id,
         result_status=schemas.Status.PENDING,
         created_at=datetime.utcnow(),
         last_updated_at=datetime.utcnow(),
         original_file_ipfs_link=ipfs_hash,
     )
+    if file:
+        reg_result.file_name = file.filename
+        reg_result.file_type = file.content_type
+
     if ipfs_hash:
         reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{ipfs_hash}'
     return reg_result
@@ -138,17 +140,17 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
         -> schemas.ResultRegistrationResult:
 
     result_registration_status = schemas.Status.UNKNOWN
-    if task_from_db.ticket_status:
-        if task_from_db.ticket_status in [DbStatus.NEW.value, DbStatus.UPLOADED.value,
+    if task_from_db.process_status:
+        if task_from_db.process_status in [DbStatus.NEW.value, DbStatus.UPLOADED.value,
                                           DbStatus.PREBURN_FEE.value, DbStatus.STARTED.value]:
             result_registration_status = schemas.Status.PENDING
-        if task_from_db.ticket_status in [DbStatus.ERROR.value, DbStatus.RESTARTED.value]:
+        if task_from_db.process_status in [DbStatus.ERROR.value, DbStatus.RESTARTED.value]:
             result_registration_status = schemas.Status.PENDING
-        elif task_from_db.ticket_status == DbStatus.REGISTERED.value:
+        elif task_from_db.process_status == DbStatus.REGISTERED.value:
             result_registration_status = schemas.Status.PENDING_ACT
-        elif task_from_db.ticket_status == DbStatus.DONE.value:
+        elif task_from_db.process_status == DbStatus.DONE.value:
             result_registration_status = schemas.Status.SUCCESS
-        elif task_from_db.ticket_status == DbStatus.DEAD.value:
+        elif task_from_db.process_status == DbStatus.DEAD.value:
             result_registration_status = schemas.Status.FAILED
 
     wn_task_status = ''
@@ -180,28 +182,33 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
                 if settings.RETURN_DETAILED_WN_ERROR else schemas.Status.PENDING
 
     reg_result = schemas.ResultRegistrationResult(
-        file_name=task_from_db.original_file_name,
-        file_type=task_from_db.original_file_content_type,
-        result_id=task_from_db.ticket_id,
+        result_id=task_from_db.result_id,
         created_at=task_from_db.created_at,
         last_updated_at=task_from_db.updated_at,
         result_status=result_registration_status,
         retry_num=task_from_db.retry_num,
     )
+    if service != wn.WalletNodeService.COLLECTION:
+        reg_result.file_name = task_from_db.original_file_name
+        reg_result.file_type = task_from_db.original_file_content_type
+
     if result_registration_status != schemas.Status.ERROR and result_registration_status != schemas.Status.FAILED:
         reg_result.registration_ticket_txid = task_from_db.reg_ticket_txid
         reg_result.activation_ticket_txid = task_from_db.act_ticket_txid
-        if task_from_db.original_file_ipfs_link:
-            reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.original_file_ipfs_link}'
-        if task_from_db.stored_file_ipfs_link:
-            reg_result.stored_file_ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.stored_file_ipfs_link}'
-        reg_result.stored_file_aws_link = task_from_db.stored_file_aws_link
-        reg_result.stored_file_other_links = task_from_db.stored_file_other_links
-        if service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT:
-            if task_from_db.offer_ticket_txid:
-                reg_result.offer_ticket_txid = task_from_db.offer_ticket_txid
-            if task_from_db.offer_ticket_intended_rcpt_pastel_id:
-                reg_result.offer_ticket_intended_rcpt_pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
+
+        if service != wn.WalletNodeService.COLLECTION:
+            if task_from_db.original_file_ipfs_link:
+                reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.original_file_ipfs_link}'
+            if task_from_db.stored_file_ipfs_link:
+                reg_result.stored_file_ipfs_link = f'https://ipfs.io/ipfs/{task_from_db.stored_file_ipfs_link}'
+            reg_result.stored_file_aws_link = task_from_db.stored_file_aws_link
+            reg_result.stored_file_other_links = task_from_db.stored_file_other_links
+            if service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT:
+                if task_from_db.offer_ticket_txid:
+                    reg_result.offer_ticket_txid = task_from_db.offer_ticket_txid
+                if task_from_db.offer_ticket_intended_rcpt_pastel_id:
+                    reg_result.offer_ticket_intended_rcpt_pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
+
         if wn_task_status:
             reg_result.status_messages = wn_task_status
     else:
@@ -214,23 +221,23 @@ async def parse_users_requests(tasks_from_db, service: wn.WalletNodeService) -> 
     all_failed_map = {}
     all_success_map = {}
     for task_from_db in tasks_from_db:
-        if task_from_db.work_id in gw_requests:
-            request = gw_requests[task_from_db.work_id]
+        if task_from_db.request_id in gw_requests:
+            request = gw_requests[task_from_db.request_id]
         else:
-            request = schemas.RequestResult(request_id=task_from_db.work_id,
+            request = schemas.RequestResult(request_id=task_from_db.request_id,
                                             request_status=schemas.Status.UNKNOWN,
                                             results=[])
-            all_failed_map[task_from_db.work_id] = True
-            all_success_map[task_from_db.work_id] = True
+            all_failed_map[task_from_db.request_id] = True
+            all_success_map[task_from_db.request_id] = True
 
         result_registration_result = await check_result_registration_status(task_from_db, service)
         request.results.append(result_registration_result)
-        all_failed_map[task_from_db.work_id] &= result_registration_result.result_status == schemas.Status.FAILED
-        all_success_map[task_from_db.work_id] &= result_registration_result.result_status == schemas.Status.SUCCESS
-        request.request_status = schemas.Status.FAILED if all_failed_map[task_from_db.work_id] \
-            else schemas.Status.SUCCESS if all_success_map[task_from_db.work_id] \
+        all_failed_map[task_from_db.request_id] &= result_registration_result.result_status == schemas.Status.FAILED
+        all_success_map[task_from_db.request_id] &= result_registration_result.result_status == schemas.Status.SUCCESS
+        request.request_status = schemas.Status.FAILED if all_failed_map[task_from_db.request_id] \
+            else schemas.Status.SUCCESS if all_success_map[task_from_db.request_id] \
             else schemas.Status.PENDING
-        gw_requests[task_from_db.work_id] = request
+        gw_requests[task_from_db.request_id] = request
     return list(gw_requests.values())
 
 
@@ -290,7 +297,7 @@ async def process_websocket_for_result(websocket, tasks_from_db, service: wn.Wal
 # Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
 async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService, update_task_in_db_func) -> bytes:
 
-    if service == wn.WalletNodeService.SENSE and task_from_db.ticket_status not in [DbStatus.DONE.value]:
+    if service == wn.WalletNodeService.SENSE and task_from_db.process_status not in [DbStatus.DONE.value]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
     if (service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT) \
@@ -302,7 +309,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
     file_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid)
     not_locally_cached = not file_bytes
 
-    if not file_bytes and task_from_db.ticket_status in [DbStatus.DONE.value]:
+    if not file_bytes and task_from_db.process_status in [DbStatus.DONE.value]:
         file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, wn_service=service)
 
     if not file_bytes and task_from_db.stored_file_ipfs_link:
@@ -348,7 +355,7 @@ async def search_pastel_file(*, reg_ticket_txid: str, service: wn.WalletNodeServ
 # Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
 async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_func) -> bytes:
 
-    if task_from_db.ticket_status not in [DbStatus.DONE.value]:
+    if task_from_db.process_status not in [DbStatus.DONE.value]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
     dd_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, extra_suffix=".dd")

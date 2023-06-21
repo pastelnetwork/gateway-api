@@ -23,13 +23,13 @@ class BaseTask(Base):
     stored_file_other_links = Column(JSONB)
     make_publicly_accessible= Column(Boolean, default=False)
 
-    work_id = Column(String, index=True)
-    ticket_id = Column(String, index=True)
+    request_id = Column(String, index=True)
+    result_id = Column(String, index=True)
     wn_file_id = Column(String, index=True)
     wn_task_id = Column(String, index=True)
     wn_fee = Column(Integer)
     height = Column(Integer, index=True)
-    ticket_status = Column(String, index=True)
+    process_status = Column(String, index=True)
     retry_num = Column(Integer, default=0)
 
     reg_ticket_txid = Column(String, index=True)

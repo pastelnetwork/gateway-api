@@ -22,14 +22,14 @@ class NftAPITask(PastelAPITask):
 
     def get_request_form(self, task_from_db) -> str:
         if not task_from_db.nft_properties:
-            raise PastelAPIException(f"Task {task_from_db.ticket_id} doesn't have 'nft_properties'")
+            raise PastelAPIException(f"Task {task_from_db.result_id} doesn't have 'nft_properties'")
 
         maximum_fee = 0.0
         if "maximum_fee" in task_from_db.nft_properties:
             maximum_fee = task_from_db.nft_properties["maximum_fee"]
 
         if maximum_fee != 0 and task_from_db.wn_fee > maximum_fee:
-            raise PastelAPIException(f"Task {task_from_db.ticket_id} has wn_fee [{task_from_db.wn_fee}] > "
+            raise PastelAPIException(f"Task {task_from_db.result_id} has wn_fee [{task_from_db.wn_fee}] > "
                                      f"maximum_fee [{task_from_db.nft_properties['maximum_fee']}]")
 
         if maximum_fee == 0:
@@ -95,10 +95,10 @@ class NftAPITask(PastelAPITask):
         )
 
     def check_specific_conditions(self, task_from_db) -> (bool, str):
-        if task_from_db.ticket_status != DbStatus.UPLOADED.value:
-            err_msg = f'NFT: process_task: Wrong task state - "{task_from_db.ticket_status}", ' \
+        if task_from_db.process_status != DbStatus.UPLOADED.value:
+            err_msg = f'NFT: process_task: Wrong task state - "{task_from_db.process_status}", ' \
                       f'Should be {DbStatus.STARTED.value}' \
-                      f'... [Result ID: {task_from_db.ticket_id}]'
+                      f'... [Result ID: {task_from_db.result_id}]'
             return False, err_msg
         return True, ''
 
@@ -140,9 +140,9 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash,
             original_file_ipfs_link=ipfs_hash,
             make_publicly_accessible=make_publicly_accessible,
             offer_ticket_intended_rcpt_pastel_id=after_activation_transfer_to_pastelid,
-            work_id=request_id,
-            ticket_id=result_id,
-            ticket_status=DbStatus.NEW.value,
+            request_id=request_id,
+            result_id=result_id,
+            process_status=DbStatus.NEW.value,
             wn_file_id='',
             wn_fee=0,
             height=height,
@@ -177,8 +177,8 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=10,
              name='nft:process', base=NftAPITask)
-def process(self, ticket_id) -> str:
-    return self.process_task(ticket_id,
+def process(self, result_id) -> str:
+    return self.process_task(result_id,
                              crud.nft.get_by_result_id,
                              crud.nft.update,
                              process.retry,

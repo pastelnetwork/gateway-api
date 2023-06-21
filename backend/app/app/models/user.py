@@ -20,3 +20,4 @@ class User(Base):
     cascade_tasks = relationship("Cascade", back_populates="owner")
     sense_tasks = relationship("Sense", back_populates="owner")
     nft_tasks = relationship("Nft", back_populates="owner")
+    collection_tasks = relationship("Collection", back_populates="owner")

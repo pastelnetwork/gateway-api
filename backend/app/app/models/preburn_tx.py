@@ -17,4 +17,4 @@ class PreBurnTx(Base):
     height = Column(Integer, index=True)
     txid = Column(String)
     status = Column(Enum(PBTXStatus), default=PBTXStatus.NEW)
-    ticket_id = Column(String)
+    result_id = Column(String)

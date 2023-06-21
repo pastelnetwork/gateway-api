@@ -433,7 +433,7 @@ async def request_status(
 
 
 @router.websocket("/status/result")
-async def ticket_status(
+async def result_status(
         websocket: WebSocket,
         gateway_result_id: str = Query(default=None),
         api_key: str = Query(default=None),

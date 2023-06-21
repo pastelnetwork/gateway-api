@@ -21,8 +21,8 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             original_file_ipfs_link=obj_in.original_file_ipfs_link,
             make_publicly_accessible=obj_in.make_publicly_accessible,
             offer_ticket_intended_rcpt_pastel_id=obj_in.offer_ticket_intended_rcpt_pastel_id,
-            work_id=obj_in.work_id,
-            ticket_id=obj_in.ticket_id,
+            request_id=obj_in.request_id,
+            result_id=obj_in.result_id,
             wn_file_id=obj_in.wn_file_id,
             wn_fee=obj_in.wn_fee,
             height=obj_in.height,
@@ -39,21 +39,21 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
     def get_by_result_id(self, db: Session, *, result_id: str) -> Optional[Nft]:
         return (
             db.query(self.model)
-            .filter(Nft.ticket_id == result_id)
+            .filter(Nft.result_id == result_id)
             .first())
 
     def get_by_result_id_and_owner(self, db: Session, *, result_id: str, owner_id) -> Optional[Nft]:
         return (
             db.query(self.model)
             .filter(Nft.owner_id == owner_id)
-            .filter(Nft.ticket_id == result_id)
+            .filter(Nft.result_id == result_id)
             .first())
 
     def get_by_request_id_and_name(self, db: Session, *, request_id: str, file_name: str, owner_id) -> Optional[Nft]:
         return (
             db.query(self.model)
             .filter(Nft.owner_id == owner_id)
-            .filter(Nft.work_id == request_id)
+            .filter(Nft.request_id == request_id)
             .filter(Nft.original_file_name == file_name)
             .first()
         )
@@ -63,7 +63,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         return (
             db.query(self.model)
             .filter(Nft.owner_id == owner_id)
-            .filter(Nft.work_id == request_id)
+            .filter(Nft.request_id == request_id)
             .offset(skip)
             .limit(limit)
             .all()
@@ -74,7 +74,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
     ) -> List[Nft]:
         return (
             db.query(self.model)
-            .filter(Nft.work_id == request_id)
+            .filter(Nft.request_id == request_id)
             .filter(
                 sa.and_(
                     Nft.burn_txid.is_(None),
@@ -90,7 +90,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
     ) -> List[Nft]:
         return (
             db.query(self.model)
-            .filter(Nft.work_id == request_id)
+            .filter(Nft.request_id == request_id)
             .filter(
                 sa.and_(
                     Nft.burn_txid.isnot(None),
@@ -107,7 +107,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
     ) -> List[Nft]:
         return (
             db.query(self.model)
-            .filter(Nft.work_id == request_id)
+            .filter(Nft.request_id == request_id)
             .filter(
                 sa.and_(
                     Nft.burn_txid.isnot(None),
@@ -124,7 +124,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
     ) -> List[Nft]:
         return (
             db.query(self.model)
-            .filter(Nft.ticket_status == DbStatus.REGISTERED.value)
+            .filter(Nft.process_status == DbStatus.REGISTERED.value)
             .all()
         )
 
@@ -135,7 +135,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             db.query(self.model)
             .filter(
                 sa.and_(
-                    Nft.ticket_status == DbStatus.STARTED.value,
+                    Nft.process_status == DbStatus.STARTED.value,
                     sa.or_(
                         Nft.reg_ticket_txid.is_(None),
                         Nft.act_ticket_txid.is_(None),
@@ -154,9 +154,9 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             db.query(self.model)
             .filter(
                 sa.or_(
-                    Nft.ticket_status == DbStatus.ERROR.value,
-                    Nft.ticket_status == '',
-                    Nft.ticket_status.is_(None),
+                    Nft.process_status == DbStatus.ERROR.value,
+                    Nft.process_status == '',
+                    Nft.process_status.is_(None),
                 )
             )
             .offset(skip)
@@ -174,12 +174,6 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             .limit(limit)
             .all()
         )
-
-    def get_by_preburn_txid(self, db: Session, *, txid: str) -> Optional[Nft]:
-        return (
-            db.query(self.model)
-            .filter(Nft.burn_txid == txid)
-            .first())
 
     def get_by_reg_txid(self, db: Session, *, reg_txid: str) -> Optional[Nft]:
         return (

@@ -404,7 +404,7 @@ async def get_parsed_dd_result_file_by_pastel_id(
 
 
 @router.websocket("/status/result")
-async def ticket_status(
+async def result_status(
         websocket: WebSocket,
         gateway_result_id: str = Query(default=None),
         api_key: str = Query(default=None),
