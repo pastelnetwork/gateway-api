@@ -184,7 +184,7 @@ class Settings(BaseSettings):
     RETURN_DETAILED_WN_ERROR: bool = True
 
     # registration_helpers
-    REGISTRATION_FINISHER_INTERVAL: float = 60.0
+    REGISTRATION_FINISHER_INTERVAL: float = 600.0
     REGISTRATION_RE_PROCESSOR_INTERVAL: float = 700.0
 
     # scheduled_tools
