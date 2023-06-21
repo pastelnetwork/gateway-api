@@ -12,8 +12,14 @@ from app.core.config import settings
 def call(method, parameters, nothrow=False):
     payload_getinfo = {"jsonrpc": "1.0", "id": "pastelapi", "method": method, "params": parameters}
     payload = json.dumps(payload_getinfo)
+
+    logging.debug(f"Calling cNode as: {payload}")
+
     auth = HTTPBasicAuth(settings.PASTEL_RPC_USER, settings.PASTEL_RPC_PWD)
     response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth)
+    logging.debug(f"Calling cNode as: "
+                  f"URL: {response.request.url}\nMethod: {response.request.method}\nHeaders: {response.request.headers}\nBody: {response.request.body}")
+    logging.debug(f"Response from cNode: {response.text}")
     if nothrow and response.status_code != 200:
         return response
     response.raise_for_status()
