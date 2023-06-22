@@ -97,7 +97,7 @@ class NftAPITask(PastelAPITask):
     def check_specific_conditions(self, task_from_db) -> (bool, str):
         if task_from_db.process_status != DbStatus.UPLOADED.value:
             err_msg = f'NFT: process_task: Wrong task state - "{task_from_db.process_status}", ' \
-                      f'Should be {DbStatus.STARTED.value}' \
+                      f'Should be {DbStatus.UPLOADED.value}' \
                       f'... [Result ID: {task_from_db.result_id}]'
             return False, err_msg
         return True, ''

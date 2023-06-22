@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query, Body
 from typing import List, Optional
 
@@ -12,6 +14,7 @@ from app.api import deps, common
 import app.utils.walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs
+from utils.filestorage import LocalFile
 
 router = APIRouter()
 
@@ -31,13 +34,69 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.ResultRegistrationResult:
+    is_image, reg_result = common.check_if_image(file)
+    if not is_image:
+        return reg_result
+    request_id = str(uuid.uuid4())
+    result_id = str(uuid.uuid4())
+    lf = LocalFile(file.filename, file.content_type, result_id)
+    await lf.save(file)
+
     nft_properties = parse_raw_as(schemas.NftPropertiesExternal, nft_details_payload)
-    return await common.process_nft_request(file=file,
+    return await common.process_nft_request(lf=lf,
+                                            request_id=request_id,
+                                            result_id=result_id,
                                             make_publicly_accessible=make_publicly_accessible,
                                             collection_act_txid=collection_act_txid,
                                             open_api_group_id=open_api_group_id,
                                             after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
                                             nft_details_payload=nft_properties,
+                                            user_id=current_user.id)
+
+
+# Upload file for NFT request.
+# Note: Only authenticated user with API key
+@router.post("/upload", )
+async def process_request_upload(
+        *,
+        file: UploadFile,
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    is_image, reg_result = common.check_if_image(file)
+    if not is_image:
+        return reg_result
+    file_id = str(uuid.uuid4())
+    lf = LocalFile(file.filename, file.content_type, file_id)
+    await lf.save(file)
+    return {"file_id": file_id}
+
+
+# Submit a NFT gateway_request for the current user.
+# Note: Only authenticated user with API key
+@router.post("/start", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+async def process_request(
+        *,
+        file_id: str = Query("file_id", description="File ID from the upload endpoint"),
+        make_publicly_accessible: bool = Query(True, description="Make the file publicly accessible"),
+        collection_act_txid: Optional[str] = Query("", description="Transaction ID of the collection, if any"),
+        open_api_group_id: Optional[str] = Query("pastel", description="Group ID for the NFT, in most cases you don't need to change it"),
+        after_activation_transfer_to_pastelid: Optional[str] = Query("", description="PastelID to transfer the NFT to after activation, if any"),
+        nft_details_payload: schemas.NftPropertiesExternal = Body(...),
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> schemas.ResultRegistrationResult:
+    lf = LocalFile.load(file_id)
+    request_id = str(uuid.uuid4())
+    return await common.process_nft_request(lf=lf,
+                                            request_id=request_id,
+                                            result_id=file_id,
+                                            make_publicly_accessible=make_publicly_accessible,
+                                            collection_act_txid=collection_act_txid,
+                                            open_api_group_id=open_api_group_id,
+                                            after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
+                                            nft_details_payload=nft_details_payload,
                                             user_id=current_user.id)
 
 

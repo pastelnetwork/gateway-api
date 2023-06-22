@@ -26,7 +26,9 @@ import app.celery_tasks.nft as nft
 
 async def process_nft_request(
         *,
-        file: UploadFile,
+        lf: LocalFile,
+        request_id: str,
+        result_id: str,
         make_publicly_accessible: bool,
         collection_act_txid: str,
         open_api_group_id: str,
@@ -34,14 +36,6 @@ async def process_nft_request(
         nft_details_payload: schemas.NftPropertiesExternal,
         user_id: int,
 ) -> schemas.ResultRegistrationResult:
-    is_image, reg_result = check_if_image(file)
-    if not is_image:
-        return reg_result
-
-    request_id = str(uuid.uuid4())
-    result_id = str(uuid.uuid4())
-    lf = LocalFile(file.filename, file.content_type, result_id)
-    await lf.save(file)
     ipfs_hash = await store_file_to_ipfs(lf.path)
     _ = (
             nft.register_file.s(result_id, lf, request_id, user_id, ipfs_hash, make_publicly_accessible,
@@ -50,7 +44,7 @@ async def process_nft_request(
             nft.process.s()
     ).apply_async()
 
-    reg_result = await make_pending_result(file, ipfs_hash, result_id)
+    reg_result = await make_pending_result(lf.name, lf.type, ipfs_hash, result_id)
     reg_result.make_publicly_accessible = make_publicly_accessible
     return reg_result
 
@@ -91,7 +85,7 @@ async def process_action_request(
                 worker.process.s()
         ).apply_async()
 
-        reg_result = await make_pending_result(file, ipfs_hash, result_id)
+        reg_result = await make_pending_result(file.filename, file.content_type, ipfs_hash, result_id)
         if service == wn.WalletNodeService.CASCADE:
             reg_result.make_publicly_accessible=make_publicly_accessible
         request_result.results.append(reg_result)
@@ -119,7 +113,7 @@ def check_if_image(file: UploadFile) -> (bool, schemas.ResultRegistrationResult)
     return True, None
 
 
-async def make_pending_result(file, ipfs_hash, result_id):
+async def make_pending_result(file_name, file_content_type, ipfs_hash, result_id):
     reg_result = schemas.ResultRegistrationResult(
         result_id=result_id,
         result_status=schemas.Status.PENDING,
@@ -127,10 +121,10 @@ async def make_pending_result(file, ipfs_hash, result_id):
         last_updated_at=datetime.utcnow(),
         original_file_ipfs_link=ipfs_hash,
     )
-    if file:
-        reg_result.file_name = file.filename
-        reg_result.file_type = file.content_type
-
+    if file_name:
+        reg_result.file_name = file_name
+    if file_content_type:
+        reg_result.file_type = file_content_type
     if ipfs_hash:
         reg_result.original_file_ipfs_link = f'https://ipfs.io/ipfs/{ipfs_hash}'
     return reg_result

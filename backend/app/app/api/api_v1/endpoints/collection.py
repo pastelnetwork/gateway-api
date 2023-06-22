@@ -99,7 +99,7 @@ async def process_collection_request(
         collection.process.s()
     ).apply_async()
 
-    reg_result = await common.make_pending_result(None, None, result_id)
+    reg_result = await common.make_pending_result(None, None, None, result_id)
     return reg_result
 
 
