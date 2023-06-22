@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import zipfile
 import io
@@ -51,6 +52,7 @@ async def process_nft_request(
 
 async def process_action_request(
         *,
+        db,
         worker,
         files: List[UploadFile],
         make_publicly_accessible: bool,
@@ -68,8 +70,8 @@ async def process_action_request(
     )
     for file in files:
         if service == wn.WalletNodeService.SENSE:
-            is_image, reg_result = check_if_image(file)
-            if not is_image:
+            reg_result = await check_image(file, db)
+            if reg_result is not None:
                 request_result.results.append(reg_result)
                 continue
 
@@ -97,20 +99,6 @@ async def process_action_request(
         else schemas.Status.PENDING
 
     return request_result
-
-
-def check_if_image(file: UploadFile) -> (bool, schemas.ResultRegistrationResult):
-    if "image" not in file.content_type:
-        return False, schemas.ResultRegistrationResult(
-            file_name=file.filename,
-            file_type=file.content_type,
-            result_id="",
-            status_messages=["File type not supported"],
-            result_status=schemas.Status.ERROR,
-            created_at=datetime.utcnow(),
-            last_updated_at=datetime.utcnow(),
-        )
-    return True, None
 
 
 async def make_pending_result(file_name, file_content_type, ipfs_hash, result_id):
@@ -653,6 +641,44 @@ async def get_public_file(db, ticket_type: str, registration_ticket_txid: str, w
                                                  service=wn_service)
     return await stream_file(file_bytes=file_bytes, original_file_name=f"{shadow_ticket.file_name}")
 
+
+async def compute_hash(upload_file: UploadFile, chunk_size: int = 8192):
+    sha3_256_hash = hashlib.sha3_256()
+
+    # Read the file in chunks
+    while True:
+        chunk = await upload_file.read(chunk_size)
+        if not chunk:
+            break
+        sha3_256_hash.update(chunk)
+    result = sha3_256_hash.hexdigest()
+
+    upload_file.file.seek(0)
+    return result
+
+
+async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult:
+    if "image" not in file.content_type:
+        return schemas.ResultRegistrationResult(
+            result_status=schemas.Status.ERROR,
+            file_name=file.filename,
+            file_type=file.content_type,
+            status_messages=["File type not supported"],
+        )
+
+    image_hash = await compute_hash(file)
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=image_hash)
+    if len(tickets) > 0:
+        message = { "error": "This file has already been registered", "reg_ticket_txid":  tickets[0].reg_ticket_txid}
+
+        return schemas.ResultRegistrationResult(
+            result_status=schemas.Status.ERROR,
+            file_name=file.filename,
+            file_type=file.content_type,
+            status_messages=[message],
+        )
+
+    return None
 
 # import asyncio
 #

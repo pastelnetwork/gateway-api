@@ -1,3 +1,5 @@
+import base64
+import binascii
 from typing import List
 
 from sqlalchemy.orm import Session
@@ -32,8 +34,11 @@ class CRUDRegTicket(CRUDBase[RegTicket, RegTicketCreate, RegTicketUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def get_by_hash(self, db: Session, *, data_hash: str) -> List[RegTicket]:
-        return db.query(RegTicket).filter(RegTicket.data_hash == data_hash).all()
+    @staticmethod
+    def get_by_hash(db: Session, *, data_hash_as_hex: str) -> List[RegTicket]:
+        binary_hash = binascii.unhexlify(data_hash_as_hex)
+        b64_hash = base64.b64encode(binary_hash).decode()
+        return db.query(RegTicket).filter(RegTicket.data_hash == b64_hash).all()
 
     def get_by_reg_ticket_txid(self, db: Session, *, txid: str) -> RegTicket:
         return db.query(RegTicket).filter(RegTicket.reg_ticket_txid == txid).first()

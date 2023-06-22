@@ -28,7 +28,7 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_action_request(worker=cascade,
+    return await common.process_action_request(db=db, worker=cascade,
                                                files=files,
                                                make_publicly_accessible=make_publicly_accessible,
                                                collection_act_txid=None,
@@ -325,11 +325,11 @@ async def get_pastel_activation_ticket_by_its_txid(
 @router.get("/pastel_ticket_from_stored_file_hash/{stored_file_sha256_hash}")
 async def get_pastel_registration_ticket_by_stored_file_hash(
         *,
-        stored_file_sha256_hash: str,
+        stored_file_sha256_hash_as_hex: str,
         db: Session = Depends(session.get_db_session),
 ):
     output = []
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash=stored_file_sha256_hash)
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex)
     for ticket in tickets:
         if ticket.ticket_type == "cascade":
             reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.CASCADE)

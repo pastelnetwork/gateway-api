@@ -81,12 +81,13 @@ class Status(str, Enum):
 
 
 class ResultRegistrationResult(BaseModel):
+    result_status: Status
     file_name: Optional[str] = None
     file_type: Optional[str] = None
-    result_id: str
-    created_at: datetime
-    last_updated_at: datetime
-    result_status: Status
+    result_id: Optional[str] = None
+    file_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    last_updated_at: Optional[datetime] = None
     status_messages: Optional[Any] = None
     retry_num: Optional[int] = None
     registration_ticket_txid: Optional[str] = None

@@ -25,7 +25,7 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.RequestResult:
-    return await common.process_action_request(worker=sense,
+    return await common.process_action_request(db=db, worker=sense,
                                                files=files,
                                                make_publicly_accessible=True,
                                                collection_act_txid=collection_act_txid,
@@ -404,11 +404,11 @@ async def get_pastel_activation_ticket_by_its_txid(
 @router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}")
 async def get_pastel_ticket_data_from_media_file_hash(
         *,
-        media_file_sha256_hash: str,
+        stored_file_sha256_hash_as_hex: str,
         db: Session = Depends(session.get_db_session),
 ):
     output = []
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash=media_file_sha256_hash)
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex)
     for ticket in tickets:
         if ticket.ticket_type == "sense":
             reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.SENSE)

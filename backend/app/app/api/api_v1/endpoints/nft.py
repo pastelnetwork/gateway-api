@@ -34,9 +34,10 @@ async def process_request(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.ResultRegistrationResult:
-    is_image, reg_result = common.check_if_image(file)
-    if not is_image:
+    reg_result = await common.check_image(file, db)
+    if reg_result is not None:
         return reg_result
+
     request_id = str(uuid.uuid4())
     result_id = str(uuid.uuid4())
     lf = LocalFile(file.filename, file.content_type, result_id)
@@ -54,28 +55,34 @@ async def process_request(
                                             user_id=current_user.id)
 
 
-# Upload file for NFT request.
+# Two-step NFT start - Upload file for NFT request.
 # Note: Only authenticated user with API key
-@router.post("/upload", )
-async def process_request_upload(
+@router.post("/step_1_upload_image_file", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+async def step_1_upload_image_file(
         *,
         file: UploadFile,
+        db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    is_image, reg_result = common.check_if_image(file)
-    if not is_image:
+    reg_result = await common.check_image(file, db)
+    if reg_result is not None:
         return reg_result
+
     file_id = str(uuid.uuid4())
     lf = LocalFile(file.filename, file.content_type, file_id)
     await lf.save(file)
-    return {"file_id": file_id}
+    return schemas.ResultRegistrationResult(
+        file_name=file.filename,
+        file_type=file.content_type,
+        file_id=file_id,
+        result_status=schemas.Status.SUCCESS,
+    )
 
-
-# Submit a NFT gateway_request for the current user.
+# Two-step NFT start - Submit a NFT gateway_request for the current user.
 # Note: Only authenticated user with API key
-@router.post("/start", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
-async def process_request(
+@router.post("/step_2_process_nft", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+async def step_2_process_nft(
         *,
         file_id: str = Query("file_id", description="File ID from the upload endpoint"),
         make_publicly_accessible: bool = Query(True, description="Make the file publicly accessible"),
@@ -303,11 +310,11 @@ async def get_pastel_activation_ticket_by_its_txid(
 @router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}")
 async def get_pastel_ticket_data_from_media_file_hash(
         *,
-        media_file_sha256_hash: str,
+        stored_file_sha256_hash_as_hex: str,
         db: Session = Depends(session.get_db_session),
 ):
     output = []
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash=media_file_sha256_hash)
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex)
     for ticket in tickets:
         if ticket.ticket_type == "nft":
             reg_ticket = await common.get_registration_nft_ticket(ticket.reg_ticket_txid)
