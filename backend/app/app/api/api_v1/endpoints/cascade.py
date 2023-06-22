@@ -322,7 +322,7 @@ async def get_pastel_activation_ticket_by_its_txid(
 # Get the set of Pastel Cascade tickets from the blockchain corresponding to a particular stored_file_sha256_hash.
 # Contains pastel_block_number and pastel_id in case there are multiple results for the same stored_file_sha256_hash
 # Note: Available to any user
-@router.get("/pastel_ticket_from_stored_file_hash/{stored_file_sha256_hash}")
+@router.get("/pastel_ticket_from_stored_file_hash/{stored_file_sha256_hash_as_hex}")
 async def get_pastel_registration_ticket_by_stored_file_hash(
         *,
         stored_file_sha256_hash_as_hex: str,
