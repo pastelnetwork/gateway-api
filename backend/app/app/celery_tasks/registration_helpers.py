@@ -89,7 +89,7 @@ def _registration_finisher(
             if not wn_task_status:
                 # Check using pre-burn txid if somehow reg ticket was registered but WN is not ware of that
                 # This can only be used with Sense and Cascade, as NFT does not have burn_txid
-                if (wn_service == wn.WalletNodeService.SENSE or wn_service != wn.WalletNodeService.CASCADE) \
+                if (wn_service == wn.WalletNodeService.SENSE or wn_service == wn.WalletNodeService.CASCADE) \
                         and task_from_db.burn_txid:
                     reg_ticket = psl.call("tickets", ["find", "action", task_from_db.burn_txid])
                     if reg_ticket and 'txid' in reg_ticket and reg_ticket['txid']:
