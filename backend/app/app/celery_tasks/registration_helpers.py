@@ -103,14 +103,15 @@ def _registration_finisher(
 
                 logger.error(f"No result from WalletNode: wn_task_id - {task_from_db.wn_task_id}, "
                              f"ResultId - {task_from_db.result_id}")
-                # check how old is the result, if height is more than 48 (2 h), then mark it as ERROR
                 height = psl.call("getblockcount", [])
-                if height - task_from_db.height > 48:
-                    logger.error(f"Task is too old - it was created {height - task_from_db.height} blocks ago:"
-                                 f"wn_task_id - {task_from_db.wn_task_id}, ResultId - {task_from_db.result_id}")
-                    with db_context() as session:
-                        _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
-                                                   get_by_preburn_txid_func, wn_service)
+                logger.error(f"No WN result for the task. Maybe it was created by another WN."
+                             f"Task was created {height - task_from_db.height} blocks ago:"
+                             f"wn_task_id - {task_from_db.wn_task_id}, ResultId - {task_from_db.result_id}")
+                # check how old is the result, if height is more than 48 (2 h), then mark it as ERROR
+                # if height - task_from_db.height > 48:
+                # with db_context() as session:
+                    #     _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
+                    #                                get_by_preburn_txid_func, wn_service)
                 continue
 
             add_status_to_history_log(task_from_db, wn_service, wn_task_status)
