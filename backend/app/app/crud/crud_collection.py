@@ -60,7 +60,7 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
         )
 
     def get_all_started_not_finished(
-            self, db: Session, *, skip: int = 0, limit: int = 1000
+            self, db: Session, *, skip: int = 0, limit: int = 10000
     ) -> List[Collection]:
         return (
             db.query(self.model)
@@ -79,7 +79,7 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
         )
 
     def get_all_failed(
-            self, db: Session, *, skip: int = 0, limit: int = 1000
+            self, db: Session, *, skip: int = 0, limit: int = 10000
     ) -> List[Collection]:
         return (
             db.query(self.model)
@@ -96,7 +96,7 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
         )
 
     def get_multi_by_owner_by_type(
-            self, db: Session, *, owner_id: int, item_type: str, skip: int = 0, limit: int = 100
+            self, db: Session, *, owner_id: int, item_type: str, skip: int = 0, limit: int = 10000
     ) -> List[Collection]:
         return (
             db.query(self.model)
@@ -108,7 +108,7 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
         )
 
     def get_multi_by_owner(
-            self, db: Session, *, owner_id: int, skip: int = 0, limit: int = 100
+            self, db: Session, *, owner_id: int, skip: int = 0, limit: int = 10000
     ) -> List[Collection]:
         return (
             db.query(self.model)

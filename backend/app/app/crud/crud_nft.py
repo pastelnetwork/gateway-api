@@ -58,7 +58,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             .first()
         )
 
-    def get_all_in_request(self, db: Session, *, request_id: str, owner_id: int, skip: int = 0, limit: int = 100)\
+    def get_all_in_request(self, db: Session, *, request_id: str, owner_id: int, skip: int = 0, limit: int = 10000)\
             -> List[Nft]:
         return (
             db.query(self.model)
@@ -70,7 +70,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         )
 
     def get_all_in_request_not_started(
-            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
+            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 10000
     ) -> List[Nft]:
         return (
             db.query(self.model)
@@ -86,7 +86,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         )
 
     def get_all_in_request_prepaid(
-            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
+            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 10000
     ) -> List[Nft]:
         return (
             db.query(self.model)
@@ -103,7 +103,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         )
 
     def get_all_in_request_started(
-            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 100
+            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 10000
     ) -> List[Nft]:
         return (
             db.query(self.model)
@@ -129,7 +129,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         )
 
     def get_all_started_not_finished(
-            self, db: Session, *, skip: int = 0, limit: int = 1000
+            self, db: Session, *, skip: int = 0, limit: int = 10000
     ) -> List[Nft]:
         return (
             db.query(self.model)
@@ -148,7 +148,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         )
 
     def get_all_failed(
-            self, db: Session, *, skip: int = 0, limit: int = 1000
+            self, db: Session, *, skip: int = 0, limit: int = 10000
     ) -> List[Nft]:
         return (
             db.query(self.model)
@@ -165,7 +165,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         )
 
     def get_multi_by_owner(
-            self, db: Session, *, owner_id: int, skip: int = 0, limit: int = 100
+            self, db: Session, *, owner_id: int, skip: int = 0, limit: int = 10000
     ) -> List[Nft]:
         return (
             db.query(self.model)
