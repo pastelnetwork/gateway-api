@@ -14,7 +14,7 @@ from app.api import deps, common
 import app.utils.walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs
-from utils.filestorage import LocalFile
+from app.utils.filestorage import LocalFile
 
 router = APIRouter()
 
