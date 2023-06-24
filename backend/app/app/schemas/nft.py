@@ -35,8 +35,6 @@ class NftBase(BaseTaskBase):
     collection_act_txid: Optional[str]
     open_api_group_id: Optional[str]
     nft_dd_file_ipfs_link: Optional[str]
-    offer_ticket_txid: Optional[str]
-    offer_ticket_intended_rcpt_pastel_id: Optional[str]
 
 
 # Properties to receive on Nft creation
@@ -60,5 +58,5 @@ class Nft(BaseTask, NftInDBBase):
 
 
 # Properties stored in DB
-class SenseInDB(BaseTaskInDB, NftInDBBase):
+class NftInDB(BaseTaskInDB, NftInDBBase):
     pass

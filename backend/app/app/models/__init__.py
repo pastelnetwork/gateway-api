@@ -9,4 +9,4 @@ from .collection import Collection
 
 from .psl_reg_ticket import RegTicket
 
-from .history_log import CascadeHistory, SenseHistory, NftHistory
+from .history_log import CascadeHistory, SenseHistory, NftHistoryLog, CollectionHistory

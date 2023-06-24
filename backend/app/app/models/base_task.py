@@ -22,6 +22,8 @@ class BaseTask(Base):
     stored_file_aws_link = Column(String)
     stored_file_other_links = Column(JSONB)
     make_publicly_accessible= Column(Boolean, default=False)
+    offer_ticket_txid = Column(String, index=True)
+    offer_ticket_intended_rcpt_pastel_id = Column(String, index=True)
 
     request_id = Column(String, index=True)
     result_id = Column(String, index=True)

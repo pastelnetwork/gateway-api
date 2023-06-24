@@ -36,7 +36,7 @@ async def process_nft_request(
         after_activation_transfer_to_pastelid: str,
         nft_details_payload: schemas.NftPropertiesExternal,
         user_id: int,
-) -> schemas.ResultRegistrationResult:
+) -> schemas.RequestResult:
     ipfs_hash = await store_file_to_ipfs(lf.path)
     _ = (
             nft.register_file.s(result_id, lf, request_id, user_id, ipfs_hash, make_publicly_accessible,
@@ -47,7 +47,12 @@ async def process_nft_request(
 
     reg_result = await make_pending_result(lf.name, lf.type, ipfs_hash, result_id)
     reg_result.make_publicly_accessible = make_publicly_accessible
-    return reg_result
+    request_result = schemas.RequestResult(
+        request_id=request_id,
+        request_status=schemas.Status.PENDING,
+        results=[reg_result]
+    )
+    return request_result
 
 
 async def process_action_request(
@@ -69,6 +74,12 @@ async def process_action_request(
         results=[]
     )
     for file in files:
+
+        reg_result = await check_file_is_not_empty(file)
+        if reg_result is not None:
+            request_result.results.append(reg_result)
+            continue
+
         if service == wn.WalletNodeService.SENSE:
             reg_result = await check_image(file, db)
             if reg_result is not None:
@@ -397,13 +408,12 @@ async def search_nft_dd_result_pastel(*, reg_ticket_txid: str, throw=True) -> by
 
 
 async def get_all_reg_ticket_from_request(*, gateway_request_id, tasks_from_db,
-                                          service_type: str, service: wn.WalletNodeService):
+                                          service_type: str,
+                                          get_registration_ticket_lambda):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for task_from_db in tasks_from_db:
-            ticket = await get_registration_action_ticket(
-                task_from_db.reg_ticket_txid,
-                service)
+            ticket = await get_registration_ticket_lambda(task_from_db.reg_ticket_txid)
             # convert to bytes
             file_bytes = json.dumps(ticket, indent=2).encode('utf-8')
             zip_file.writestr(f"{task_from_db.original_file_name}-{service_type}-reg-ticket.json", file_bytes)
@@ -426,14 +436,11 @@ async def stream_file(*, file_bytes, original_file_name: str, content_type: str 
     return response
 
 
-async def get_all_sense_data_from_request(*, db, tasks_from_db, gateway_request_id, parse=False):
+async def get_all_sense_or_nft_dd_data_from_request(*, tasks_from_db, gateway_request_id, search_data_lambda, file_suffix, parse=False):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for task_from_db in tasks_from_db:
-            raw_file_bytes = await search_gateway_file(db=db,
-                                                       task_from_db=task_from_db,
-                                                       service=wn.WalletNodeService.SENSE,
-                                                       update_task_in_db_func=crud.sense.update)
+            raw_file_bytes = await search_data_lambda(task_from_db)
             if parse:
                 file_bytes = await parse_dd_data(raw_file_bytes, False)
                 if not file_bytes:
@@ -442,9 +449,9 @@ async def get_all_sense_data_from_request(*, db, tasks_from_db, gateway_request_
                 file_bytes = raw_file_bytes
             # convert to bytes
             # file_bytes = json.dumps(ticket, indent=2).encode('utf-8')
-            zip_file.writestr(f"{task_from_db.original_file_name}-sense-data.json", file_bytes)
+            zip_file.writestr(f"{task_from_db.original_file_name}-{file_suffix}.json", file_bytes)
     return await stream_file(file_bytes=zip_buffer.getvalue(),
-                             original_file_name=f"{gateway_request_id}-sense-data.zip",
+                             original_file_name=f"{gateway_request_id}-{file_suffix}.zip",
                              content_type="application/zip")
 
 
@@ -657,6 +664,34 @@ async def compute_hash(upload_file: UploadFile, chunk_size: int = 8192):
     return result
 
 
+async def check_file_is_not_empty(file: UploadFile) -> schemas.ResultRegistrationResult|None:
+    if file.filename == "":
+        return schemas.ResultRegistrationResult(
+            result_status=schemas.Status.ERROR,
+            file_name=file.filename,
+            file_type=file.content_type,
+            status_messages=["File name is empty"],
+        )
+    if file.content_type is None:
+        return schemas.ResultRegistrationResult(
+            result_status=schemas.Status.ERROR,
+            file_name=file.filename,
+            file_type=file.content_type,
+            status_messages=["File is empty"],
+        )
+    content = await file.read(1)
+    await file.seek(0)  # reset file pointer to the beginning
+    if len(content) == 0:
+        return schemas.ResultRegistrationResult(
+            result_status=schemas.Status.ERROR,
+            file_name=file.filename,
+            file_type=file.content_type,
+            status_messages=["File is empty"],
+        )
+
+    return None
+
+
 async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult:
     if "image" not in file.content_type:
         return schemas.ResultRegistrationResult(
@@ -679,6 +714,26 @@ async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult:
         )
 
     return None
+
+async def transfer_ticket(db, result_id, user_id, pastel_id,
+                          get_result_func, update_func):
+
+    task_from_db = get_result_func(db=db, result_id=result_id, owner_id=user_id)
+    if not task_from_db:
+        raise HTTPException(status_code=404, detail="gateway_result not found")
+
+    if task_from_db.offer_ticket_intended_rcpt_pastel_id:
+        raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
+                                                    f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
+
+    offer_ticket = await psl.create_offer_ticket(task_from_db, pastel_id)
+    if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
+        upd = {"offer_ticket_txid": offer_ticket['txid'],
+               "offer_ticket_intended_rcpt_pastel_id": pastel_id,
+               "updated_at": datetime.utcnow()}
+        update_func(db=db, db_obj=task_from_db, obj_in=upd)
+
+    return offer_ticket
 
 # import asyncio
 #

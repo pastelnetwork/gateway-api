@@ -125,7 +125,7 @@ def process(self, result_id) -> str:
         logger.error(f'Collection: No task found for result_id {result_id}')
         raise PastelAPIException(f'Collection: No task found for result_id {result_id}')
 
-    if task_from_db.process_status != DbStatus.RESTARTED.value or task_from_db.process_status != DbStatus.NEW.value:
+    if task_from_db.process_status != DbStatus.RESTARTED.value and task_from_db.process_status != DbStatus.NEW.value:
         logger.warn(f'Collection-{task_from_db.item_type}: process: Wrong task state - "{task_from_db.process_status}", '
                     f'Should be {DbStatus.RESTARTED.value} OR {DbStatus.NEW.value}... [Result ID: {result_id}]')
         return result_id

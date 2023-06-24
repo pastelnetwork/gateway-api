@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Any
 
-from pydantic import BaseModel, Json
+from pydantic import BaseModel, Json, Field
 
 
 class BaseTaskBase(BaseModel):
@@ -23,6 +23,8 @@ class BaseTaskBase(BaseModel):
     stored_file_aws_link: Optional[str] = None
     stored_file_other_links: Optional[Json] = None
     make_publicly_accessible: Optional[bool] = None
+    offer_ticket_txid: Optional[str]
+    offer_ticket_intended_rcpt_pastel_id: Optional[str]
     retry_num: Optional[int] = None
 
 
@@ -78,13 +80,10 @@ class Status(str, Enum):
 #       1) DbStatus.DEAD
 
 
-
-
-class ResultRegistrationResult(BaseModel):
+class ResultRegistrationBase(BaseModel):
     result_status: Status
     file_name: Optional[str] = None
     file_type: Optional[str] = None
-    result_id: Optional[str] = None
     file_id: Optional[str] = None
     created_at: Optional[datetime] = None
     last_updated_at: Optional[datetime] = None
@@ -101,6 +100,11 @@ class ResultRegistrationResult(BaseModel):
     offer_ticket_intended_rcpt_pastel_id: Optional[str] = None
     error: Optional[Any] = None
 
+class ResultRegistrationResult(ResultRegistrationBase):
+    result_id: Optional[str]
+
+class CollectionRegistrationResult(ResultRegistrationBase):
+    collection_id: Optional[str]
 
 class RequestResult(BaseModel):
     request_id: str

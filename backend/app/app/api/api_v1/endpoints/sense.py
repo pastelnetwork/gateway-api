@@ -21,6 +21,7 @@ async def process_request(
         files: List[UploadFile],
         collection_act_txid: Optional[str] = Query("", description="Transaction ID of the collection, if any"),
         open_api_group_id: Optional[str] = Query("", description="Group ID for the NFT, in most cases you don't need to change it"),
+        after_activation_transfer_to_pastelid: Optional[str] = Query(None, description="PastelID to transfer the NFT to after activation, if any"),
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
@@ -30,7 +31,7 @@ async def process_request(
                                                make_publicly_accessible=True,
                                                collection_act_txid=collection_act_txid,
                                                open_api_group_id=open_api_group_id,
-                                               after_activation_transfer_to_pastelid=None,
+                                               after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
                                                user_id=current_user.id,
                                                service=wn.WalletNodeService.SENSE)
 
@@ -116,9 +117,16 @@ async def get_all_raw_output_files_from_request(
     tasks_from_db = crud.sense.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
     if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
-    return await common.get_all_sense_data_from_request(db=db,
-                                                        tasks_from_db=tasks_from_db,
-                                                        gateway_request_id=gateway_request_id)
+    return await common.get_all_sense_or_nft_dd_data_from_request(tasks_from_db=tasks_from_db,
+                                                                  gateway_request_id=gateway_request_id,
+                                                                  search_data_lambda=lambda task_from_db:
+                                                                    common.search_gateway_file(
+                                                                        db=db,
+                                                                        task_from_db=task_from_db,
+                                                                        service=wn.WalletNodeService.SENSE,
+                                                                        update_task_in_db_func=crud.sense.update),
+                                                                  file_suffix='sense-data'
+                                                                  )
 
 
 # Get the set of underlying Sense parsed_outputs_files from the corresponding gateway_request_id.
@@ -134,10 +142,16 @@ async def get_all_parsed_output_files_from_request(
     tasks_from_db = crud.sense.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
     if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
-    return await common.get_all_sense_data_from_request(db=db,
-                                                        tasks_from_db=tasks_from_db,
-                                                        gateway_request_id=gateway_request_id,
-                                                        parse=True)
+    return await common.get_all_sense_or_nft_dd_data_from_request(tasks_from_db=tasks_from_db,
+                                                                  gateway_request_id=gateway_request_id,
+                                                                  search_data_lambda=lambda task_from_db:
+                                                                    common.search_gateway_file(
+                                                                        db=db,
+                                                                        task_from_db=task_from_db,
+                                                                        service=wn.WalletNodeService.SENSE,
+                                                                        update_task_in_db_func=crud.sense.update),
+                                                                  file_suffix='sense-data',
+                                                                  parse=True)
 
 
 # Get the underlying Sense raw_outputs_file from the corresponding gateway_result_id.
@@ -339,7 +353,11 @@ async def get_all_pastel_sense_registration_tickets_from_request(
     return await common.get_all_reg_ticket_from_request(gateway_request_id=gateway_request_id,
                                                         tasks_from_db=tasks_from_db,
                                                         service_type="sense",
-                                                        service=wn.WalletNodeService.SENSE)
+                                                        get_registration_ticket_lambda=lambda reg_ticket_txid:
+                                                            common.get_registration_action_ticket(
+                                                                ticket_txid=reg_ticket_txid,
+                                                                service=wn.WalletNodeService.SENSE)
+                                                        )
 
 
 # Get Pastel Sense registration ticket from the blockchain corresponding to a particular gateway_result_id.
@@ -446,3 +464,15 @@ async def result_status(
 
     tasks_in_db = [crud.sense.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)]
     await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.SENSE)
+
+
+@router.get("/result/transfer_pastel_ticket")
+async def transfer_pastel_ticket_to_another_pastelid(
+        *,
+        gateway_result_id: str = Query(),
+        pastel_id: str = Query(),
+        db: Session = Depends(session.get_db_session),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    return await common.transfer_ticket(db, gateway_result_id, current_user.id, pastel_id,
+                                        crud.sense.get_by_result_id_and_owner, crud.sense.update)

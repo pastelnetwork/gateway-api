@@ -43,7 +43,7 @@ class SenseAPITask(PastelAPITask):
              name='sense:register_file', base=SenseAPITask)
 def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: str,
                   make_publicly_accessible: bool, collection_act_txid: str, open_api_group_id: str,
-                  _after_activation_transfer_to_pastelid) -> str:
+                  after_activation_transfer_to_pastelid) -> str:
     return self.register_file_task(
         result_id, local_file, user_id,
         lambda height: schemas.SenseCreate(
@@ -52,6 +52,7 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: s
             original_file_local_path=local_file.path,
             original_file_ipfs_link=ipfs_hash,
             make_publicly_accessible=make_publicly_accessible,
+            offer_ticket_intended_rcpt_pastel_id=after_activation_transfer_to_pastelid,
             collection_act_txid=collection_act_txid,
             open_api_group_id=open_api_group_id,
             request_id=request_id,

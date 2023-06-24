@@ -260,7 +260,11 @@ async def get_all_pastel_cascade_registration_tickets_from_request(
     return await common.get_all_reg_ticket_from_request(gateway_request_id=gateway_request_id,
                                                         tasks_from_db=tasks_from_db,
                                                         service_type="cascade",
-                                                        service=wn.WalletNodeService.CASCADE)
+                                                        get_registration_ticket_lambda=lambda reg_ticket_txid:
+                                                          common.get_registration_action_ticket(
+                                                            ticket_txid=reg_ticket_txid,
+                                                            service=wn.WalletNodeService.CASCADE)
+                                                        )
 
 
 # Get the Pastel Cascade registration ticket from the blockchain corresponding to a particular gateway_result_id
@@ -377,19 +381,5 @@ async def transfer_pastel_ticket_to_another_pastelid(
         db: Session = Depends(session.get_db_session),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    task_from_db = crud.cascade.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
-    if not task_from_db:
-        raise HTTPException(status_code=404, detail="gateway_result not found")
-
-    if task_from_db.offer_ticket_intended_rcpt_pastel_id:
-        raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
-                                                    f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
-
-    offer_ticket = await psl.create_offer_ticket(task_from_db, pastel_id)
-    if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
-        upd = {"offer_ticket_txid": offer_ticket['txid'],
-               "offer_ticket_intended_rcpt_pastel_id": pastel_id,
-               "updated_at": datetime.utcnow()}
-        crud.cascade.update(db=db, db_obj=task_from_db, obj_in=upd)
-
-    return offer_ticket
+    return await common.transfer_ticket(db, gateway_result_id, current_user.id, pastel_id,
+                                        crud.cascade.get_by_result_id_and_owner, crud.cascade.update)

@@ -37,5 +37,3 @@ class Collection(Base):
 
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="collection_tasks")
-
-    collection_history = relationship("CollectionHistory", back_populates="collection_task")

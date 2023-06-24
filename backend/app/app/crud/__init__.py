@@ -6,4 +6,4 @@ from .crud_sense import sense
 from .crud_nft import nft
 from .crud_collection import collection
 from .crud_reg_ticket import reg_ticket
-from .crud_history_log import cascade_log, sense_log, nft_log
+from .crud_history_log import cascade_log, sense_log, nft_log, collection_log

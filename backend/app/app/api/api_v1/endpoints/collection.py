@@ -15,8 +15,8 @@ router = APIRouter()
 
 # Submit a Sense Collection ticket register request for the current user.
 # Note: Only authenticated user with API key
-@router.post("/sense", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
-async def process_request(
+@router.post("/sense", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+async def create_sense_collection(
         *,
         collection_name: str = Query("", description="Collection name"),
         max_collection_entries: int = Query(1, description="Maximum number of items allowed in a collection"),
@@ -30,7 +30,7 @@ async def process_request(
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> schemas.ResultRegistrationResult:
+) -> schemas.CollectionRegistrationResult:
     return await process_collection_request(
         item_type="sense", collection_name=collection_name,
         max_collection_entries=max_collection_entries, collection_item_copy_count=collection_item_copy_count,
@@ -42,8 +42,8 @@ async def process_request(
 
 # Submit an NFT Collection ticket register request for the current user.
 # Note: Only authenticated user with API key
-@router.post("/nft", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
-async def process_request(
+@router.post("/nft", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+async def create_nft_collection(
         *,
         collection_name: str = Query("", description="Collection name"),
         max_collection_entries: int = Query(1, description="Maximum number of items allowed in a collection"),
@@ -57,7 +57,7 @@ async def process_request(
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> schemas.ResultRegistrationResult:
+) -> schemas.CollectionRegistrationResult:
     return await process_collection_request(
         item_type="nft", collection_name=collection_name,
         max_collection_entries=max_collection_entries, collection_item_copy_count=collection_item_copy_count,
@@ -75,7 +75,7 @@ async def process_collection_request(
         max_permitted_open_nsfw_score: float, minimum_similarity_score_to_first_entry_in_collection: float,
         no_of_days_to_finalize_collection: int, royalty: float, green: bool,
         user_id: int,
-) -> schemas.ResultRegistrationResult:
+) -> schemas.CollectionRegistrationResult:
     if max_permitted_open_nsfw_score < 0 or max_permitted_open_nsfw_score >= 1:
         raise HTTPException(status_code=400, detail="max_permitted_open_nsfw_score must be between 0 and 1")
     if minimum_similarity_score_to_first_entry_in_collection < 0 or minimum_similarity_score_to_first_entry_in_collection >= 1:
@@ -89,9 +89,9 @@ async def process_collection_request(
     if collection_item_copy_count < 1:
         raise HTTPException(status_code=400, detail="collection_item_copy_count must be greater than 0")
 
-    result_id = str(uuid.uuid4())
+    collection_id = str(uuid.uuid4())
     _ = (
-        collection.register.s(result_id, user_id,
+        collection.register.s(collection_id, user_id,
                               item_type, collection_name, max_collection_entries, collection_item_copy_count,
                               list_of_pastelids_of_authorized_contributors,
                               max_permitted_open_nsfw_score, minimum_similarity_score_to_first_entry_in_collection,
@@ -99,90 +99,96 @@ async def process_collection_request(
         collection.process.s()
     ).apply_async()
 
-    reg_result = await common.make_pending_result(None, None, None, result_id)
-    return reg_result
+    reg_result = await common.make_pending_result(None, None, None, collection_id)
+    return await result_to_collection(reg_result)
 
 
 # Get all Sense Collection ticket register for the current user.
 # Note: Only authenticated user with API key
-@router.get("/sense/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
-async def get_all_sense_results(
+@router.get("/sense/collections", response_model=List[schemas.CollectionRegistrationResult], response_model_exclude_none=True)
+async def get_all_sense_collections(
         *,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> List[schemas.ResultRegistrationResult]:
+) -> List[schemas.CollectionRegistrationResult]:
     task_results = []
     tasks_from_db = crud.collection.get_multi_by_owner_by_type(db=db, owner_id=current_user.id, item_type="sense")
     if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_requests found")
     for task_from_db in tasks_from_db:
         task_result = await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION)
-        task_results.append(task_result)
+        task_results.append(await result_to_collection(task_result))
     return task_results
 
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/sense/gateway_results/{gateway_results_id}",
-            response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
-async def get_sense_result_by_request_id(
+@router.get("/sense/collections/{collection_id}",
+            response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+async def get_sense_collections_by_collection_id(
         *,
-        gateway_result_id: str,
+        collection_id: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> schemas.ResultRegistrationResult:
-    task_from_db = crud.collection.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+) -> schemas.CollectionRegistrationResult:
+    task_from_db = crud.collection.get_by_result_id_and_owner(db=db, result_id=collection_id, owner_id=current_user.id)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
     if task_from_db.item_type != "sense":
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    return await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION)
+    return await result_to_collection(await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION))
 
 
 # Get all NFT Collection ticket register for the current user.
 # Note: Only authenticated user with API key
-@router.get("/nft/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
-async def get_all_nft_results(
+@router.get("/nft/collections", response_model=List[schemas.CollectionRegistrationResult], response_model_exclude_none=True)
+async def get_all_nft_collections(
         *,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> List[schemas.ResultRegistrationResult]:
+) -> List[schemas.CollectionRegistrationResult]:
     task_results = []
     tasks_from_db = crud.collection.get_multi_by_owner_by_type(db=db, owner_id=current_user.id, item_type="nft")
     if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_requests found")
     for task_from_db in tasks_from_db:
         task_result = await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION)
-        task_results.append(task_result)
+        task_results.append(await result_to_collection(task_result))
     return task_results
 
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/nft/gateway_results/{gateway_results_id}",
-            response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
-async def get_request_by_request_id(
+@router.get("/nft/collections/{collection_id}",
+            response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+async def get_nft_collections_by_collection_id(
         *,
-        gateway_result_id: str,
+        collection_id: str,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> schemas.ResultRegistrationResult:
-    task_from_db = crud.collection.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
+) -> schemas.CollectionRegistrationResult:
+    task_from_db = crud.collection.get_by_result_id_and_owner(db=db, result_id=collection_id, owner_id=current_user.id)
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
     if task_from_db.item_type != "nft":
         raise HTTPException(status_code=404, detail="gateway_result not found")
-    return await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION)
+    return await result_to_collection(await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION))
+
+async def result_to_collection(result):
+    coll = schemas.CollectionRegistrationResult(**result.dict())
+    coll.collection_id = result.result_id
+    coll.status = result.result_status
+    return coll
 
 
-@router.websocket("/status/result")
+@router.websocket("/status/collection")
 async def result_status(
         websocket: WebSocket,
-        gateway_result_id: str = Query(default=None),
+        collection_id: str = Query(default=None),
         api_key: str = Query(default=None),
         db: Session = Depends(session.get_db_session),
 ):
@@ -191,5 +197,5 @@ async def result_status(
     await deps.APIKeyAuth.get_api_key_for_sense(db, api_key)
     current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
 
-    tasks_in_db = [crud.collection.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)]
+    tasks_in_db = [crud.collection.get_by_result_id_and_owner(db=db, result_id=collection_id, owner_id=current_user.id)]
     await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.COLLECTION)

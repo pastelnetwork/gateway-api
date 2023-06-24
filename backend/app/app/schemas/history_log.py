@@ -1,97 +1,26 @@
-from typing import Optional
+from datetime import datetime
+from typing import Optional, Any
 
 from pydantic import BaseModel
 
-
 # Shared properties
 class HistoryLogBase(BaseModel):
+    task_id: int
     wn_file_id: Optional[str] = None
     wn_task_id: Optional[str] = None
-    task_status: Optional[str] = None
-    status_messages: str = None
-    retry_number: Optional[int]
     pastel_id: Optional[str] = None
+    status_messages: Any = None
 
+class HistoryLogCreate(HistoryLogBase):
+    created_at: datetime = datetime.utcnow(),
 
-class CascadeHistoryLogBase(HistoryLogBase):
-    cascade_task_id: int
-
-
-class CascadeHistoryLogCreate(CascadeHistoryLogBase):
-    pass
-
-
-class CascadeHistoryLogUpdate(CascadeHistoryLogBase):
-    pass
-
-
-# Properties shared by models stored in DB
-class CascadeHistoryLogInDBBase(CascadeHistoryLogBase):
-    class Config:
-        orm_mode = True
-
+class HistoryLogUpdate(HistoryLogBase):
+    updated_at: datetime = datetime.utcnow(),
 
 # Properties to return to client
-class CascadeHistoryLog(CascadeHistoryLogInDBBase):
-    pass
-
-
-# Properties stored in DB
-class CascadeHistoryLogInDB(CascadeHistoryLogInDBBase):
-    pass
-
-
-class SenseHistoryLogBase(HistoryLogBase):
-    sense_task_id: int
-
-
-class SenseHistoryLogCreate(SenseHistoryLogBase):
-    pass
-
-
-class SenseHistoryLogUpdate(SenseHistoryLogBase):
-    pass
-
-
-# Properties shared by models stored in DB
-class SenseHistoryLogInDBBase(SenseHistoryLogBase):
+class HistoryLogInDB(HistoryLogBase):
+    id: int
+    updated_at: datetime = datetime.utcnow(),
+    created_at: datetime = datetime.utcnow(),
     class Config:
         orm_mode = True
-
-
-# Properties to return to client
-class SenseHistoryLog(SenseHistoryLogInDBBase):
-    pass
-
-
-# Properties stored in DB
-class SenseHistoryLogInDB(SenseHistoryLogInDBBase):
-    pass
-
-
-class NftHistoryLogBase(HistoryLogBase):
-    nft_task_id: int
-
-
-class NftHistoryLogCreate(NftHistoryLogBase):
-    pass
-
-
-class NftHistoryLogUpdate(NftHistoryLogBase):
-    pass
-
-
-# Properties shared by models stored in DB
-class NftHistoryLogInDBBase(NftHistoryLogBase):
-    class Config:
-        orm_mode = True
-
-
-# Properties to return to client
-class NftHistoryLog(NftHistoryLogInDBBase):
-    pass
-
-
-# Properties stored in DB
-class NftHistoryLogInDB(NftHistoryLogInDBBase):
-    pass

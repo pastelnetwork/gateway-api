@@ -1,4 +1,6 @@
 import uuid
+import zipfile
+import io
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query, Body
 from typing import List, Optional
@@ -21,7 +23,7 @@ router = APIRouter()
 
 # Submit a NFT gateway_request for the current user.
 # Note: Only authenticated user with API key
-@router.post("", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True)
 async def process_request(
         *,
         file: UploadFile,
@@ -33,7 +35,12 @@ async def process_request(
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> schemas.ResultRegistrationResult:
+) -> schemas.RequestResult:
+
+    reg_result = await common.check_file_is_not_empty(file)
+    if reg_result is not None:
+        return reg_result
+
     reg_result = await common.check_image(file, db)
     if reg_result is not None:
         return reg_result
@@ -65,6 +72,10 @@ async def step_1_upload_image_file(
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
+    reg_result = await common.check_file_is_not_empty(file)
+    if reg_result is not None:
+        return reg_result
+
     reg_result = await common.check_image(file, db)
     if reg_result is not None:
         return reg_result
@@ -81,7 +92,7 @@ async def step_1_upload_image_file(
 
 # Two-step NFT start - Submit a NFT gateway_request for the current user.
 # Note: Only authenticated user with API key
-@router.post("/step_2_process_nft", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+@router.post("/step_2_process_nft", response_model=schemas.RequestResult, response_model_exclude_none=True)
 async def step_2_process_nft(
         *,
         file_id: str = Query("file_id", description="File ID from the upload endpoint"),
@@ -93,7 +104,7 @@ async def step_2_process_nft(
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
-) -> schemas.ResultRegistrationResult:
+) -> schemas.RequestResult:
     lf = LocalFile.load(file_id)
     request_id = str(uuid.uuid4())
     return await common.process_nft_request(lf=lf,
@@ -105,6 +116,38 @@ async def step_2_process_nft(
                                             after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
                                             nft_details_payload=nft_details_payload,
                                             user_id=current_user.id)
+
+
+# Get all NFT OpenAPI gateway_requests for the current user.
+# Note: Only authenticated user with API key
+@router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True)
+async def get_all_requests(
+        *,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> List[schemas.RequestResult]:
+    tasks_from_db = crud.nft.get_multi_by_owner(db=db, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_requests found")
+    return await common.parse_users_requests(tasks_from_db, wn.WalletNodeService.NFT)
+
+
+# Get an individual NFT gateway_request by its gateway_request_id.
+# Note: Only authenticated user with API key
+@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult,
+            response_model_exclude_none=True)
+async def get_request_by_request_id(
+        *,
+        gateway_request_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+) -> schemas.RequestResult:
+    tasks_from_db = crud.nft.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
+    return await common.parse_user_request(tasks_from_db, gateway_request_id, wn.WalletNodeService.NFT)
 
 
 # Get all NFT gateway_results for the current user.
@@ -141,6 +184,34 @@ async def get_result_by_result_id(
     if not task_from_db:
         raise HTTPException(status_code=404, detail="gateway_result not found")
     return await common.check_result_registration_status(task_from_db, wn.WalletNodeService.NFT)
+
+
+# Get ALL underlying NFT stored_files from the corresponding gateway_request_id
+# Note: Only authenticated user with API key
+@router.get("/all_files_from_request/{gateway_request_id}")
+async def get_all_files_from_request(
+        *,
+        gateway_request_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    tasks_from_db = crud.nft.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+        for task_from_db in tasks_from_db:
+            file_bytes = await common.search_gateway_file(db=db,
+                                                          task_from_db=task_from_db,
+                                                          service=wn.WalletNodeService.NFT,
+                                                          update_task_in_db_func=crud.nft.update)
+            zip_file.writestr(task_from_db.original_file_name, file_bytes)
+
+    return await common.stream_file(file_bytes=zip_buffer.getvalue(),
+                                    original_file_name=f"{gateway_request_id}.zip",
+                                    content_type="application/zip")
 
 
 # Get the underlying NFT stored_file from the corresponding gateway_result_id
@@ -195,7 +266,7 @@ async def get_stored_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
-        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_sense),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
     task_from_db = crud.nft.get_by_act_txid_and_owner(db=db, owner_id=current_user.id,
@@ -246,6 +317,28 @@ async def get_originally_submitted_file_by_result_id(
 
     return await common.stream_file(file_bytes=file_bytes.read(),
                                     original_file_name=f"{task_from_db.original_file_name}")
+
+
+# Get ALL Pastel NFT registration tickets from the blockchain corresponding to a particular gateway_request_id.
+# Note: Only authenticated user with API key
+@router.get("/pastel_registration_tickets/{gateway_request_id}")
+async def get_all_pastel_nft_registration_tickets_from_request(
+        *,
+        gateway_request_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    tasks_from_db = crud.nft.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
+    return await common.get_all_reg_ticket_from_request(gateway_request_id=gateway_request_id,
+                                                        tasks_from_db=tasks_from_db,
+                                                        service_type="nft",
+                                                        get_registration_ticket_lambda=lambda reg_ticket_txid:
+                                                            common.get_registration_nft_ticket(
+                                                                ticket_txid=reg_ticket_txid)
+                                                        )
 
 
 # Get Pastel NFT registration ticket from the blockchain corresponding to a particular gateway_result_id.
@@ -320,6 +413,54 @@ async def get_pastel_ticket_data_from_media_file_hash(
             reg_ticket = await common.get_registration_nft_ticket(ticket.reg_ticket_txid)
             output.append(reg_ticket)
     return output
+
+
+# Get the set of underlying NFT raw_outputs_files from the corresponding gateway_request_id.
+# Note: Only authenticated user with API key
+@router.get("/all_raw_dd_result_files_from_request/{gateway_request_id}")
+async def get_all_raw_dd_result_files_from_request(
+        *,
+        gateway_request_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    tasks_from_db = crud.nft.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
+    return await common.get_all_sense_or_nft_dd_data_from_request(tasks_from_db=tasks_from_db,
+                                                                  gateway_request_id=gateway_request_id,
+                                                                  search_data_lambda=lambda task_from_db:
+                                                                    common.search_nft_dd_result_gateway(
+                                                                        db=db,
+                                                                        task_from_db=task_from_db,
+                                                                        update_task_in_db_func=crud.nft.update),
+                                                                  file_suffix='nft-dd-data'
+                                                                  )
+
+
+# Get the set of underlying NFT parsed_outputs_files from the corresponding gateway_request_id.
+# Note: Only authenticated user with API key
+@router.get("/all_parsed_dd_result_files_from_request/{gateway_request_id}")
+async def get_all_parsed_dd_result_files_from_request(
+        *,
+        gateway_request_id: str,
+        db: Session = Depends(session.get_db_session),
+        api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
+        current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
+):
+    tasks_from_db = crud.nft.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    if not tasks_from_db:
+        raise HTTPException(status_code=404, detail="No gateway_results or gateway_requests found")
+    return await common.get_all_sense_or_nft_dd_data_from_request(tasks_from_db=tasks_from_db,
+                                                                  gateway_request_id=gateway_request_id,
+                                                                  search_data_lambda=lambda task_from_db:
+                                                                    common.search_nft_dd_result_gateway(
+                                                                        db=db,
+                                                                        task_from_db=task_from_db,
+                                                                        update_task_in_db_func=crud.nft.update),
+                                                                  file_suffix='nft-dd-data',
+                                                                  parse=True)
 
 
 # Get the underlying NFT raw_dd_result_file from the corresponding gateway_result_id.
@@ -469,6 +610,22 @@ async def get_parsed_dd_result_file_by_pastel_id(
                                                                   parse=True)
 
 
+@router.websocket("/status/request")
+async def request_status(
+        websocket: WebSocket,
+        gateway_request_id: str = Query(default=None),
+        api_key: str = Query(default=None),
+        db: Session = Depends(session.get_db_session),
+):
+    await websocket.accept()
+
+    apikey = await deps.APIKeyAuth.get_api_key_for_nft(db, api_key)
+    current_user = await deps.APIKeyAuth.get_user_by_apikey(db, api_key)
+
+    tasks_in_db = crud.nft.get_all_in_request(db=db, request_id=gateway_request_id, owner_id=current_user.id)
+    await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.NFT, gateway_request_id)
+
+
 @router.websocket("/status/result")
 async def result_status(
         websocket: WebSocket,
@@ -493,19 +650,5 @@ async def transfer_pastel_ticket_to_another_pastelid(
         db: Session = Depends(session.get_db_session),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ):
-    task_from_db = crud.nft.get_by_result_id_and_owner(db=db, result_id=gateway_result_id, owner_id=current_user.id)
-    if not task_from_db:
-        raise HTTPException(status_code=404, detail="gateway_result not found")
-
-    if task_from_db.offer_ticket_intended_rcpt_pastel_id:
-        raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
-                                                    f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
-
-    offer_ticket = await psl.create_offer_ticket(task_from_db, pastel_id)
-    if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
-        upd = {"offer_ticket_txid": offer_ticket['txid'],
-               "offer_ticket_intended_rcpt_pastel_id": pastel_id,
-               "updated_at": datetime.utcnow()}
-        crud.nft.update(db=db, db_obj=task_from_db, obj_in=upd)
-
-    return offer_ticket
+    return await common.transfer_ticket(db, gateway_result_id, current_user.id, pastel_id,
+                                        crud.nft.get_by_result_id_and_owner, crud.nft.update)
