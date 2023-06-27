@@ -118,11 +118,11 @@ def _registration_finisher(
 
             add_status_to_history_log(task_from_db, wn_service, wn_task_status)
 
-            logger.debug(f"{wn_service}: Get status from WN. ResultId - {task_from_db.result_id}")
+            logger.info(f"{wn_service}: Get status from WN. ResultId - {task_from_db.result_id}")
 
             for step in wn_task_status:
                 status = step['status']
-                logger.debug(f"{wn_service}: Task status: {status}. ResultId - {task_from_db.result_id}")
+                logger.info(f"{wn_service}: Task status: {status}. ResultId - {task_from_db.result_id}")
                 if status == 'Task Rejected':
                     logger.error(f"Task Rejected: wn_task_id - {task_from_db.wn_task_id}, "
                                  f"ResultId - {task_from_db.result_id}")
@@ -208,7 +208,7 @@ def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
 
 
 def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):
-    logger.debug(f"{wn_service}: Finalizing registration: {task_from_db.id}")
+    logger.info(f"{wn_service}: Finalizing registration: {task_from_db.id}")
 
     if wn_service == wn.WalletNodeService.COLLECTION:
         upd = {
@@ -224,35 +224,35 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
     if wn_service == wn.WalletNodeService.NFT:
         nft_dd_file_ipfs_link = task_from_db.nft_dd_file_ipfs_link
     try:
-        logger.debug(f"{wn_service}: Downloading registered file from Pastel: {task_from_db.reg_ticket_txid}")
+        logger.info(f"{wn_service}: Downloading registered file from Pastel: {task_from_db.reg_ticket_txid}")
         file_bytes = asyncio.run(wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
                                                          wn_service=wn_service))
         if file_bytes:
-            logger.debug(f"{wn_service}: Storing downloaded file into local cache: {task_from_db.reg_ticket_txid}")
+            logger.info(f"{wn_service}: Storing downloaded file into local cache: {task_from_db.reg_ticket_txid}")
             cached_result_file = asyncio.run(store_file_into_local_cache(
                 reg_ticket_txid=task_from_db.reg_ticket_txid,
                 file_bytes=file_bytes))
             if not task_from_db.stored_file_ipfs_link:
-                logger.debug(f"{wn_service}: Storing downloaded file into IPFS cache: {task_from_db.reg_ticket_txid}")
+                logger.info(f"{wn_service}: Storing downloaded file into IPFS cache: {task_from_db.reg_ticket_txid}")
                 # store_file_into_local_cache throws exception, so if we are here, file is in local cache
                 stored_file_ipfs_link = asyncio.run(store_file_to_ipfs(cached_result_file))
 
         if wn_service == wn.WalletNodeService.NFT:
-            logger.debug(f"{wn_service}: Requesting NFT sense data from WN: {task_from_db.reg_ticket_txid}")
+            logger.info(f"{wn_service}: Requesting NFT sense data from WN: {task_from_db.reg_ticket_txid}")
             dd_data = asyncio.run(wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid))
             if dd_data:
                 if isinstance(dd_data, dict):
                     dd_bytes = json.dumps(dd_data).encode('utf-8')
                 else:
                     dd_bytes = dd_data.encode('utf-8')
-                logger.debug(f"{wn_service}: Storing NFT sense data to local cache: {task_from_db.reg_ticket_txid}")
+                logger.info(f"{wn_service}: Storing NFT sense data to local cache: {task_from_db.reg_ticket_txid}")
                 cached_dd_file = asyncio.run(store_file_into_local_cache(
                     reg_ticket_txid=task_from_db.reg_ticket_txid,
                     file_bytes=dd_bytes,
                     extra_suffix=".dd"))
                 if not task_from_db.nft_dd_file_ipfs_link:
                     # store_file_into_local_cache throws exception, so if we are here, file is in local cache
-                    logger.debug(f"{wn_service}: Storing NFT sense data to IPFS: {task_from_db.reg_ticket_txid}")
+                    logger.info(f"{wn_service}: Storing NFT sense data to IPFS: {task_from_db.reg_ticket_txid}")
                     nft_dd_file_ipfs_link = asyncio.run(store_file_to_ipfs(cached_dd_file))
 
     except Exception as e:
@@ -268,7 +268,7 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
         upd["nft_dd_file_ipfs_link"] = nft_dd_file_ipfs_link
 
     with db_context() as session:
-        logger.debug(f"{wn_service}: Updating task in DB as DONE: {task_from_db.reg_ticket_txid}")
+        logger.info(f"{wn_service}: Updating task in DB as DONE: {task_from_db.reg_ticket_txid}")
         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         if wn_service != wn.WalletNodeService.NFT:      # check for wn.WalletNodeService.COLLECTION was before
             crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
@@ -279,7 +279,7 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
            wn_service == wn.WalletNodeService.SENSE:
             if task_from_db.offer_ticket_intended_rcpt_pastel_id:
                 pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
-                logger.debug(f"{wn_service}: This ticket {task_from_db.reg_ticket_txid} "
+                logger.info(f"{wn_service}: This ticket {task_from_db.reg_ticket_txid} "
                              f"has to transferred to another PastelID: {task_from_db.offer_ticket_intended_rcpt_pastel_id}")
                 # check this just for sanity, should not happen!
                 if task_from_db.offer_ticket_txid:
@@ -289,7 +289,7 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
                                                                    settings.PASTEL_ID, settings.PASTEL_ID_PASSPHRASE,
                                                                    pastel_id))
                 if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
-                    logger.debug(f"{wn_service}: Updating task in DB as offered to transfer: {task_from_db.reg_ticket_txid}")
+                    logger.info(f"{wn_service}: Updating task in DB as offered to transfer: {task_from_db.reg_ticket_txid}")
                     upd = {"offer_ticket_txid": offer_ticket['txid'],
                            "offer_ticket_intended_rcpt_pastel_id": pastel_id,
                            "updated_at": datetime.utcnow()}
@@ -354,7 +354,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
             # if that interval less than reprocess interval multiplied by number of retries, skip
             interval = datetime.utcnow() - task_from_db.updated_at
             if interval.seconds < settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num:
-                logger.debug(f"Task {task_from_db.id} was reprocessed recently, skipping: time from last update: "
+                logger.info(f"Task {task_from_db.id} was reprocessed recently, skipping: time from last update: "
                              f"{interval.seconds} seconds; wait time for the next reprocess after previous: "
                              f"{settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num} seconds "
                              f"(this is retry number {task_from_db.retry_num}); next re-process in "
@@ -363,18 +363,18 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                 continue
 
             if not task_from_db.process_status or task_from_db.process_status == "":
-                logger.debug(f"Task status is empty, check if other data is empty too: {task_from_db.result_id}")
+                logger.info(f"Task status is empty, check if other data is empty too: {task_from_db.result_id}")
                 if (not task_from_db.reg_ticket_txid and not task_from_db.act_ticket_txid) \
                         or not task_from_db.pastel_id or not task_from_db.wn_task_id\
                         or (wn_service != wn.WalletNodeService.NFT and not task_from_db.burn_txid) \
                         or not task_from_db.wn_file_id:
-                    logger.debug(f"Task status is empty, clearing and reprocessing: {task_from_db.result_id}")
+                    logger.info(f"Task status is empty, clearing and reprocessing: {task_from_db.result_id}")
                     _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
                     # clear_task_in_db sets task's status to RESTARTED
                     reprocess_func(task_from_db)
                     continue
                 else:
-                    logger.debug(f"Task status is empty, but other data is not empty, "
+                    logger.info(f"Task status is empty, but other data is not empty, "
                                  f"marking as {DbStatus.STARTED.value}: {task_from_db.id}")
                     upd = {"process_status": DbStatus.STARTED.value, "updated_at": datetime.utcnow()}
                     with db_context() as session:
@@ -382,7 +382,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
 
             if task_from_db.process_status == DbStatus.ERROR.value:
                 if task_from_db.reg_ticket_txid or task_from_db.act_ticket_txid:
-                    logger.debug(f"Task status is {DbStatus.ERROR.value}, "
+                    logger.info(f"Task status is {DbStatus.ERROR.value}, "
                                  f"but reg_ticket_txid [{task_from_db.reg_ticket_txid}] or "
                                  f"act_ticket_txid is not empty [{task_from_db.act_ticket_txid}], "
                                  f"marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
@@ -390,7 +390,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                     continue
-                logger.debug(f"Task status is {DbStatus.ERROR.value}, "
+                logger.info(f"Task status is {DbStatus.ERROR.value}, "
                              f"clearing and reprocessing: {task_from_db.result_id}")
                 _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
                 # clear_task_in_db sets task's status to RESTARTED
@@ -429,7 +429,7 @@ def _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service: wn.Walle
 
 
 def _start_reprocess_cascade(task_from_db):
-    logger.debug(f"Restarting Cascade registration for result {task_from_db.result_id}...")
+    logger.info(f"Restarting Cascade registration for result {task_from_db.result_id}...")
     res = (
             cascade.re_register_file.s(task_from_db.result_id) |
             cascade.preburn_fee.s() |
@@ -439,7 +439,7 @@ def _start_reprocess_cascade(task_from_db):
 
 
 def _start_reprocess_sense(task_from_db):
-    logger.debug(f"Restarting Sense registration for result {task_from_db.result_id}...")
+    logger.info(f"Restarting Sense registration for result {task_from_db.result_id}...")
     res = (
             sense.re_register_file.s(task_from_db.result_id) |
             sense.preburn_fee.s() |
@@ -449,7 +449,7 @@ def _start_reprocess_sense(task_from_db):
 
 
 def _start_reprocess_nft(task_from_db):
-    logger.debug(f"Restarting NFT registration for result {task_from_db.result_id}...")
+    logger.info(f"Restarting NFT registration for result {task_from_db.result_id}...")
     res = (
             nft.re_register_file.s(task_from_db.result_id) |
             nft.process.s()
@@ -458,7 +458,7 @@ def _start_reprocess_nft(task_from_db):
 
 
 def _start_reprocess_collection(task_from_db):
-    logger.debug(f"Restarting Collection registration for result {task_from_db.result_id}...")
+    logger.info(f"Restarting Collection registration for result {task_from_db.result_id}...")
     res = (
             collection.process.s(task_from_db.result_id)
     ).apply_async()

@@ -73,7 +73,7 @@ def register(self, result_id, user_id,
              authorized_pastel_ids: List,
              max_permitted_open_nsfw_score: float, minimum_similarity_score_to_first_entry_in_collection: float,
              no_of_days_to_finalize_collection: int, royalty: float, green: bool) -> str:
-    logger.debug(f'Collection-{item_type}: Register collection in the Pastel Network... [Result ID: {result_id}]')
+    logger.info(f'Collection-{item_type}: Register collection in the Pastel Network... [Result ID: {result_id}]')
 
     with db_context() as session:
         task_in_db = crud.collection.get_by_result_id(session, result_id=result_id)
@@ -86,7 +86,7 @@ def register(self, result_id, user_id,
     logger.info(f'Collection-{item_type} New file - adding record to DB... [Result ID: {result_id}]')
 
     height = psl.call("getblockcount", [])
-    logger.debug(f'Collection-{item_type}: Ticket will be created at height {height} [Result ID: {result_id}]')
+    logger.info(f'Collection-{item_type}: Ticket will be created at height {height} [Result ID: {result_id}]')
 
     new_task = schemas.CollectionCreate(
         result_id=result_id,
@@ -107,7 +107,7 @@ def register(self, result_id, user_id,
     with db_context() as session:
         crud.collection.create_with_owner(session, obj_in=new_task, owner_id=user_id)
 
-    logger.debug(f'Collection-{item_type}: New record created. process_task exiting. [Result ID: {result_id}]')
+    logger.info(f'Collection-{item_type}: New record created. process_task exiting. [Result ID: {result_id}]')
     return result_id
 
 @shared_task(bind=True,
@@ -115,7 +115,7 @@ def register(self, result_id, user_id,
              retry_backoff=30, max_retries=5,
              name='collection:process', base=CollectionsAPITask)
 def process(self, result_id) -> str:
-    logger.debug(f'Collection: Register file in the Pastel Network... [Result ID: {result_id}]')
+    logger.info(f'Collection: Register file in the Pastel Network... [Result ID: {result_id}]')
 
     with db_context() as session:
         task_from_db = crud.collection.get_by_result_id(session, result_id=result_id)
@@ -163,6 +163,6 @@ def process(self, result_id) -> str:
     with db_context() as session:
         crud.collection.update(session, db_obj=task_from_db, obj_in=upd)
 
-    logger.debug(f'Collections-{task_from_db.item_type}: process_task exiting for result_id {result_id}')
+    logger.info(f'Collections-{task_from_db.item_type}: process_task exiting for result_id {result_id}')
     return result_id
 

@@ -52,7 +52,7 @@ def fee_pre_burner():
             s_fee = int(fee['sensefee'] / 5)
             c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
             s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
-            logger.debug(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
+            logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
             for dups in reversed(range(size, 11)):
                 if c_num < 11-size:
                     fees.append(c_fee)
@@ -64,10 +64,7 @@ def fee_pre_burner():
     logger.info(f"third: burn fees")
     with db_context() as session:
         for burn_amount in fees:
-            balance = psl.call("getbalance", [])
-            if balance < burn_amount:
-                logger.error(f"Insufficient funds: balance {balance}")
-                send_alert_email(f"Insufficient funds: balance {balance}")
+            if not check_balance(burn_amount):
                 return
             burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])
             crud.preburn_tx.create_new(session,
@@ -283,6 +280,8 @@ def find_action_ticket(txid: str, ticket_type: str) -> str|None:
 
 
 def create_activation_ticket(task_from_db, height, ticket_type):
+    if not check_balance(task_from_db.wn_fee+1000):
+        return
     activation_ticket = psl.call('tickets', ['register', ticket_type,
                                              task_from_db.reg_ticket_txid,
                                              height,
@@ -331,3 +330,12 @@ def find_height_in_registration_ticket(reg_txid, db_height, service: wn.WalletNo
 def watchdog():
     logger.info(f"watchdog task started")
     logger.info(f"watchdog task ended")
+
+
+def check_balance(need_amount: float) -> bool:
+    balance = psl.call("getbalance", [])
+    if balance < need_amount:
+        logger.error(f"Insufficient funds: balance {balance}")
+        send_alert_email(f"Insufficient funds: balance {balance}")
+        return False
+    return True
