@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from requests.auth import HTTPBasicAuth
 
 from app.core.config import settings
+from app.utils.authentication import send_alert_email
 
 logger = logging.getLogger(__name__)
 
@@ -168,3 +169,12 @@ async def verify_message(message, signature, pastel_id) -> bool:
     if isinstance(response, dict) and 'verification' in response and response['verification'] == 'OK':
         return True
     return False
+
+
+def check_balance(need_amount: float) -> bool:
+    balance = call("getbalance", [])
+    if balance < need_amount:
+        logger.error(f"Insufficient funds: balance {balance}")
+        send_alert_email(f"Insufficient funds: balance {balance}")
+        return False
+    return True

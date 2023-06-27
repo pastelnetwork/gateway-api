@@ -12,7 +12,6 @@ from app.celery_tasks.task_lock import task_lock
 from app.celery_tasks.pastel_tasks import check_preburn_tx
 import app.utils.pasteld as psl
 import app.utils.walletnode as wn
-from app.utils.authentication import send_alert_email
 
 logger = get_task_logger(__name__)
 
@@ -64,7 +63,7 @@ def fee_pre_burner():
     logger.info(f"third: burn fees")
     with db_context() as session:
         for burn_amount in fees:
-            if not check_balance(burn_amount):
+            if not psl.check_balance(burn_amount):
                 return
             burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])
             crud.preburn_tx.create_new(session,
@@ -280,7 +279,7 @@ def find_action_ticket(txid: str, ticket_type: str) -> str|None:
 
 
 def create_activation_ticket(task_from_db, height, ticket_type):
-    if not check_balance(task_from_db.wn_fee+1000):
+    if not psl.check_balance(task_from_db.wn_fee+1000):
         return
     activation_ticket = psl.call('tickets', ['register', ticket_type,
                                              task_from_db.reg_ticket_txid,
@@ -330,12 +329,3 @@ def find_height_in_registration_ticket(reg_txid, db_height, service: wn.WalletNo
 def watchdog():
     logger.info(f"watchdog task started")
     logger.info(f"watchdog task ended")
-
-
-def check_balance(need_amount: float) -> bool:
-    balance = psl.call("getbalance", [])
-    if balance < need_amount:
-        logger.error(f"Insufficient funds: balance {balance}")
-        send_alert_email(f"Insufficient funds: balance {balance}")
-        return False
-    return True

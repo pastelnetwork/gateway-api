@@ -11,7 +11,6 @@ from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
 from app.core.status import DbStatus
-from .scheduled import check_balance
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
 
 logger = get_task_logger(__name__)
@@ -144,7 +143,7 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        if not check_balance(task_from_db.wn_fee):
+        if not psl.check_balance(task_from_db.wn_fee):
             retry_func()
 
         preburn_fee = task_from_db.wn_fee/5
@@ -231,7 +230,7 @@ class PastelAPITask(celery.Task):
             logger.error(f'{service}: Wrong WN file ID for result_id {result_id}')
             raise PastelAPIException(f'{service}: Wrong WN file ID for result_id {result_id}')
 
-        if not check_balance(task_from_db.wn_fee):
+        if not psl.check_balance(task_from_db.wn_fee):
             retry_func()
 
         ok, err_msg = self.check_specific_conditions(task_from_db)
