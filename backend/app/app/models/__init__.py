@@ -1,5 +1,5 @@
 from .api_key import ApiKey
-from .user import User
+from .user import User, ClaimedPastelId
 from .preburn_tx import PreBurnTx
 
 from .cascade import Cascade

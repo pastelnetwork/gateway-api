@@ -4,22 +4,13 @@
 import base64
 from contextlib import contextmanager
 import json
-# import pickle as pkl
+import logging
 import uuid
-
 from redis import StrictRedis
-# from redis_cache import RedisCache
-# from redlock import RedLock
 
 from app.core.config import settings
 
 rds = StrictRedis(settings.REDIS_HOST, decode_responses=True, charset="utf-8")
-
-# rds_cache = StrictRedis(settings.REDIS_HOST, decode_responses=False, charset="utf-8")
-# redis_cache = RedisCache(redis_client=rds_cache, prefix="rc", serializer=pkl.dumps, deserializer=pkl.loads)
-# dlm = RedLock([{"host": settings.REDIS_HOST}])
-# DEFAULT_ASSET_EXPIRATION = 8 * 24 * 60 * 60  # by default keep cached values around for 8 days
-# DEFAULT_CACHE_EXPIRATION = 1 * 24 * 60 * 60  # we can keep cached values around for a shorter period of time
 
 TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
 REMOVE_ONLY_IF_OWNER_SCRIPT = """

@@ -1,25 +1,26 @@
 import base64
 import json
 import logging
-
 import requests
+
 from fastapi import HTTPException
 from requests.auth import HTTPBasicAuth
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
 
 def call(method, parameters, nothrow=False):
     payload_getinfo = {"jsonrpc": "1.0", "id": "pastelapi", "method": method, "params": parameters}
     payload = json.dumps(payload_getinfo)
 
-    logging.debug(f"Calling cNode as: {payload}")
+    logger.debug(f"Calling cNode as: {payload}")
 
     auth = HTTPBasicAuth(settings.PASTEL_RPC_USER, settings.PASTEL_RPC_PWD)
     response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth)
-    logging.debug(f"Calling cNode as: "
+    logger.debug(f"Request to cNode was: "
                   f"URL: {response.request.url}\nMethod: {response.request.method}\nHeaders: {response.request.headers}\nBody: {response.request.body}")
-    logging.debug(f"Response from cNode: {response.text}")
+    logger.debug(f"Response from cNode: {response.text}")
     if nothrow and response.status_code != 200:
         return response
     response.raise_for_status()
@@ -84,7 +85,7 @@ async def parse_registration_action_ticket(reg_ticket, expected_ticket_type, exp
         api_ticket_str = base64.a85decode(reg_ticket["ticket"]["action_ticket"]["api_ticket"])
         reg_ticket["ticket"]["action_ticket"]["api_ticket"] = json.loads(api_ticket_str)
     except ValueError as ve:
-        logging.warning(f"Failed to ascii85 decode api_ticket in the {expected_action_type} registration ticket: {ve}")
+        logger.warning(f"Failed to ascii85 decode api_ticket in the {expected_action_type} registration ticket: {ve}")
         try:
             # Base64decode the api_ticket
             api_ticket_str = base64.b64decode(reg_ticket["ticket"]["action_ticket"]["api_ticket"])
@@ -97,10 +98,10 @@ async def parse_registration_action_ticket(reg_ticket, expected_ticket_type, exp
                     api_ticket_str = base64.b64decode(api_ticket_str)
                     reg_ticket["ticket"]["action_ticket"]["api_ticket"] = json.loads(api_ticket_str)
                 except ValueError as ve:
-                    logging.warning(f"Failed to base64 decode api_ticket in the {expected_action_type} "
+                    logger.warning(f"Failed to base64 decode api_ticket in the {expected_action_type} "
                                     f"with extra padding registration ticket: {ve}")
             else:
-                logging.warning(f"Failed to base64 decode api_ticket in the {expected_action_type} "
+                logger.warning(f"Failed to base64 decode api_ticket in the {expected_action_type} "
                                 f"registration ticket: {ve}")
 
     return reg_ticket
@@ -127,7 +128,7 @@ async def parse_registration_nft_ticket(reg_ticket):
         app_ticket_str = base64.a85decode(reg_ticket["ticket"]["nft_ticket"]["app_ticket"])
         reg_ticket["ticket"]["nft_ticket"]["app_ticket"] = json.loads(app_ticket_str)
     except ValueError as ve:
-        logging.warning(f"Failed to ascii85 decode app_ticket in the NFT registration ticket: {ve}")
+        logger.warning(f"Failed to ascii85 decode app_ticket in the NFT registration ticket: {ve}")
         try:
             # Base64decode the app_ticket
             app_ticket_str = base64.b64decode(reg_ticket["ticket"]["nft_ticket"]["app_ticket"])
@@ -140,22 +141,28 @@ async def parse_registration_nft_ticket(reg_ticket):
                     app_ticket_str = base64.b64decode(app_ticket_str)
                     reg_ticket["ticket"]["nft_ticket"]["app_ticket"] = json.loads(app_ticket_str)
                 except ValueError as ve:
-                    logging.warning(f"Failed to base64 decode api_ticket in the NFT "
+                    logger.warning(f"Failed to base64 decode api_ticket in the NFT "
                                     f"with extra padding registration ticket: {ve}")
             else:
-                logging.warning(f"Failed to base64 decode app_ticket in the NFT "
+                logger.warning(f"Failed to base64 decode app_ticket in the NFT "
                                 f"registration ticket: {ve}")
 
     return reg_ticket
 
 
-async def create_offer_ticket(task_from_db, pastel_id):
+async def create_offer_ticket(task_from_db, current_pastel_id, current_passphrase, rcpt_pastel_id):
     offer_ticket = call('tickets', ['register', 'offer',
                                     task_from_db.act_ticket_txid,
                                     1,
-                                    settings.PASTEL_ID,
-                                    settings.PASTEL_ID_PASSPHRASE,
+                                    current_pastel_id, current_passphrase,
                                     0, 0, 1, "",
-                                    pastel_id],
+                                    rcpt_pastel_id],
                             )
     return offer_ticket
+
+
+async def verify_message(message, signature, pastel_id) -> bool:
+    response = call('pastelid', ['verify', message, signature, pastel_id])
+    if isinstance(response, dict) and 'verification' in response and response['verification'] == 'OK':
+        return True
+    return False

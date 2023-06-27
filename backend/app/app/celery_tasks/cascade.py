@@ -1,13 +1,17 @@
-from celery import shared_task
 from requests import RequestException
 import json
 
-from app.core.status import DbStatus
+from celery import shared_task
+from celery.utils.log import get_task_logger
+
 from .pastel_tasks import PastelAPITask, PastelAPIException
+from app.core.status import DbStatus
 from app import crud, schemas
 from app.utils.walletnode import WalletNodeService, WalletnodeException
 from app.utils.pasteld import PasteldException
 from app.core.config import settings
+
+logger = get_task_logger(__name__)
 
 
 class CascadeAPITask(PastelAPITask):

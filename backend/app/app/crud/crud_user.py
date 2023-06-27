@@ -6,6 +6,7 @@ from app.core.security import get_secret_hash, verify_hashed_secret
 from app.crud.base import CRUDBase
 from app.models.user import User
 from app.models.api_key import ApiKey
+from app.models.user import ClaimedPastelId
 from app.schemas.user import UserCreate, UserUpdate
 
 
@@ -59,5 +60,23 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def is_superuser(self, user: User) -> bool:
         return user.is_superuser
 
+    # Get user by PastelID from ClaimedPasteID table
+    def get_by_pastelid(self, db: Session, *, pastel_id: str) -> Optional[User]:
+        return (
+            db.query(User)
+            .join(ClaimedPastelId)
+            .filter(ClaimedPastelId.pastel_id == pastel_id)
+            .first())
+
+    # Add PastelID to user in ClaimedPastelID table
+    def add_pastelid(self, db: Session, *, pastel_id: str, owner_id: int) -> ClaimedPastelId:
+        db_obj = ClaimedPastelId(
+            pastel_id=pastel_id,
+            owner_id=owner_id
+        )
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
 
 user = CRUDUser(User)

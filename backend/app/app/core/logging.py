@@ -19,7 +19,7 @@ def configure_logging():
         },
         "root": {
             "handlers": ["console"],
-            "level": "INFO",
+            "level": "DEBUG",
         },
         "loggers": {
             "project": {

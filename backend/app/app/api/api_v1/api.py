@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.api.api_v1.endpoints import login, users, api_keys, cascade, sense, nft, collection    #, utils
+from app.api.api_v1.endpoints import login, users, account, api_keys, cascade, sense, nft, collection    #, utils
 
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(account.router, prefix="/account", tags=["account"])
 api_router.include_router(api_keys.router, prefix="/api_keys", tags=["api_keys"])
 
 api_router.include_router(cascade.router, prefix="/cascade", tags=["cascade"])

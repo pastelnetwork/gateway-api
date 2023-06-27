@@ -12,19 +12,19 @@ async def search_file_locally_or_in_ipfs(file_local_path, file_ipfs_link, no_thr
     if not path.is_file():
         if file_ipfs_link:
             try:
-                logging.info(f'File not found locally, trying to download from IPFS...')
+                logger.info(f'File not found locally, trying to download from IPFS...')
                 ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
                 ipfs_client.get(file_ipfs_link, path.parent)
             except Exception as e:
                 if no_throw:
-                    logging.error(f'File not found locally and no IPFS link provided')
+                    logger.error(f'File not found locally and no IPFS link provided')
                     return None
                 raise IPFSException(f'File not found neither locally nor in IPFS: {e}')
             new_path = path.parent / file_ipfs_link
             new_path.rename(path)
         else:
             if no_throw:
-                logging.error(f'File not found locally and no IPFS link provided')
+                logger.error(f'File not found locally and no IPFS link provided')
                 return None
             raise IPFSException(f'File not found locally and no IPFS link provided')
     data = open(path, 'rb')
@@ -37,7 +37,7 @@ async def store_file_to_ipfs(file_local_path):
         res = ipfs_client.add(file_local_path)
         return res["Hash"]
     except Exception as e:
-        logging.info(f'Error while storing file into IPFS... {e}')
+        logger.info(f'Error while storing file into IPFS... {e}')
         return None
 
 
@@ -54,7 +54,7 @@ async def read_file_from_ipfs(ipfs_link):
         ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
         return ipfs_client.cat(ipfs_link)
     except Exception as e:
-        logging.error(f"File not found in the IPFS - {e}")
+        logger.error(f"File not found in the IPFS - {e}")
         return None
 
 
@@ -64,7 +64,7 @@ async def get_file_from_ipfs(ipfs_link, file_path) -> bool:
         ipfs_client.get(ipfs_link, file_path)
         return True
     except Exception as e:
-        logging.error(f"File not found in the IPFS - {e}")
+        logger.error(f"File not found in the IPFS - {e}")
         return False
 
 

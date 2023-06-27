@@ -9,6 +9,8 @@ from jose import jwt
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 def send_email(
     email_to: str,
@@ -30,7 +32,7 @@ def send_email(
     if settings.SMTP_PASSWORD:
         smtp_options["password"] = settings.SMTP_PASSWORD
     response = message.send(to=email_to, render=environment, smtp=smtp_options)
-    logging.info(f"send email result: {response}")
+    logger.info(f"send email result: {response}")
 
 
 def send_alert_email(alert_message: str) -> None:

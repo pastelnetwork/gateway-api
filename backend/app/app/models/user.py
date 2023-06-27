@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 from app.db.base_class import Base
 from app.db.base_class import gen_rand_id
@@ -21,3 +22,15 @@ class User(Base):
     sense_tasks = relationship("Sense", back_populates="owner")
     nft_tasks = relationship("Nft", back_populates="owner")
     collection_tasks = relationship("Collection", back_populates="owner")
+    pastel_ids = relationship("ClaimedPastelId", back_populates="owner")
+
+
+class ClaimedPastelId(Base):
+    id = Column(Integer, primary_key=True, index=True, default=gen_rand_id)
+    pastel_id = Column(String, unique=True, index=True, nullable=False)
+    added_at = Column(DateTime, default=datetime.utcnow)
+    owner_id = Column(Integer, ForeignKey("user.id"))
+    owner = relationship("User", back_populates="pastel_ids")
+
+
+

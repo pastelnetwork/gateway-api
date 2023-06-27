@@ -2,10 +2,11 @@ import json
 import logging
 import os
 import pathlib
-
 import aiofiles
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class LocalFile:
@@ -52,7 +53,7 @@ async def store_file_into_local_cache(*, reg_ticket_txid, file_bytes, extra_suff
         with open(cached_result_file, 'wb') as f:
             f.write(file_bytes)
     except Exception as e:
-        logging.error(f"File not saved in the local storage - {e}")
+        logger.error(f"File not saved in the local storage - {e}")
     return cached_result_file
 
 async def search_file_in_local_cache(*, reg_ticket_txid, extra_suffix: str ="") -> bytes:
@@ -62,4 +63,4 @@ async def search_file_in_local_cache(*, reg_ticket_txid, extra_suffix: str ="") 
         with open(cached_result_file, 'rb') as f:
             return f.read()
     except Exception as e:
-        logging.error(f"File not found in the local storage - {e}")
+        logger.error(f"File not found in the local storage - {e}")

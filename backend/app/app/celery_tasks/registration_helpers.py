@@ -4,16 +4,18 @@ import traceback
 from datetime import datetime
 
 from celery import shared_task
+from celery.utils.log import get_task_logger
 
 from app import crud, schemas
 from app.celery_tasks import cascade, sense, nft, collection
-from app.celery_tasks.scheduled import logger
 from app.core.config import settings
 from app.core.status import DbStatus
 from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
+
+logger = get_task_logger(__name__)
 
 
 @shared_task(name="registration_helpers:registration_finisher")
@@ -283,7 +285,9 @@ def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_se
                 if task_from_db.offer_ticket_txid:
                     logger.warn(f"{wn_service}: Offer ticket already exists!: {task_from_db.offer_ticket_txid}")
                     return
-                offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db, pastel_id))
+                offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db,
+                                                                   settings.PASTEL_ID, settings.PASTEL_ID_PASSPHRASE,
+                                                                   pastel_id))
                 if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
                     logger.debug(f"{wn_service}: Updating task in DB as offered to transfer: {task_from_db.reg_ticket_txid}")
                     upd = {"offer_ticket_txid": offer_ticket['txid'],

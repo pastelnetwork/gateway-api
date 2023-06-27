@@ -8,7 +8,6 @@ import base64
 import logging
 from typing import List
 from datetime import datetime
-
 import zstd as zstd
 
 from fastapi import UploadFile, HTTPException, status
@@ -23,6 +22,8 @@ from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import store_file_to_ipfs, read_file_from_ipfs
 import app.celery_tasks.nft as nft
+
+logger = logging.getLogger(__name__)
 
 
 async def process_nft_request(
@@ -170,7 +171,7 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
                     if step['status'] == 'Request Registered':
                         result_registration_status = schemas.Status.PENDING_ACT
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             result_registration_status = schemas.Status.ERROR \
                 if settings.RETURN_DETAILED_WN_ERROR else schemas.Status.PENDING
 
@@ -295,7 +296,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
 
     if (service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT) \
             and task_from_db.pastel_id != settings.PASTEL_ID:  # and not task_from_db.public:
-        logging.error("Backend does not have correct Pastel ID")
+        logger.error("Backend does not have correct Pastel ID")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail=f"Only owner can download cascade file")
 
@@ -463,7 +464,7 @@ async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_ty
             try:
                 raw_file_bytes = await search_data_lambda(txid)
             except Exception as e:
-                logging.error(f"Error getting sense data for txid={txid}: {e}")
+                logger.error(f"Error getting sense data for txid={txid}: {e}")
                 continue
             if not raw_file_bytes:
                 continue
@@ -555,14 +556,14 @@ async def parse_dd_data(raw_bytes: bytes, throw=True) -> str | None:
     try:
         dd_data_json = json.loads(raw_bytes)
     except Exception as e:
-        logging.error(f"Invalid sense data - {e}")
+        logger.error(f"Invalid sense data - {e}")
         if throw:
             raise HTTPException(status_code=501, detail=f"Invalid sense data - {e}")
         else:
             return None
 
     if not dd_data_json:
-        logging.error(f"Invalid sense data")
+        logger.error(f"Invalid sense data")
         if throw:
             raise HTTPException(status_code=501, detail=f"Invalid sense data")
         else:
@@ -599,7 +600,7 @@ def decode_decompress_item(json_object: dict, key: str):
                 decompressed_json = json.loads(decompressed_value)
                 json_object[key] = decompressed_json
             except Exception as e:
-                logging.error(f"Invalid sense data - {e}")
+                logger.error(f"Invalid sense data - {e}")
 
 
 async def get_reg_txid_by_act_txid(act_txid: str) -> str:
@@ -726,7 +727,8 @@ async def transfer_ticket(db, result_id, user_id, pastel_id,
         raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
                                                     f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
 
-    offer_ticket = await psl.create_offer_ticket(task_from_db, pastel_id)
+    offer_ticket = await psl.create_offer_ticket(task_from_db,
+                                                 settings.PASTEL_ID, settings.PASTEL_ID_PASSPHRASE, pastel_id)
     if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
         upd = {"offer_ticket_txid": offer_ticket['txid'],
                "offer_ticket_intended_rcpt_pastel_id": pastel_id,

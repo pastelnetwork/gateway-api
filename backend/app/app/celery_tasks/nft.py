@@ -1,7 +1,9 @@
-from celery import shared_task
 from requests import RequestException
 import json
 from PIL import Image
+
+from celery import shared_task
+from celery.utils.log import get_task_logger
 
 from app.core.status import DbStatus
 from app.utils.authentication import send_alert_email
@@ -11,6 +13,8 @@ from app.utils.walletnode import WalletNodeService, WalletnodeException
 from app.utils.pasteld import PasteldException
 from app.core.config import settings
 import app.utils.pasteld as psl
+
+logger = get_task_logger(__name__)
 
 
 class NftAPITask(PastelAPITask):

@@ -1,9 +1,8 @@
 import asyncio
-import logging
 from datetime import datetime
 
 from celery import shared_task
-
+from celery.utils.log import get_task_logger
 
 from app import crud
 from app.core.config import settings
@@ -15,7 +14,7 @@ import app.utils.pasteld as psl
 import app.utils.walletnode as wn
 from app.utils.authentication import send_alert_email
 
-logger = logging.getLogger(__name__)
+logger = get_task_logger(__name__)
 
 
 @shared_task(name="scheduled_tools:fee_pre_burner")
