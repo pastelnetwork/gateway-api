@@ -51,7 +51,7 @@ async def process_request(
     await lf.save(file)
 
     nft_properties = parse_raw_as(schemas.NftPropertiesExternal, nft_details_payload)
-    return await common.process_nft_request(lf=lf,
+    return await common.process_nft_request(db=db, lf=lf,
                                             request_id=request_id,
                                             result_id=result_id,
                                             make_publicly_accessible=make_publicly_accessible,
@@ -107,7 +107,7 @@ async def step_2_process_nft(
 ) -> schemas.RequestResult:
     lf = LocalFile.load(file_id)
     request_id = str(uuid.uuid4())
-    return await common.process_nft_request(lf=lf,
+    return await common.process_nft_request(db=db, lf=lf,
                                             request_id=request_id,
                                             result_id=file_id,
                                             make_publicly_accessible=make_publicly_accessible,

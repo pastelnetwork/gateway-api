@@ -157,12 +157,14 @@ async def create_offer_ticket(task_from_db, current_pastel_id, current_passphras
                                     current_pastel_id, current_passphrase,
                                     0, 0, 1, "",
                                     rcpt_pastel_id],
-                            )
+                        nothrow=True)
+    if not offer_ticket or not isinstance(offer_ticket, dict):
+        raise HTTPException(status_code=500, detail=f"Failed to create offer ticket: {offer_ticket}")
     return offer_ticket
 
 
 async def verify_message(message, signature, pastel_id) -> bool:
-    response = call('pastelid', ['verify', message, signature, pastel_id])
+    response = call('pastelid', ['verify', message, signature, pastel_id], nothrow=True)
     if isinstance(response, dict) and 'verification' in response and response['verification'] == 'OK':
         return True
     return False

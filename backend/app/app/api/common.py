@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 async def process_nft_request(
         *,
+        db,
         lf: LocalFile,
         request_id: str,
         result_id: str,
@@ -38,6 +39,8 @@ async def process_nft_request(
         nft_details_payload: schemas.NftPropertiesExternal,
         user_id: int,
 ) -> schemas.RequestResult:
+    await check_pastelid_for_transfer(db=db, pastel_id=after_activation_transfer_to_pastelid, user_id=user_id)
+
     ipfs_hash = await store_file_to_ipfs(lf.path)
     _ = (
             nft.register_file.s(result_id, lf, request_id, user_id, ipfs_hash, make_publicly_accessible,
@@ -74,8 +77,9 @@ async def process_action_request(
         request_status=schemas.Status.PENDING,
         results=[]
     )
-    for file in files:
+    await check_pastelid_for_transfer(db=db, pastel_id=after_activation_transfer_to_pastelid, user_id=user_id)
 
+    for file in files:
         reg_result = await check_file_is_not_empty(file)
         if reg_result is not None:
             request_result.results.append(reg_result)
@@ -111,6 +115,15 @@ async def process_action_request(
         else schemas.Status.PENDING
 
     return request_result
+
+
+async def check_pastelid_for_transfer(*, db, pastel_id, user_id):
+    if pastel_id:
+        user = crud.user.get_by_pastelid(db, pastel_id=pastel_id)
+        if not user or user.id != user_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f'PastelID {pastel_id} for transfer registered ticket '
+                                       f'not found in the user''s Claimed PastelIDs list')
 
 
 async def make_pending_result(file_name, file_content_type, ipfs_hash, result_id):
@@ -718,6 +731,8 @@ async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult:
 
 async def transfer_ticket(db, result_id, user_id, pastel_id,
                           get_result_func, update_func):
+
+    await check_pastelid_for_transfer(db=db, pastel_id=pastel_id, user_id=user_id)
 
     task_from_db = get_result_func(db=db, result_id=result_id, owner_id=user_id)
     if not task_from_db:
