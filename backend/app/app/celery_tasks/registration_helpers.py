@@ -161,13 +161,22 @@ def _registration_finisher(
                         if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                             logger.info(f"{wn_service}: Found act ticket txid from Pastel network: {act_ticket['txid']}."
                                         f" ResultId - {task_from_db.result_id}")
-                            _finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
+                            finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
                             break
+
+                        logger.info(f"Found reg_ticket_txid [{task_from_db.reg_ticket_txid}], but no act_ticket_txid yet."
+                                     f"Marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
+                        upd = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
+                        with db_context() as session:
+                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                        break
+
+                    # probably will never get into the code bellow
                     act = status.split(f'Activated {service_name} Registration Ticket TXID: ', 1)
                     if len(act) == 2:
                         logger.info(f"{wn_service}: Found act ticket txid from WalletNode: {act[2]}."
                                         f" ResultId - {task_from_db.result_id}")
-                        _finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
+                        finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
                         break
 
 
@@ -207,7 +216,7 @@ def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
             log_klass.update(session, db_obj=log, obj_in=upd)
 
 
-def _finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):
+def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):
     logger.info(f"{wn_service}: Finalizing registration: {task_from_db.id}")
 
     if wn_service == wn.WalletNodeService.COLLECTION:

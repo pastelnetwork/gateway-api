@@ -12,6 +12,7 @@ from app.celery_tasks.task_lock import task_lock
 from app.celery_tasks.pastel_tasks import check_preburn_tx
 import app.utils.pasteld as psl
 import app.utils.walletnode as wn
+from celery_tasks.registration_helpers import finalize_registration
 
 logger = get_task_logger(__name__)
 
@@ -251,14 +252,15 @@ def _ticket_activator(all_in_registered_state_func,
                 act_txid = create_activation_ticket(task_from_db, height, act_ticket_type)
 
             if act_txid:
-                upd = {
-                    "act_ticket_txid": act_txid,
-                    "process_status": DbStatus.DONE.value,
-                    "updated_at": datetime.utcnow(),
-                    "height": height,
-                }
-                with db_context() as session:
-                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                finalize_registration(task_from_db, act_txid, update_task_in_db_func, service)
+                # upd = {
+                #     "act_ticket_txid": act_txid,
+                #     "process_status": DbStatus.DONE.value,
+                #     "updated_at": datetime.utcnow(),
+                #     "height": height,
+                # }
+                # with db_context() as session:
+                #     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         except Exception as e:
             logger.error(f"Error while creating activation for registration ticket {task_from_db.reg_ticket_txid}: {e}")
             if hasattr(e, 'response') and hasattr(e.response, 'text'):
