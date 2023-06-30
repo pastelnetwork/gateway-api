@@ -248,6 +248,13 @@ def _ticket_activator(all_in_registered_state_func,
                 logger.info(f"{service}: Registration ticket {task_from_db.reg_ticket_txid} "
                             f"already activated: {act_txid}")
             else:
+                network_height = psl.call("getblockcount", [], True)
+                if network_height - height < 5:
+                    logger.info(f"{service}: There are {network_height - height} blocks after "
+                                f"Registration ticket {task_from_db.reg_ticket_txid} was registered. "
+                                f"Waiting for 5 blocks before finalizing - WN can still finish it")
+                    continue
+
                 logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
                 act_txid = create_activation_ticket(task_from_db, height, act_ticket_type)
 
