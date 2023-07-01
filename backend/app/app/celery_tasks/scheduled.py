@@ -12,7 +12,7 @@ from app.celery_tasks.task_lock import task_lock
 from app.celery_tasks.pastel_tasks import check_preburn_tx
 import app.utils.pasteld as psl
 import app.utils.walletnode as wn
-from celery_tasks.registration_helpers import finalize_registration
+from app.celery_tasks.registration_helpers import finalize_registration
 
 logger = get_task_logger(__name__)
 
