@@ -31,10 +31,10 @@ def fee_pre_burner():
             if tx and (isinstance(tx, dict) or isinstance(tx, list)):
                 continue
             from_cascade = crud.cascade.get_by_preburn_txid(session, txid=transaction.txid)
-            if from_cascade and from_cascade.process_status != 'DEAD':
+            if from_cascade and (from_cascade.process_status != 'DEAD' and from_cascade.process_status != 'ERROR'):
                 continue
             from_sense = crud.sense.get_by_preburn_txid(session, txid=transaction.txid)
-            if from_sense and from_sense.process_status != 'DEAD':
+            if from_sense and (from_sense.process_status != 'DEAD' and from_sense.process_status != 'ERROR'):
                 continue
             crud.preburn_tx.mark_non_used(session, transaction.txid)
 
