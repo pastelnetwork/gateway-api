@@ -14,6 +14,7 @@ from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
+from app.celery_tasks.pastel_tasks import check_preburn_tx
 
 logger = get_task_logger(__name__)
 
@@ -130,7 +131,7 @@ def _registration_finisher(
                         if 'details' in step and step['details']:
                             if 'fields' in step['details'] and step['details']['fields']:
                                 if 'error_detail' in step['details']['fields'] and step['details']['fields']['error_detail']:
-                                    if 'duplicate burnTXID' in step['details']['fields']['error_detail']:
+                                    if 'pre-burn txid is bad' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of duplicate burnTXID: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
                                                      f"ResultId - {task_from_db.result_id}")
@@ -138,6 +139,15 @@ def _registration_finisher(
                                             if task_from_db.burn_txid:
                                                 crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
                                             cleanup_burn_txid = {"burn_txid": None,}
+                                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
+                                    if 'duplicate burnTXID' in step['details']['fields']['error_detail']:
+                                        logger.error(f"Task Rejected because of preburn transaction validation failed: "
+                                                     f"wn_task_id - {task_from_db.wn_task_id}, "
+                                                     f"ResultId - {task_from_db.result_id}")
+                                        if not check_preburn_tx(session, task_from_db.burn_txid):
+                                            logger.error(f'{wn_service}: Bad pre-burn tx was used. Cleaning up.'
+                                                f'[Result ID: {task_from_db.result_id}]')
+                                            cleanup_burn_txid = {"burn_txid": None, }
                                             update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
                     # mark result as failed, and requires reprocessing
                     with db_context() as session:
