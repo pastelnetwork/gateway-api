@@ -90,7 +90,7 @@ def _registration_finisher(
                 wn_task_status = []
 
             if not wn_task_status:
-                # Check using pre-burn txid if somehow reg ticket was registered but WN is not ware of that
+                # Check using pre-burn txid if somehow reg ticket was registered but WN is not aware of that
                 # This can only be used with Sense and Cascade, as NFT does not have burn_txid
                 if (wn_service == wn.WalletNodeService.SENSE or wn_service == wn.WalletNodeService.CASCADE) \
                         and task_from_db.burn_txid:
@@ -131,7 +131,7 @@ def _registration_finisher(
                         if 'details' in step and step['details']:
                             if 'fields' in step['details'] and step['details']['fields']:
                                 if 'error_detail' in step['details']['fields'] and step['details']['fields']['error_detail']:
-                                    if 'pre-burn txid is bad' in step['details']['fields']['error_detail']:
+                                    if 'duplicate burnTXID' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of duplicate burnTXID: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
                                                      f"ResultId - {task_from_db.result_id}")
@@ -140,7 +140,7 @@ def _registration_finisher(
                                                 crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
                                             cleanup_burn_txid = {"burn_txid": None,}
                                             update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
-                                    if 'duplicate burnTXID' in step['details']['fields']['error_detail']:
+                                    if 'pre-burn txid is bad' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of preburn transaction validation failed: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
                                                      f"ResultId - {task_from_db.result_id}")

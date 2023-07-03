@@ -39,11 +39,19 @@ async def process_request(
 
     reg_result = await common.check_file_is_not_empty(file)
     if reg_result is not None:
-        return reg_result
+        return schemas.RequestResult(
+            request_id='',
+            request_status=schemas.Status.ERROR,
+            results=[reg_result]
+        )
 
     reg_result = await common.check_image(file, db)
     if reg_result is not None:
-        return reg_result
+        return schemas.RequestResult(
+            request_id='',
+            request_status=schemas.Status.ERROR,
+            results=[reg_result]
+        )
 
     request_id = str(uuid.uuid4())
     result_id = str(uuid.uuid4())

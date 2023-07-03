@@ -13,6 +13,7 @@ from app.celery_tasks.pastel_tasks import check_preburn_tx
 import app.utils.pasteld as psl
 import app.utils.walletnode as wn
 from app.celery_tasks.registration_helpers import finalize_registration
+from app.models.preburn_tx import PBTXStatus
 
 logger = get_task_logger(__name__)
 
@@ -26,15 +27,23 @@ def fee_pre_burner():
         for transaction in all_used_or_pending:
             tx = psl.call("tickets", ["find", "nft", transaction.txid])
             if tx and (isinstance(tx, dict) or isinstance(tx, list)):
+                if transaction.status == PBTXStatus.PENDING:
+                    crud.preburn_tx.mark_used(session, transaction.txid)
                 continue
             tx = psl.call("tickets", ["find", "action", transaction.txid])
             if tx and (isinstance(tx, dict) or isinstance(tx, list)):
+                if transaction.status == PBTXStatus.PENDING:
+                    crud.preburn_tx.mark_used(session, transaction.txid)
                 continue
             from_cascade = crud.cascade.get_by_preburn_txid(session, txid=transaction.txid)
             if from_cascade and (from_cascade.process_status != 'DEAD' and from_cascade.process_status != 'ERROR'):
+                if transaction.status == PBTXStatus.PENDING:
+                    crud.preburn_tx.mark_used(session, transaction.txid)
                 continue
             from_sense = crud.sense.get_by_preburn_txid(session, txid=transaction.txid)
             if from_sense and (from_sense.process_status != 'DEAD' and from_sense.process_status != 'ERROR'):
+                if transaction.status == PBTXStatus.PENDING:
+                    crud.preburn_tx.mark_used(session, transaction.txid)
                 continue
             crud.preburn_tx.mark_non_used(session, transaction.txid)
 

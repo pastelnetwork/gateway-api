@@ -33,7 +33,7 @@ class CascadeAPITask(PastelAPITask):
         if task_from_db.process_status != DbStatus.PREBURN_FEE.value:
             err_msg = f'Cascade: process_task: Wrong task state - "{task_from_db.process_status}", ' \
                       f'Should be {DbStatus.PREBURN_FEE.value}' \
-                      f'... [Result ID: {task_from_db.v}]'
+                      f'... [Result ID: {task_from_db.result_id}]'
             return False, err_msg
         if not task_from_db.burn_txid:
             raise PastelAPIException(f'Cascade: No burn txid for result_id {task_from_db.result_id}')
