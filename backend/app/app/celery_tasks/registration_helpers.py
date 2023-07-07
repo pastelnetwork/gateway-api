@@ -86,7 +86,7 @@ def _registration_finisher(
                                          f'{task_from_db.wn_task_id}/history',
                                          {}, [], {}, "", "")
             except Exception as e:
-                logger.error(f"Call to WalletNode : {e}")
+                logger.error(f"Call to WalletNode failed: {e}")
                 wn_task_status = []
 
             if not wn_task_status:
@@ -94,7 +94,11 @@ def _registration_finisher(
                 # This can only be used with Sense and Cascade, as NFT does not have burn_txid
                 if (wn_service == wn.WalletNodeService.SENSE or wn_service == wn.WalletNodeService.CASCADE) \
                         and task_from_db.burn_txid:
-                    reg_ticket = psl.call("tickets", ["find", "action", task_from_db.burn_txid])
+                    try:
+                        reg_ticket = psl.call("tickets", ["find", "action", task_from_db.burn_txid])
+                    except Exception as e:
+                        logger.error(f"Call to PastelD failed: {e}")
+                        reg_ticket = None
                     if reg_ticket and 'txid' in reg_ticket and reg_ticket['txid']:
                         upd = {
                             "reg_ticket_txid": reg_ticket.get("txid"),
@@ -106,15 +110,14 @@ def _registration_finisher(
 
                 logger.error(f"No result from WalletNode: wn_task_id - {task_from_db.wn_task_id}, "
                              f"ResultId - {task_from_db.result_id}")
-                height = psl.call("getblockcount", [])
+                try:
+                    height = psl.call("getblockcount", [])
+                except Exception as e:
+                    logger.error(f"Call to PastelD failed: {e}")
+                    height = 0
                 logger.error(f"No WN result for the task. Maybe it was created by another WN."
                              f"Task was created {height - task_from_db.height} blocks ago:"
                              f"wn_task_id - {task_from_db.wn_task_id}, ResultId - {task_from_db.result_id}")
-                # check how old is the result, if height is more than 48 (2 h), then mark it as ERROR
-                # if height - task_from_db.height > 48:
-                # with db_context() as session:
-                    #     _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
-                    #                                get_by_preburn_txid_func, wn_service)
                 continue
 
             add_status_to_history_log(task_from_db, wn_service, wn_task_status)
@@ -134,7 +137,8 @@ def _registration_finisher(
                                     if 'duplicate burnTXID' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of duplicate burnTXID: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
-                                                     f"ResultId - {task_from_db.result_id}")
+                                                     f"ResultId - {task_from_db.result_id},"
+                                                     f"burn_txid - {task_from_db.burn_txid}")
                                         with db_context() as session:
                                             if task_from_db.burn_txid:
                                                 crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
@@ -143,12 +147,14 @@ def _registration_finisher(
                                     if 'pre-burn txid is bad' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of preburn transaction validation failed: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
-                                                     f"ResultId - {task_from_db.result_id}")
-                                        if not check_preburn_tx(session, task_from_db.burn_txid):
-                                            logger.error(f'{wn_service}: Bad pre-burn tx was used. Cleaning up.'
-                                                f'[Result ID: {task_from_db.result_id}]')
-                                            cleanup_burn_txid = {"burn_txid": None, }
-                                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
+                                                     f"ResultId - {task_from_db.result_id},"
+                                                     f"burn_txid - {task_from_db.burn_txid}")
+                                        if task_from_db.burn_txid:
+                                            if not check_preburn_tx(session, task_from_db.burn_txid):
+                                                logger.error(f'{wn_service}: Bad pre-burn tx was used. Cleaning up.'
+                                                             f'[Result ID: {task_from_db.result_id}]')
+                                                cleanup_burn_txid = {"burn_txid": None, }
+                                                update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
                     # mark result as failed, and requires reprocessing
                     with db_context() as session:
                         logger.error(f"{wn_service}: Marking task as ERROR. ResultId - {task_from_db.result_id}")
@@ -160,22 +166,28 @@ def _registration_finisher(
                     if len(reg) != 2:
                         reg = status.split(f'Validated {service_name} Reg TXID: ', 1)
                     if len(reg) == 2:
-                        logger.info(f"{wn_service}: Found reg ticket txid: {reg[1]}. ResultId - {task_from_db.result_id}")
+                        logger.info(f"{wn_service}: Found reg ticket txid: {reg[1]}. "
+                                    f"ResultId - {task_from_db.result_id}")
                         upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
                         with db_context() as session:
                             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                         continue
                 if not task_from_db.act_ticket_txid:
                     if task_from_db.reg_ticket_txid:
-                        act_ticket = psl.call("tickets", ['find', verb, task_from_db.reg_ticket_txid])
+                        try:
+                            act_ticket = psl.call("tickets", ['find', verb, task_from_db.reg_ticket_txid])
+                        except Exception as e:
+                            logger.error(f"Call to PastelD failed: {e}")
+                            act_ticket = None
                         if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                             logger.info(f"{wn_service}: Found act ticket txid from Pastel network: {act_ticket['txid']}."
                                         f" ResultId - {task_from_db.result_id}")
                             finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
                             break
 
-                        logger.info(f"Found reg_ticket_txid [{task_from_db.reg_ticket_txid}], but no act_ticket_txid yet."
-                                     f"Marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
+                        logger.info(f"Found reg_ticket_txid [{task_from_db.reg_ticket_txid}], "
+                                    f"but no act_ticket_txid yet."
+                                    f"Marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
                         upd = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
                         with db_context() as session:
                             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
@@ -365,7 +377,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                                wn_service: wn.WalletNodeService):
     logger.info(f"{wn_service} registration_re_processor started")
     with db_context() as session:
-        tasks_from_db = all_failed_func(session)
+        tasks_from_db = all_failed_func(session, limit=settings.REGISTRATION_RE_PROCESSOR_LIMIT)
     logger.info(f"{wn_service}: Found {len(tasks_from_db)} failed tasks")
     for task_from_db in tasks_from_db:
         try:

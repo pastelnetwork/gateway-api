@@ -157,6 +157,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
                     Sense.process_status.is_(None),
                 )
             )
+            .order_by(Sense.updated_at)
             .offset(skip)
             .limit(limit)
             .all()

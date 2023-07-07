@@ -156,6 +156,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
                     Cascade.process_status.is_(None),
                 )
             )
+            .order_by(Cascade.updated_at)
             .offset(skip)
             .limit(limit)
             .all()

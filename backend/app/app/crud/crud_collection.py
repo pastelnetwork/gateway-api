@@ -90,6 +90,7 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
                     Collection.process_status.is_(None),
                 )
             )
+            .order_by(Collection.updated_at)
             .offset(skip)
             .limit(limit)
             .all()

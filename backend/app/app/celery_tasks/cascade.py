@@ -42,6 +42,7 @@ class CascadeAPITask(PastelAPITask):
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
+             soft_time_limit=300, time_limit=360,
              name='cascade:register_file', base=CascadeAPITask)
 def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: str,
                   make_publicly_accessible: bool, _collection_act_txid, _open_api_group_id,
@@ -73,6 +74,7 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: s
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              default_retry_delay=300, retry_backoff=150, max_retries=10,
+             soft_time_limit=300, time_limit=360,
              name='cascade:preburn_fee', base=CascadeAPITask)
 def preburn_fee(self, result_id) -> str:
     return self.preburn_fee_task(result_id,
@@ -85,6 +87,7 @@ def preburn_fee(self, result_id) -> str:
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=10,
+             soft_time_limit=300, time_limit=360,
              name='cascade:process', base=CascadeAPITask)
 def process(self, result_id) -> str:
     return self.process_task(result_id,
@@ -97,6 +100,7 @@ def process(self, result_id) -> str:
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
+             soft_time_limit=300, time_limit=360,
              name='cascade:re_register_file', base=CascadeAPITask)
 def re_register_file(self, result_id) -> str:
     return self.re_register_file_task(result_id,

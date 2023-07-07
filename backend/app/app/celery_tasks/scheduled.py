@@ -55,17 +55,17 @@ def fee_pre_burner():
     with db_context() as session:
         fees = []
         logger.info(f"second: calculate fees")
-        for size in range(1, 11):
+        for size in range(1, settings.MAX_SIZE_FOR_PREBURN):
             fee = psl.call("storagefee", ["getactionfees", size])
             c_fee = int(fee['cascadefee'] / 5)
             s_fee = int(fee['sensefee'] / 5)
             c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
             s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
             logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
-            for dups in reversed(range(size, 11)):
-                if c_num < 11-size:
+            for dups in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN)):
+                if c_num < settings.MAX_SIZE_FOR_PREBURN-size:
                     fees.append(c_fee)
-                if s_num < 11-size:
+                if s_num < settings.MAX_SIZE_FOR_PREBURN-size:
                     fees.append(s_fee)
 
     height = psl.call("getblockcount", [])

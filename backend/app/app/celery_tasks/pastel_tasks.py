@@ -398,19 +398,22 @@ class PastelAPIException(Exception):
 
 
 def check_preburn_tx(session, txid: str):
-    tx = psl.call("tickets", ["find", "nft", txid])
-    if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-        tx = psl.call("tickets", ["find", "action", txid])
+    try:
+        tx = psl.call("tickets", ["find", "nft", txid])
         if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-            tx = psl.call("getrawtransaction", [txid], True)
-            if not tx \
-                    or ("status_code" in tx and tx.status_code != 200) \
-                    or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
-                logger.info(f"Transaction {txid} is in the table but is not in the blockchain, marking as BAD")
-                crud.preburn_tx.mark_bad(session, txid)
-                return False    # tx is not used by any reg ticket, BUT it is not in the blockchain
-            else:
-                return True    # tx is not used by any reg ticket, and it is in the blockchain
-    logger.info(f"Transaction {txid} is already used, marking as USED")
-    crud.preburn_tx.mark_used(session, txid)
+            tx = psl.call("tickets", ["find", "action", txid])
+            if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
+                tx = psl.call("getrawtransaction", [txid], True)
+                if not tx \
+                        or ("status_code" in tx and tx.status_code != 200) \
+                        or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):
+                    logger.info(f"Transaction {txid} is in the table but is not in the blockchain, marking as BAD")
+                    crud.preburn_tx.mark_bad(session, txid)
+                    return False    # tx is not used by any reg ticket, BUT it is not in the blockchain
+                else:
+                    return True    # tx is not used by any reg ticket, and it is in the blockchain
+        logger.info(f"Transaction {txid} is already used, marking as USED")
+        crud.preburn_tx.mark_used(session, txid)
+    except Exception as e:
+        logger.error(f"Error checking transaction {txid} in the blockchain: {e}")
     return False    # tx is used by some reg ticket

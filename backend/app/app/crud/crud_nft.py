@@ -159,6 +159,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
                     Nft.process_status.is_(None),
                 )
             )
+            .order_by(Nft.updated_at)
             .offset(skip)
             .limit(limit)
             .all()

@@ -110,6 +110,7 @@ class Settings(BaseSettings):
 
     NFT_DEFAULT_MAX_FILE_SIZE_FOR_FEE_IN_MB: int = 100
     NFT_THUMBNAIL_SIZE_IN_PIXELS: int = 256
+    MAX_SIZE_FOR_PREBURN: int = 20
 
     POSTGRES_SERVER: Optional[str]
     POSTGRES_USER: Optional[str]
@@ -192,6 +193,8 @@ class Settings(BaseSettings):
     REG_TICKETS_FINDER_INTERVAL: float = 150.0
     TICKET_ACTIVATOR_INTERVAL: float = 500.0
     WATCHDOG_INTERVAL: float = 1200.0
+
+    REGISTRATION_RE_PROCESSOR_LIMIT: int = 10
 
     class Config:
         env_file = find_dotenv(usecwd=True)

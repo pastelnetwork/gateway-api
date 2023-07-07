@@ -106,6 +106,7 @@ class NftAPITask(PastelAPITask):
             return False, err_msg
         return True, ''
 
+
 def get_thumbnail_coordinates(image_path: str, thumbnail_size: int) -> schemas.ThumbnailCoordinate:
     with Image.open(image_path) as img:
         width, height = img.size
@@ -127,9 +128,11 @@ def get_thumbnail_coordinates(image_path: str, thumbnail_size: int) -> schemas.T
         bottom_right_y=bottom,
     )
 
+
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
+             soft_time_limit=300, time_limit=360,
              name='nft:register_file', base=NftAPITask)
 def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash,
                   make_publicly_accessible: bool, collection_act_txid: str, open_api_group_id: str,
@@ -175,11 +178,12 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash,
         WalletNodeService.NFT,
         "register/upload", "image_id", "estimated_fee", 1)
 
-# NFT registration does not require preburning
 
+# NFT registration does not require preburning
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=10,
+             soft_time_limit=300, time_limit=360,
              name='nft:process', base=NftAPITask)
 def process(self, result_id) -> str:
     return self.process_task(result_id,
@@ -192,6 +196,7 @@ def process(self, result_id) -> str:
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
+             soft_time_limit=300, time_limit=360,
              name='nft:re_register_file', base=NftAPITask)
 def re_register_file(self, result_id) -> str:
     return self.re_register_file_task(result_id,

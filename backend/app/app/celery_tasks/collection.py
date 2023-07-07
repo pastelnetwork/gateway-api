@@ -64,9 +64,11 @@ class CollectionsAPITask(PastelAPITask):
     def check_specific_conditions(self, task_from_db) -> (bool, str):
         pass
 
+
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
+             soft_time_limit=300, time_limit=360,
              name='collection:register', base=CollectionsAPITask)
 def register(self, result_id, user_id,
              item_type: str, collection_name: str, max_collection_entries: int, collection_item_copy_count: int,
@@ -110,9 +112,11 @@ def register(self, result_id, user_id,
     logger.info(f'Collection-{item_type}: New record created. process_task exiting. [Result ID: {result_id}]')
     return result_id
 
+
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
              retry_backoff=30, max_retries=5,
+             soft_time_limit=300, time_limit=360,
              name='collection:process', base=CollectionsAPITask)
 def process(self, result_id) -> str:
     logger.info(f'Collection: Register file in the Pastel Network... [Result ID: {result_id}]')

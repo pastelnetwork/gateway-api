@@ -18,10 +18,10 @@ def create_celery():
     celery_app.conf.update(accept_content=['pickle', 'json'])
     celery_app.conf.update(result_expires=200)
     celery_app.conf.update(result_persistent=True)
-    celery_app.conf.update(worker_send_task_events=False)
-    celery_app.conf.update(worker_prefetch_multiplier=1)
+    celery_app.conf.update(worker_send_task_events=True)
+    celery_app.conf.update(worker_prefetch_multiplier=10)
     celery_app.conf.update(celery_ignore_result=False)
-    celery_app.conf.update(celery_task_always_eager=True)
+    celery_app.conf.update(celery_task_always_eager=False)
     celery_app.conf.update(worker_max_tasks_per_child=100)
 
     celery_app.conf.beat_schedule = {
