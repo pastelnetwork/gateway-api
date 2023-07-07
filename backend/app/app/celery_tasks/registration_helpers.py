@@ -184,7 +184,7 @@ def _registration_finisher(
                         if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                             logger.info(f"{wn_service}: Found act ticket txid from Pastel network: {act_ticket['txid']}."
                                         f" ResultId - {task_from_db.result_id}")
-                            finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
+                            finalize_registration(session, task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
                             break
 
                         logger.info(f"Found reg_ticket_txid [{task_from_db.reg_ticket_txid}], "
@@ -199,7 +199,7 @@ def _registration_finisher(
                     if len(act) == 2:
                         logger.info(f"{wn_service}: Found act ticket txid from WalletNode: {act[2]}."
                                     f" ResultId - {task_from_db.result_id}")
-                        finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
+                        finalize_registration(session, task_from_db, act[2], update_task_in_db_func, wn_service)
                         break
 
 

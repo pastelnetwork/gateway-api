@@ -270,7 +270,7 @@ def _ticket_activator(all_in_registered_state_func,
                 act_txid = create_activation_ticket(task_from_db, height, act_ticket_type)
 
             if act_txid:
-                finalize_registration(task_from_db, act_txid, update_task_in_db_func, service)
+                finalize_registration(session, task_from_db, act_txid, update_task_in_db_func, service)
                 # upd = {
                 #     "act_ticket_txid": act_txid,
                 #     "process_status": DbStatus.DONE.value,
