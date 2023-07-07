@@ -95,8 +95,6 @@ def registration_tickets_finder():
 
         action_ticket = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)
         process_action_tickets(action_ticket, last_processed_block)
-
-
     except Exception as e:
         logger.error(f"Error while processing cascade tickets {e}")
 
@@ -202,45 +200,49 @@ def process_action_tickets(tickets, last_processed_block):
 
 @shared_task(name="scheduled_tools:ticket_activator")
 def ticket_activator():
-    _ticket_activator(
-        crud.cascade.get_all_in_registered_state,
-        crud.cascade.update,
-        'action-act',
-        wn.WalletNodeService.CASCADE
-    )
-    _ticket_activator(
-        crud.sense.get_all_in_registered_state,
-        crud.sense.update,
-        'action-act',
-        wn.WalletNodeService.SENSE
-    )
-    _ticket_activator(
-        crud.nft.get_all_in_registered_state,
-        crud.nft.update,
-        'act',
-        wn.WalletNodeService.NFT
-    )
-    _ticket_activator(
-        crud.collection.get_all_in_registered_state,
-        crud.collection.update,
-        'collection-act',
-        wn.WalletNodeService.COLLECTION
-    )
+    with db_context() as session:
+        _ticket_activator(
+            crud.cascade.get_all_in_registered_state,
+            crud.cascade.update,
+            'action-act',
+            wn.WalletNodeService.CASCADE,
+            session
+        )
+        _ticket_activator(
+            crud.sense.get_all_in_registered_state,
+            crud.sense.update,
+            'action-act',
+            wn.WalletNodeService.SENSE,
+            session
+        )
+        _ticket_activator(
+            crud.nft.get_all_in_registered_state,
+            crud.nft.update,
+            'act',
+            wn.WalletNodeService.NFT,
+            session
+        )
+        _ticket_activator(
+            crud.collection.get_all_in_registered_state,
+            crud.collection.update,
+            'collection-act',
+            wn.WalletNodeService.COLLECTION,
+            session
+        )
 
 
 def _ticket_activator(all_in_registered_state_func,
                       update_task_in_db_func,
                       act_ticket_type,
-                      service: wn.WalletNodeService):
+                      service: wn.WalletNodeService,
+                      session):
     logger.info(f"ticket_activator task started")
-    with db_context() as session:
-        tasks_from_db = all_in_registered_state_func(session)
+    tasks_from_db = all_in_registered_state_func(session)
     logger.info(f"{service}: Found {len(tasks_from_db)} registered, but not activated tasks")
     for task_from_db in tasks_from_db:
         if task_from_db.pastel_id is None:
             upd = {"process_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
-            with db_context() as session:
-                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
             continue
         if settings.PASTEL_ID != task_from_db.pastel_id:
             logger.info(f"{service}: Skipping ticket {task_from_db.reg_ticket_txid}, "
@@ -275,8 +277,7 @@ def _ticket_activator(all_in_registered_state_func,
                 #     "updated_at": datetime.utcnow(),
                 #     "height": height,
                 # }
-                # with db_context() as session:
-                #     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                # update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         except Exception as e:
             logger.error(f"Error while creating activation for registration ticket {task_from_db.reg_ticket_txid}: {e}")
             if hasattr(e, 'response') and hasattr(e.response, 'text'):
@@ -284,8 +285,7 @@ def _ticket_activator(all_in_registered_state_func,
                 msg = f"The Action Registration ticket with this txid [{task_from_db.reg_ticket_txid}] is invalid"
                 if msg in error_msg:
                     upd = {"process_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
-                    with db_context() as session:
-                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
 
 def find_action_ticket(txid: str, ticket_type: str) -> str|None:
