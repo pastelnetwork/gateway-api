@@ -130,6 +130,7 @@ def _registration_finisher(
                 if status == 'Task Rejected':
                     logger.error(f"Task Rejected: wn_task_id - {task_from_db.wn_task_id}, "
                                  f"ResultId - {task_from_db.result_id}")
+                    clear_preburn = False
                     if wn_service != wn.WalletNodeService.NFT and wn_service != wn.WalletNodeService.COLLECTION:
                         if 'details' in step and step['details']:
                             if 'fields' in step['details'] and step['details']['fields']:
@@ -142,8 +143,7 @@ def _registration_finisher(
                                         with db_context() as session:
                                             if task_from_db.burn_txid:
                                                 crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
-                                            cleanup_burn_txid = {"burn_txid": None,}
-                                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
+                                        clear_preburn = True
                                     if 'pre-burn txid is bad' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of preburn transaction validation failed: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
@@ -153,13 +153,12 @@ def _registration_finisher(
                                             if not check_preburn_tx(session, task_from_db.burn_txid):
                                                 logger.error(f'{wn_service}: Bad pre-burn tx was used. Cleaning up.'
                                                              f'[Result ID: {task_from_db.result_id}]')
-                                                cleanup_burn_txid = {"burn_txid": None, }
-                                                update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
+                                        clear_preburn = True
                     # mark result as failed, and requires reprocessing
                     with db_context() as session:
                         logger.error(f"{wn_service}: Marking task as ERROR. ResultId - {task_from_db.result_id}")
                         _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
-                                                   get_by_preburn_txid_func, wn_service)
+                                                   get_by_preburn_txid_func, wn_service, clear_preburn)
                     break
                 if not task_from_db.reg_ticket_txid:
                     reg = status.split(f'Validating {service_name} Reg TXID: ', 1)
@@ -300,7 +299,7 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
 
     with db_context() as session:
         logger.info(f"{wn_service}: Updating task in DB as DONE: {task_from_db.reg_ticket_txid}")
-        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+        task_from_db = update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         if wn_service != wn.WalletNodeService.NFT:      # check for wn.WalletNodeService.COLLECTION was before
             crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
 
@@ -331,9 +330,12 @@ def _mark_task_in_db_as_failed(session,
                                task_from_db,
                                update_task_in_db_func,
                                get_by_preburn_txid_func,
-                               wn_service: wn.WalletNodeService):
+                               wn_service: wn.WalletNodeService,
+                               clear_preburn):
     logger.info(f"Marking task as failed: {task_from_db.id}")
     upd = {"process_status": DbStatus.ERROR.value, "updated_at": datetime.utcnow()}
+    if clear_preburn:
+        upd["burn_txid"] = None
     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
     if wn_service != wn.WalletNodeService.NFT and wn_service != wn.WalletNodeService.COLLECTION\
@@ -403,29 +405,30 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                     _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
                     # clear_task_in_db sets task's status to RESTARTED
                     reprocess_func(task_from_db)
-                    continue
                 else:
                     logger.info(f"Task status is empty, but other data is not empty, "
-                                 f"marking as {DbStatus.STARTED.value}: {task_from_db.id}")
+                                f"marking as {DbStatus.STARTED.value}: {task_from_db.id}")
                     upd = {"process_status": DbStatus.STARTED.value, "updated_at": datetime.utcnow()}
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                continue
 
             if task_from_db.process_status == DbStatus.ERROR.value:
                 if task_from_db.reg_ticket_txid or task_from_db.act_ticket_txid:
                     logger.info(f"Task status is {DbStatus.ERROR.value}, "
-                                 f"but reg_ticket_txid [{task_from_db.reg_ticket_txid}] or "
-                                 f"act_ticket_txid is not empty [{task_from_db.act_ticket_txid}], "
-                                 f"marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
+                                f"but reg_ticket_txid [{task_from_db.reg_ticket_txid}] or "
+                                f"act_ticket_txid is not empty [{task_from_db.act_ticket_txid}], "
+                                f"marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
                     upd = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
-                    continue
-                logger.info(f"Task status is {DbStatus.ERROR.value}, "
-                             f"clearing and reprocessing: {task_from_db.result_id}")
-                _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
-                # clear_task_in_db sets task's status to RESTARTED
-                reprocess_func(task_from_db)
+                else:
+                    logger.info(f"Task status is {DbStatus.ERROR.value}, "
+                                f"clearing and reprocessing: {task_from_db.result_id}")
+                    _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
+                    # clear_task_in_db sets task's status to RESTARTED
+                    reprocess_func(task_from_db)
+                continue
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Registration reprocessing failed for ticket {task_from_db.result_id} with error {e}")
