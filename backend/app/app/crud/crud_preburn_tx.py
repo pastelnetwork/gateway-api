@@ -12,7 +12,7 @@ from app.schemas.preburn_tx import PreBurnTxCreate, PreBurnTxUpdate
 
 class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
     @staticmethod
-    def create_new(db: Session, *, fee: int, height: int, txid: str) -> PreBurnTx:
+    def create_new(db: Session, *, fee: float, height: int, txid: str) -> PreBurnTx:
         db_obj = PreBurnTx(
             fee=fee,
             height=height,
@@ -25,7 +25,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
         return db_obj
 
     @staticmethod
-    def create_new_bound(db: Session, *, fee: int, height: int, txid: str, result_id: str) -> PreBurnTx:
+    def create_new_bound(db: Session, *, fee: float, height: int, txid: str, result_id: str) -> PreBurnTx:
         db_obj = PreBurnTx(
             fee=fee,
             height=height,
@@ -38,7 +38,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def get_non_used_by_fee(self, db: Session, *, fee: int) -> Optional[PreBurnTx]:
+    def get_non_used_by_fee(self, db: Session, *, fee: float) -> Optional[PreBurnTx]:
         db_obj = db.query(self.model)\
             .filter(PreBurnTx.fee == fee)\
             .filter(PreBurnTx.status == PBTXStatus.NEW)\
@@ -95,7 +95,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
             )
             .first())
 
-    def get_number_non_used_by_fee(self, db: Session, *, fee: int) -> Optional[int]:
+    def get_number_non_used_by_fee(self, db: Session, *, fee: float) -> Optional[int]:
         return db.execute(
             db.query(self.model).filter(PreBurnTx.fee == fee)
             .filter(PreBurnTx.status == PBTXStatus.NEW)

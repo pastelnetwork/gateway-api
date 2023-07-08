@@ -57,8 +57,8 @@ def fee_pre_burner():
         logger.info(f"second: calculate fees")
         for size in range(1, settings.MAX_SIZE_FOR_PREBURN):
             fee = psl.call("storagefee", ["getactionfees", size])
-            c_fee = int(fee['cascadefee'] / 5)
-            s_fee = int(fee['sensefee'] / 5)
+            c_fee = float(fee['cascadefee'] / 5)
+            s_fee = float(fee['sensefee'] / 5)
             c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
             s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
             logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
