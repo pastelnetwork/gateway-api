@@ -21,39 +21,34 @@ logger = get_task_logger(__name__)
 
 @shared_task(name="registration_helpers:registration_finisher")
 def registration_finisher():
-    with db_context() as session:
-        _registration_finisher(
-            crud.cascade.get_all_started_not_finished,
-            crud.cascade.update,
-            crud.cascade.get_by_preburn_txid,
-            wn.WalletNodeService.CASCADE,
-            "Cascade",
-            session
-        )
-        _registration_finisher(
-            crud.sense.get_all_started_not_finished,
-            crud.sense.update,
-            crud.sense.get_by_preburn_txid,
-            wn.WalletNodeService.SENSE,
-            "Sense",
-            session
-        )
-        _registration_finisher(
-            crud.nft.get_all_started_not_finished,
-            crud.nft.update,
-            None,
-            wn.WalletNodeService.NFT,
-            "NFT",
-            session
-        )
-        _registration_finisher(
-            crud.collection.get_all_started_not_finished,
-            crud.collection.update,
-            None,
-            wn.WalletNodeService.COLLECTION,
-            "Collection",
-            session
-        )
+    _registration_finisher(
+        crud.cascade.get_all_started_not_finished,
+        crud.cascade.update,
+        crud.cascade.get_by_preburn_txid,
+        wn.WalletNodeService.CASCADE,
+        "Cascade"
+    )
+    _registration_finisher(
+        crud.sense.get_all_started_not_finished,
+        crud.sense.update,
+        crud.sense.get_by_preburn_txid,
+        wn.WalletNodeService.SENSE,
+        "Sense"
+    )
+    _registration_finisher(
+        crud.nft.get_all_started_not_finished,
+        crud.nft.update,
+        None,
+        wn.WalletNodeService.NFT,
+        "NFT"
+    )
+    _registration_finisher(
+        crud.collection.get_all_started_not_finished,
+        crud.collection.update,
+        None,
+        wn.WalletNodeService.COLLECTION,
+        "Collection"
+    )
 
 
 def _registration_finisher(
@@ -61,12 +56,11 @@ def _registration_finisher(
         update_task_in_db_func,
         get_by_preburn_txid_func,
         wn_service: wn.WalletNodeService,
-        service_name,
-        session):
+        service_name):
     logger.info(f"{wn_service} registration_finisher started")
-
-    # get all tasks with status "STARTED"
-    tasks_from_db = started_not_finished_func(session)
+    with db_context() as session:
+        # get all tasks with status "STARTED"
+        tasks_from_db = started_not_finished_func(session)
     logger.info(f"{wn_service}: Found {len(tasks_from_db)} non finished tasks")
     #
     # TODO: Add finishing logic for tasks stuck with statuses:
@@ -111,7 +105,8 @@ def _registration_finisher(
                             "status": DbStatus.REGISTERED,
                             "updated_at": datetime.utcnow(),
                         }
-                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                        with db_context() as session:
+                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
                 logger.error(f"No result from WalletNode: wn_task_id - {task_from_db.wn_task_id}, "
                              f"ResultId - {task_from_db.result_id}")
@@ -125,7 +120,7 @@ def _registration_finisher(
                              f"wn_task_id - {task_from_db.wn_task_id}, ResultId - {task_from_db.result_id}")
                 continue
 
-            add_status_to_history_log(session, task_from_db, wn_service, wn_task_status)
+            add_status_to_history_log(task_from_db, wn_service, wn_task_status)
 
             logger.info(f"{wn_service}: Get status from WN. ResultId - {task_from_db.result_id}")
 
@@ -144,10 +139,11 @@ def _registration_finisher(
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
                                                      f"ResultId - {task_from_db.result_id},"
                                                      f"burn_txid - {task_from_db.burn_txid}")
-                                        if task_from_db.burn_txid:
-                                            crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
-                                        cleanup_burn_txid = {"burn_txid": None,}
-                                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
+                                        with db_context() as session:
+                                            if task_from_db.burn_txid:
+                                                crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+                                            cleanup_burn_txid = {"burn_txid": None,}
+                                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
                                     if 'pre-burn txid is bad' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of preburn transaction validation failed: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
@@ -160,9 +156,10 @@ def _registration_finisher(
                                                 cleanup_burn_txid = {"burn_txid": None, }
                                                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup_burn_txid)
                     # mark result as failed, and requires reprocessing
-                    logger.error(f"{wn_service}: Marking task as ERROR. ResultId - {task_from_db.result_id}")
-                    _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
-                                               get_by_preburn_txid_func, wn_service)
+                    with db_context() as session:
+                        logger.error(f"{wn_service}: Marking task as ERROR. ResultId - {task_from_db.result_id}")
+                        _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
+                                                   get_by_preburn_txid_func, wn_service)
                     break
                 if not task_from_db.reg_ticket_txid:
                     reg = status.split(f'Validating {service_name} Reg TXID: ', 1)
@@ -172,7 +169,8 @@ def _registration_finisher(
                         logger.info(f"{wn_service}: Found reg ticket txid: {reg[1]}. "
                                     f"ResultId - {task_from_db.result_id}")
                         upd = {"reg_ticket_txid": reg[1], "updated_at": datetime.utcnow()}
-                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                        with db_context() as session:
+                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                         continue
                 if not task_from_db.act_ticket_txid:
                     if task_from_db.reg_ticket_txid:
@@ -184,26 +182,27 @@ def _registration_finisher(
                         if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
                             logger.info(f"{wn_service}: Found act ticket txid from Pastel network: {act_ticket['txid']}."
                                         f" ResultId - {task_from_db.result_id}")
-                            finalize_registration(session, task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
+                            finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
                             break
 
                         logger.info(f"Found reg_ticket_txid [{task_from_db.reg_ticket_txid}], "
                                     f"but no act_ticket_txid yet."
                                     f"Marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
                         upd = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
-                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                        with db_context() as session:
+                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                         break
 
                     # probably will never get into the code bellow
                     act = status.split(f'Activated {service_name} Registration Ticket TXID: ', 1)
                     if len(act) == 2:
                         logger.info(f"{wn_service}: Found act ticket txid from WalletNode: {act[2]}."
-                                    f" ResultId - {task_from_db.result_id}")
-                        finalize_registration(session, task_from_db, act[2], update_task_in_db_func, wn_service)
+                                        f" ResultId - {task_from_db.result_id}")
+                        finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
                         break
 
 
-def add_status_to_history_log(session, task_from_db, wn_service, wn_task_status):
+def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
     if not wn_task_status:
         return
 
@@ -218,27 +217,28 @@ def add_status_to_history_log(session, task_from_db, wn_service, wn_task_status)
     else:
         return
 
-    log = log_klass.get_by_ids(session, task_from_db.id, task_from_db.wn_file_id,
-                               task_from_db.wn_task_id, task_from_db.pastel_id)
-    if not log:
-        log = schemas.HistoryLogCreate(
-            task_id=task_from_db.id,
-            wn_file_id=task_from_db.wn_file_id,
-            wn_task_id=task_from_db.wn_task_id,
-            pastel_id=task_from_db.pastel_id,
-            status_messages=wn_task_status,
-            created_at=datetime.utcnow(),
-        )
-        log_klass.create(session, obj_in=log)
-    else:
-        upd = {
-            "status_messages": wn_task_status,
-            "updated_at": datetime.utcnow(),
-        }
-        log_klass.update(session, db_obj=log, obj_in=upd)
+    with db_context() as session:
+        log = log_klass.get_by_ids(session, task_from_db.id, task_from_db.wn_file_id,
+                                   task_from_db.wn_task_id, task_from_db.pastel_id)
+        if not log:
+            log = schemas.HistoryLogCreate(
+                task_id=task_from_db.id,
+                wn_file_id=task_from_db.wn_file_id,
+                wn_task_id=task_from_db.wn_task_id,
+                pastel_id=task_from_db.pastel_id,
+                status_messages=wn_task_status,
+                created_at=datetime.utcnow(),
+            )
+            log_klass.create(session, obj_in=log)
+        else:
+            upd = {
+                "status_messages": wn_task_status,
+                "updated_at": datetime.utcnow(),
+            }
+            log_klass.update(session, db_obj=log, obj_in=upd)
 
 
-def finalize_registration(session, task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):
+def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):
     logger.info(f"{wn_service}: Finalizing registration: {task_from_db.id}")
 
     if wn_service == wn.WalletNodeService.COLLECTION:
@@ -247,7 +247,8 @@ def finalize_registration(session, task_from_db, act_txid, update_task_in_db_fun
             "process_status": DbStatus.DONE.value,
             "updated_at": datetime.utcnow()
         }
-        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+        with db_context() as session:
+            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
         return
 
     stored_file_ipfs_link = task_from_db.stored_file_ipfs_link
@@ -297,32 +298,33 @@ def finalize_registration(session, task_from_db, act_txid, update_task_in_db_fun
     if wn_service == wn.WalletNodeService.NFT:
         upd["nft_dd_file_ipfs_link"] = nft_dd_file_ipfs_link
 
-    logger.info(f"{wn_service}: Updating task in DB as DONE: {task_from_db.reg_ticket_txid}")
-    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
-    if wn_service != wn.WalletNodeService.NFT:      # check for wn.WalletNodeService.COLLECTION was before
-        crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
+    with db_context() as session:
+        logger.info(f"{wn_service}: Updating task in DB as DONE: {task_from_db.reg_ticket_txid}")
+        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+        if wn_service != wn.WalletNodeService.NFT:      # check for wn.WalletNodeService.COLLECTION was before
+            crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
 
-    # Now when all is finalized, see if we need to transfer the ticket to another PastelID
-    if wn_service == wn.WalletNodeService.CASCADE or \
-       wn_service == wn.WalletNodeService.NFT or \
-       wn_service == wn.WalletNodeService.SENSE:
-        if task_from_db.offer_ticket_intended_rcpt_pastel_id:
-            pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
-            logger.info(f"{wn_service}: This ticket {task_from_db.reg_ticket_txid} "
-                         f"has to transferred to another PastelID: {task_from_db.offer_ticket_intended_rcpt_pastel_id}")
-            # check this just for sanity, should not happen!
-            if task_from_db.offer_ticket_txid:
-                logger.warn(f"{wn_service}: Offer ticket already exists!: {task_from_db.offer_ticket_txid}")
-                return
-            offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db,
-                                                               settings.PASTEL_ID, settings.PASTEL_ID_PASSPHRASE,
-                                                               pastel_id))
-            if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
-                logger.info(f"{wn_service}: Updating task in DB as offered to transfer: {task_from_db.reg_ticket_txid}")
-                upd = {"offer_ticket_txid": offer_ticket['txid'],
-                       "offer_ticket_intended_rcpt_pastel_id": pastel_id,
-                       "updated_at": datetime.utcnow()}
-                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+        # Now when all is finalized, see if we need to transfer the ticket to another PastelID
+        if wn_service == wn.WalletNodeService.CASCADE or \
+           wn_service == wn.WalletNodeService.NFT or \
+           wn_service == wn.WalletNodeService.SENSE:
+            if task_from_db.offer_ticket_intended_rcpt_pastel_id:
+                pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
+                logger.info(f"{wn_service}: This ticket {task_from_db.reg_ticket_txid} "
+                             f"has to transferred to another PastelID: {task_from_db.offer_ticket_intended_rcpt_pastel_id}")
+                # check this just for sanity, should not happen!
+                if task_from_db.offer_ticket_txid:
+                    logger.warn(f"{wn_service}: Offer ticket already exists!: {task_from_db.offer_ticket_txid}")
+                    return
+                offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db,
+                                                                   settings.PASTEL_ID, settings.PASTEL_ID_PASSPHRASE,
+                                                                   pastel_id))
+                if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
+                    logger.info(f"{wn_service}: Updating task in DB as offered to transfer: {task_from_db.reg_ticket_txid}")
+                    upd = {"offer_ticket_txid": offer_ticket['txid'],
+                           "offer_ticket_intended_rcpt_pastel_id": pastel_id,
+                           "updated_at": datetime.utcnow()}
+                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
 
 def _mark_task_in_db_as_failed(session,
@@ -345,41 +347,37 @@ def _mark_task_in_db_as_failed(session,
 @shared_task(name="registration_helpers:registration_re_processor")
 def registration_re_processor():
 
-    with db_context() as session:
-        _registration_re_processor(
-            crud.cascade.get_all_failed,
-            crud.cascade.update,
-            _start_reprocess_cascade,
-            wn.WalletNodeService.CASCADE,
-            session
-        )
-        _registration_re_processor(
-            crud.sense.get_all_failed,
-            crud.sense.update,
-            _start_reprocess_sense,
-            wn.WalletNodeService.SENSE,
-            session
-        )
-        _registration_re_processor(
-            crud.nft.get_all_failed,
-            crud.nft.update,
-            _start_reprocess_nft,
-            wn.WalletNodeService.NFT,
-            session
-        )
-        _registration_re_processor(
-            crud.collection.get_all_failed,
-            crud.collection.update,
-            _start_reprocess_collection,
-            wn.WalletNodeService.COLLECTION,
-            session
-        )
+    _registration_re_processor(
+        crud.cascade.get_all_failed,
+        crud.cascade.update,
+        _start_reprocess_cascade,
+        wn.WalletNodeService.CASCADE,
+    )
+    _registration_re_processor(
+        crud.sense.get_all_failed,
+        crud.sense.update,
+        _start_reprocess_sense,
+        wn.WalletNodeService.SENSE,
+    )
+    _registration_re_processor(
+        crud.nft.get_all_failed,
+        crud.nft.update,
+        _start_reprocess_nft,
+        wn.WalletNodeService.NFT,
+    )
+    _registration_re_processor(
+        crud.collection.get_all_failed,
+        crud.collection.update,
+        _start_reprocess_collection,
+        wn.WalletNodeService.COLLECTION,
+    )
 
 
 def _registration_re_processor(all_failed_func, update_task_in_db_func, reprocess_func,
-                               wn_service: wn.WalletNodeService, session):
+                               wn_service: wn.WalletNodeService):
     logger.info(f"{wn_service} registration_re_processor started")
-    tasks_from_db = all_failed_func(session, limit=settings.REGISTRATION_RE_PROCESSOR_LIMIT)
+    with db_context() as session:
+        tasks_from_db = all_failed_func(session, limit=settings.REGISTRATION_RE_PROCESSOR_LIMIT)
     logger.info(f"{wn_service}: Found {len(tasks_from_db)} failed tasks")
     for task_from_db in tasks_from_db:
         try:
@@ -402,7 +400,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                         or (wn_service != wn.WalletNodeService.NFT and not task_from_db.burn_txid) \
                         or not task_from_db.wn_file_id:
                     logger.info(f"Task status is empty, clearing and reprocessing: {task_from_db.result_id}")
-                    _clear_task_in_db(session, task_from_db, update_task_in_db_func, wn_service)
+                    _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
                     # clear_task_in_db sets task's status to RESTARTED
                     reprocess_func(task_from_db)
                     continue
@@ -410,7 +408,8 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                     logger.info(f"Task status is empty, but other data is not empty, "
                                  f"marking as {DbStatus.STARTED.value}: {task_from_db.id}")
                     upd = {"process_status": DbStatus.STARTED.value, "updated_at": datetime.utcnow()}
-                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                    with db_context() as session:
+                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
             if task_from_db.process_status == DbStatus.ERROR.value:
                 if task_from_db.reg_ticket_txid or task_from_db.act_ticket_txid:
@@ -419,11 +418,12 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
                                  f"act_ticket_txid is not empty [{task_from_db.act_ticket_txid}], "
                                  f"marking as {DbStatus.REGISTERED.value}: {task_from_db.result_id}")
                     upd = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
-                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                    with db_context() as session:
+                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                     continue
                 logger.info(f"Task status is {DbStatus.ERROR.value}, "
                              f"clearing and reprocessing: {task_from_db.result_id}")
-                _clear_task_in_db(session, task_from_db, update_task_in_db_func, wn_service)
+                _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service)
                 # clear_task_in_db sets task's status to RESTARTED
                 reprocess_func(task_from_db)
         except Exception as e:
@@ -432,7 +432,7 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
             continue
 
 
-def _clear_task_in_db(session, task_from_db, update_task_in_db_func, wn_service: wn.WalletNodeService):
+def _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service: wn.WalletNodeService):
     logger.info(f"Clearing task: {task_from_db.result_id}")
     if task_from_db.retry_num:
         retries = task_from_db.retry_num + 1
@@ -451,11 +451,12 @@ def _clear_task_in_db(session, task_from_db, update_task_in_db_func, wn_service:
         cleanup["wn_file_id"] = None
         cleanup["wn_fee"] = None
 
-    if wn_service != wn.WalletNodeService.NFT and wn_service != wn.WalletNodeService.COLLECTION:
-        cleanup["burn_txid"] = None
-        if task_from_db.burn_txid:
-            crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
-    update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup)
+    with db_context() as session:
+        if wn_service != wn.WalletNodeService.NFT and wn_service != wn.WalletNodeService.COLLECTION:
+            cleanup["burn_txid"] = None
+            if task_from_db.burn_txid:
+                crud.preburn_tx.mark_non_used(session, task_from_db.burn_txid)
+        update_task_in_db_func(session, db_obj=task_from_db, obj_in=cleanup)
 
 
 def _start_reprocess_cascade(task_from_db):
