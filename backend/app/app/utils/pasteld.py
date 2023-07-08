@@ -22,8 +22,9 @@ def call(method, parameters, nothrow=False):
     response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth)
     logger.info(f"Request to cNode was: "
                 f"URL: {response.request.url}\nMethod: {response.request.method}\nHeaders: "
-                f"{response.request.headers}\nBody: {response.request.body}")
-    logger.info(f"Response from cNode: {response.text}")
+                f"{response.request.headers}")
+    # logger.info(f"Request to cNode was: Body: {response.request.body}")
+    # logger.info(f"Response from cNode: {response.text}")
     if nothrow and response.status_code != 200:
         return response
     response.raise_for_status()

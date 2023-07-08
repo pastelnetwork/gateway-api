@@ -29,9 +29,10 @@ def call(post, service: WalletNodeService, url_cmd, payload, files, headers, ret
         response = requests.post(wn_url, headers=headers, data=payload, files=files)
     else:
         response = requests.get(wn_url, headers=headers, data=payload, files=files)
-    logger.info(f"Request to WalletNode was: "
-                 f"URL: {response.request.url}\nMethod: {response.request.method}\nHeaders: {response.request.headers}\nBody: {response.request.body}")
-    logger.info(f"Response from WalletNode: {response.text}")
+    logger.info(f"Request to WalletNode was: URL: {response.request.url}\nMethod: {response.request.method}"
+                f"\nHeaders: {response.request.headers}")
+    # logger.info(f"Request to WalletNode was: \nBody: {response.request.body}")
+    # logger.info(f"Response from WalletNode: {response.text}")
     if nothrow and response.status_code != 200:
         return response
     response.raise_for_status()
