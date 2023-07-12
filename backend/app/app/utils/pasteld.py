@@ -19,7 +19,14 @@ def call(method, parameters, nothrow=False):
     logger.info(f"Calling cNode as: {payload}")
 
     auth = HTTPBasicAuth(settings.PASTEL_RPC_USER, settings.PASTEL_RPC_PWD)
-    response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth)
+    try:
+        response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth)
+    except Exception as e:
+        logger.error(f"Exception calling pasteld RPC: {e}")
+        send_alert_email(f"Exception calling pasteld RPC: {e}")
+        if nothrow:
+            return None
+        raise PasteldException()
     logger.info(f"Request to cNode was: "
                 f"URL: {response.request.url}\nMethod: {response.request.method}\nHeaders: "
                 f"{response.request.headers}")
@@ -161,14 +168,14 @@ async def create_offer_ticket(task_from_db, current_pastel_id, current_passphras
                                     current_pastel_id, current_passphrase,
                                     0, 0, 1, "",
                                     rcpt_pastel_id],
-                        nothrow=True)
+                        nothrow=True)   # won't throw exception here
     if not offer_ticket or not isinstance(offer_ticket, dict):
         raise HTTPException(status_code=500, detail=f"Failed to create offer ticket: {offer_ticket}")
     return offer_ticket
 
 
 async def verify_message(message, signature, pastel_id) -> bool:
-    response = call('pastelid', ['verify', message, signature, pastel_id], nothrow=True)
+    response = call('pastelid', ['verify', message, signature, pastel_id], nothrow=True)   # won't throw exception here
     if isinstance(response, dict) and 'verification' in response and response['verification'] == 'OK':
         return True
     return False

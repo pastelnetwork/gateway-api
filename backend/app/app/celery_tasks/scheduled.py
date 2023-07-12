@@ -25,12 +25,12 @@ def fee_pre_burner():
     with db_context() as session:
         all_used_or_pending = crud.preburn_tx.get_all_used_or_pending(session)
         for transaction in all_used_or_pending:
-            tx = psl.call("tickets", ["find", "nft", transaction.txid])
+            tx = psl.call("tickets", ["find", "nft", transaction.txid], True)   # won't throw exception
             if tx and (isinstance(tx, dict) or isinstance(tx, list)):
                 if transaction.status == PBTXStatus.PENDING:
                     crud.preburn_tx.mark_used(session, transaction.txid)
                 continue
-            tx = psl.call("tickets", ["find", "action", transaction.txid])
+            tx = psl.call("tickets", ["find", "action", transaction.txid], True)   # won't throw exception
             if tx and (isinstance(tx, dict) or isinstance(tx, list)):
                 if transaction.status == PBTXStatus.PENDING:
                     crud.preburn_tx.mark_used(session, transaction.txid)
@@ -56,7 +56,10 @@ def fee_pre_burner():
         fees = []
         logger.info(f"second: calculate fees")
         for size in range(1, settings.MAX_SIZE_FOR_PREBURN):
-            fee = psl.call("storagefee", ["getactionfees", size])
+            fee = psl.call("storagefee", ["getactionfees", size], True)   # won't throw exception
+            if not fee or not isinstance(fee, int):
+                logger.error(f"Error while getting fee for size {size}")
+                continue
             c_fee = float(fee['cascadefee'] / 5)
             s_fee = float(fee['sensefee'] / 5)
             c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
@@ -68,14 +71,21 @@ def fee_pre_burner():
                 if s_num < settings.MAX_SIZE_FOR_PREBURN-size:
                     fees.append(s_fee)
 
-    height = psl.call("getblockcount", [])
+    height = psl.call("getblockcount", [], True)   # won't throw exception
+    if not fee or not isinstance(fee, int):
+        logger.error(f"Error while getting fee for size {size}")
+        return
 
     logger.info(f"third: burn fees")
     with db_context() as session:
         for burn_amount in fees:
-            if not psl.check_balance(burn_amount):
-                return
-            burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])
+            try:
+                if not psl.check_balance(burn_amount):   # can throw exception here
+                    return
+                burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])   # can throw exception
+            except Exception as e:
+                logger.error(f"Error while burning fee {e}")
+                continue
             crud.preburn_tx.create_new(session,
                                        fee=burn_amount,
                                        height=height,
@@ -90,10 +100,10 @@ def registration_tickets_finder():
         with db_context() as session:
             last_processed_block = crud.reg_ticket.get_last_blocknum(session)
 
-        nft_tickets = psl.call("tickets", ['list', 'nft', 'active', last_processed_block+1], nothrow=True)
+        nft_tickets = psl.call("tickets", ['list', 'nft', 'active', last_processed_block+1], nothrow=True)   # won't throw exception
         process_nft_tickets(nft_tickets, last_processed_block)
 
-        action_ticket = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)
+        action_ticket = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)   # won't throw exception
         process_action_tickets(action_ticket, last_processed_block)
 
 
@@ -238,6 +248,7 @@ def _ticket_activator(all_in_registered_state_func,
     logger.info(f"{service}: Found {len(tasks_from_db)} registered, but not activated tasks")
     for task_from_db in tasks_from_db:
         if task_from_db.pastel_id is None:
+            logger.error(f"{service}: Don't know pastel_id, marking task as DEAD. ResultID = {task_from_db.result_id}")
             upd = {"process_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
             with db_context() as session:
                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
@@ -247,17 +258,26 @@ def _ticket_activator(all_in_registered_state_func,
                         f"caller pastel_id {task_from_db.pastel_id} is not ours")
             continue
         try:
-            logger.info(f"{service}: Parsing registration ticket {task_from_db.reg_ticket_txid}")
+            logger.info(f"{service}: Parsing registration ticket {task_from_db.reg_ticket_txid} to find height")
             height = find_height_in_registration_ticket(task_from_db.reg_ticket_txid, task_from_db.height, service)
             if not height:
+                logger.warn(
+                    f"{service}: Didn't found height in registration ticket. "
+                    f"Skipping for now. ResultID = {task_from_db.result_id}")
                 continue
 
+            logger.info(f"{service}: Check if activation ticket already exists for "
+                        f"registration ticket: {task_from_db.reg_ticket_txid}")
             act_txid = find_action_ticket(task_from_db.reg_ticket_txid, act_ticket_type)
             if act_txid:
                 logger.info(f"{service}: Registration ticket {task_from_db.reg_ticket_txid} "
                             f"already activated: {act_txid}")
             else:
-                network_height = psl.call("getblockcount", [], True)
+                try:
+                    network_height = psl.call("getblockcount", [])   # can throw exception here
+                except Exception as e:
+                    logger.error(f"{service}: Can't get network height, skipping. Error: {e}")
+                    continue
                 if network_height - height < 5:
                     logger.info(f"{service}: There are {network_height - height} blocks after "
                                 f"Registration ticket {task_from_db.reg_ticket_txid} was registered. "
@@ -289,7 +309,11 @@ def _ticket_activator(all_in_registered_state_func,
 
 
 def find_action_ticket(txid: str, ticket_type: str) -> str|None:
-    act_ticket = psl.call("tickets", ["find", ticket_type, txid])
+    try:
+        act_ticket = psl.call("tickets", ["find", ticket_type, txid])   # can throw exception here
+    except Exception as e:
+        logger.error(f"Exception calling pastled to find {ticket_type} ticket: {e}")
+        return None
     if act_ticket and isinstance(act_ticket, dict) and 'txid' in act_ticket and act_ticket['txid']:
         logger.info(f"Found act ticket txid from Pastel network: {act_ticket['txid']}")
         return act_ticket['txid']
@@ -297,15 +321,19 @@ def find_action_ticket(txid: str, ticket_type: str) -> str|None:
 
 
 def create_activation_ticket(task_from_db, height, ticket_type):
-    if not psl.check_balance(task_from_db.wn_fee+1000):
-        return
-    activation_ticket = psl.call('tickets', ['register', ticket_type,
-                                             task_from_db.reg_ticket_txid,
-                                             height,
-                                             task_from_db.wn_fee,
-                                             settings.PASTEL_ID,
-                                             settings.PASTEL_ID_PASSPHRASE]
-                                 )
+    try:
+        if not psl.check_balance(task_from_db.wn_fee + 1000):   # can throw exception here
+            return
+        activation_ticket = psl.call('tickets', ['register', ticket_type,
+                                                 task_from_db.reg_ticket_txid,
+                                                 height,
+                                                 task_from_db.wn_fee,
+                                                 settings.PASTEL_ID,
+                                                 settings.PASTEL_ID_PASSPHRASE]
+                                     )   # can throw exception here
+    except Exception as e:
+        logger.error(f"Exception calling pastled to create {ticket_type} ticket: {e}")
+        return None
     if activation_ticket and 'txid' in activation_ticket:
         logger.info(f"Created {ticket_type} ticket {activation_ticket['txid']}")
         return activation_ticket['txid']
@@ -315,7 +343,11 @@ def create_activation_ticket(task_from_db, height, ticket_type):
 
 
 def find_height_in_registration_ticket(reg_txid, db_height, service: wn.WalletNodeService):
-    reg_ticket = psl.call("tickets", ['get', reg_txid])
+    try:
+        reg_ticket = psl.call("tickets", ['get', reg_txid])   # can throw exception here
+    except Exception as e:
+        logger.error(f"Exception calling pastled to get registration ticket: {e}")
+        return None
     if not reg_ticket:
         logger.error(f"{service}: Registration ticket {reg_txid} not found")
         return None

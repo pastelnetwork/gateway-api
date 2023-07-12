@@ -506,7 +506,7 @@ async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeServ
         raise HTTPException(status_code=501, detail=f"Invalid service type - {service}")
 
     try:
-        reg_ticket = psl.call("tickets", ['get', ticket_txid])
+        reg_ticket = psl.call("tickets", ['get', ticket_txid])   # can throw exception here
     except psl.PasteldException as e:
         raise HTTPException(status_code=404, detail=f"{expected_action_type} registration ticket not found - {e}")
     except HTTPError as e:
@@ -531,7 +531,7 @@ async def get_activation_ticket(ticket_txid, service: wn.WalletNodeService):
         raise HTTPException(status_code=501, detail=f"Invalid service type - {service}")
 
     try:
-        act_ticket = psl.call("tickets", ['get', ticket_txid])
+        act_ticket = psl.call("tickets", ['get', ticket_txid])   # can throw exception here
     except psl.PasteldException as e:
         raise HTTPException(status_code=501, detail=f"{expected_action_type} activation ticket not found - {e}")
     except HTTPError as e:
@@ -554,7 +554,7 @@ async def get_activation_ticket(ticket_txid, service: wn.WalletNodeService):
 
 async def get_registration_nft_ticket(ticket_txid):
     try:
-        reg_ticket = psl.call("tickets", ['get', ticket_txid])
+        reg_ticket = psl.call("tickets", ['get', ticket_txid])   # can throw exception here
     except psl.PasteldException as e:
         raise HTTPException(status_code=404, detail=f"NFT registration ticket not found - {e}")
     except HTTPError as e:
@@ -618,7 +618,7 @@ def decode_decompress_item(json_object: dict, key: str):
 
 async def get_reg_txid_by_act_txid(act_txid: str) -> str:
     try:
-        act_ticket = psl.call("tickets", ['get', act_txid])
+        act_ticket = psl.call("tickets", ['get', act_txid])   # can throw exception here
     except psl.PasteldException as e:
         raise HTTPException(status_code=501, detail=f"Action Activation ticket not found - {e}")
     except Exception as e:
@@ -634,7 +634,7 @@ async def get_reg_txid_by_act_txid(act_txid: str) -> str:
 async def get_reg_txids_by_pastel_id(pastel_id: str, ticket_type: str) -> List[str]:
     txids = []
     try:
-        reg_tickets = psl.call("tickets", ['find', ticket_type, pastel_id])
+        reg_tickets = psl.call("tickets", ['find', ticket_type, pastel_id])   # can throw exception here
     except psl.PasteldException as e:
         raise HTTPException(status_code=501, detail=f"Action registration ticket not found - {e}")
     except Exception as e:

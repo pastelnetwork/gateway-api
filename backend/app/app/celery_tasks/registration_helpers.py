@@ -95,7 +95,7 @@ def _registration_finisher(
                 if (wn_service == wn.WalletNodeService.SENSE or wn_service == wn.WalletNodeService.CASCADE) \
                         and task_from_db.burn_txid:
                     try:
-                        reg_ticket = psl.call("tickets", ["find", "action", task_from_db.burn_txid])
+                        reg_ticket = psl.call("tickets", ["find", "action", task_from_db.burn_txid])   # can throw exception here
                     except Exception as e:
                         logger.error(f"Call to PastelD failed: {e}")
                         reg_ticket = None
@@ -111,7 +111,7 @@ def _registration_finisher(
                 logger.error(f"No result from WalletNode: wn_task_id - {task_from_db.wn_task_id}, "
                              f"ResultId - {task_from_db.result_id}")
                 try:
-                    height = psl.call("getblockcount", [])
+                    height = psl.call("getblockcount", [])   # can throw exception here
                 except Exception as e:
                     logger.error(f"Call to PastelD failed: {e}")
                     height = 0
@@ -174,7 +174,7 @@ def _registration_finisher(
                 if not task_from_db.act_ticket_txid:
                     if task_from_db.reg_ticket_txid:
                         try:
-                            act_ticket = psl.call("tickets", ['find', verb, task_from_db.reg_ticket_txid])
+                            act_ticket = psl.call("tickets", ['find', verb, task_from_db.reg_ticket_txid])   # can throw exception here
                         except Exception as e:
                             logger.error(f"Call to PastelD failed: {e}")
                             act_ticket = None

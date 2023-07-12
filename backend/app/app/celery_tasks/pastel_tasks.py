@@ -73,6 +73,7 @@ class PastelAPITask(celery.Task):
         wn_file_id = ''
         returned_fee = 0
         if not task_in_db:
+            # can throw exception here - this is celery task, it will retry it on specific exceptions
             height = psl.call("getblockcount", [])
             logger.info(f'{service}: New file - adding record to DB... [Result ID: {result_id}]')
             logger.info(f'{service}: Ticket will be created at height {height} [Result ID: {result_id}]')
@@ -143,10 +144,11 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        if not psl.check_balance(task_from_db.wn_fee):
+        if not psl.check_balance(task_from_db.wn_fee):   # can throw exception here
             retry_func()
 
         preburn_fee = task_from_db.wn_fee/5
+        # can throw exception here - this is celery task, it will retry it on specific exceptions
         height = psl.call("getblockcount", [])
 
         if task_from_db.burn_txid:
@@ -167,11 +169,12 @@ class PastelAPITask(celery.Task):
                         break
                     if check_preburn_tx(session, burn_tx.txid):
                         logger.info(f'{service}: Found burn tx in [{burn_tx.txid}] preburn table... '
-                                     f'[Result ID: {result_id}]')
+                                    f'[Result ID: {result_id}]')
                         break
 
                 if not burn_tx:
                     logger.info(f'{service}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
+                    # can throw exception here - this is celery task, it will retry it on specific exceptions
                     burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, preburn_fee])
                     burn_tx = crud.preburn_tx.create_new_bound(session,
                                                                fee=preburn_fee,
@@ -230,7 +233,7 @@ class PastelAPITask(celery.Task):
             logger.error(f'{service}: Wrong WN file ID for result_id {result_id}')
             raise PastelAPIException(f'{service}: Wrong WN file ID for result_id {result_id}')
 
-        if not psl.check_balance(task_from_db.wn_fee):
+        if not psl.check_balance(task_from_db.wn_fee):   # can throw exception here
             retry_func()
 
         ok, err_msg = self.check_specific_conditions(task_from_db)
@@ -244,7 +247,7 @@ class PastelAPITask(celery.Task):
         if not task_from_db.wn_task_id:
             logger.info(f'{service}: Calling "WN Start"... [Result ID: {result_id}]')
 
-            form = self.get_request_form(task_from_db)
+            form = self.get_request_form(task_from_db)   # can throw exception here
 
             if service == wn.WalletNodeService.NFT:
                 cmd = 'register'
@@ -399,11 +402,11 @@ class PastelAPIException(Exception):
 
 def check_preburn_tx(session, txid: str):
     try:
-        tx = psl.call("tickets", ["find", "nft", txid])
+        tx = psl.call("tickets", ["find", "nft", txid])   # can throw exception here
         if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-            tx = psl.call("tickets", ["find", "action", txid])
+            tx = psl.call("tickets", ["find", "action", txid])   # can throw exception here
             if not tx or (not isinstance(tx, dict) and not isinstance(tx, list)):
-                tx = psl.call("getrawtransaction", [txid], True)
+                tx = psl.call("getrawtransaction", [txid], True)   # WON'T throw exception here
                 if not tx \
                         or ("status_code" in tx and tx.status_code != 200) \
                         or (isinstance(tx, dict) and (tx.get('error') or tx.get('result') is None)):

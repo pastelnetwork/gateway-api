@@ -37,12 +37,14 @@ class NftAPITask(PastelAPITask):
                                      f"maximum_fee [{task_from_db.nft_properties['maximum_fee']}]")
 
         if maximum_fee == 0:
+            # can throw exception here - this called from celery task, it will retry it on specific exceptions
             storage_fees = psl.call("storagefee", ["getnetworkfee"])
             if storage_fees and "networkfee" in storage_fees:
                 maximum_fee = storage_fees["networkfee"]*settings.NFT_DEFAULT_MAX_FILE_SIZE_FOR_FEE_IN_MB
             else:
                 raise PastelAPIException(f"Failed to call 'storagefee getnetworkfee'")
 
+        # can throw exception here - this called from celery task, it will retry it on specific exceptions
         address_list = psl.call("listaddressamounts", [])
         spendable_address = None
         if address_list:

@@ -32,6 +32,7 @@ class CollectionsAPITask(PastelAPITask):
         PastelAPITask.on_failure_base(args, crud.collection.get_by_result_id, crud.collection.update)
 
     def get_request_form(self, task_from_db) -> str:
+        # can throw exception here - this called from celery task, it will retry it on specific exceptions
         address_list = psl.call("listaddressamounts", [])
         spendable_address = None
         if address_list:
@@ -87,6 +88,7 @@ def register(self, result_id, user_id,
 
     logger.info(f'Collection-{item_type} New file - adding record to DB... [Result ID: {result_id}]')
 
+    # can throw exception here - this called from celery task, it will retry it on specific exceptions
     height = psl.call("getblockcount", [])
     logger.info(f'Collection-{item_type}: Ticket will be created at height {height} [Result ID: {result_id}]')
 
@@ -133,7 +135,7 @@ def process(self, result_id) -> str:
                     f'Should be {DbStatus.RESTARTED.value} OR {DbStatus.NEW.value}... [Result ID: {result_id}]')
         return result_id
 
-    form = self.get_request_form(task_from_db)
+    form = self.get_request_form(task_from_db)   # can throw exception here
 
     logger.info(f'Collection-{task_from_db.item_type}: Calling WN to start collection ticket registration [Result ID: {result_id}]')
     wn_task_id = ""
