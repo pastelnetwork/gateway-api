@@ -30,8 +30,9 @@ def call(method, parameters, nothrow=False):
     logger.info(f"Request to cNode was: "
                 f"URL: {response.request.url}\nMethod: {response.request.method}\nHeaders: "
                 f"{response.request.headers}")
-    # logger.info(f"Request to cNode was: Body: {response.request.body}")
-    # logger.info(f"Response from cNode: {response.text}")
+    if response.status_code != 200:
+        logger.info(f"Request to cNode was: Body: {response.request.body}")
+        logger.info(f"Response from cNode: {response.text}")
     if nothrow and response.status_code != 200:
         return response
     response.raise_for_status()
