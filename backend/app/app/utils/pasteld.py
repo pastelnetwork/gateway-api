@@ -20,7 +20,13 @@ def call(method, parameters, nothrow=False):
 
     auth = HTTPBasicAuth(settings.PASTEL_RPC_USER, settings.PASTEL_RPC_PWD)
     try:
-        response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth)
+        response = requests.post(settings.PASTEL_RPC_URL, payload, auth=auth, timeout=600)
+    except requests.Timeout as te:
+        logger.error(f"Timeout calling pasteld RPC: {te}")
+        send_alert_email(f"Timeout calling pasteld RPC: {te}")
+        if nothrow:
+            return None
+        raise PasteldException()
     except Exception as e:
         logger.error(f"Exception calling pasteld RPC: {e}")
         send_alert_email(f"Exception calling pasteld RPC: {e}")
@@ -33,8 +39,8 @@ def call(method, parameters, nothrow=False):
     if response.status_code != 200:
         logger.info(f"Request to cNode was: Body: {response.request.body}")
         logger.info(f"Response from cNode: {response.text}")
-    if nothrow and response.status_code != 200:
-        return response
+        if nothrow:
+            return response
     response.raise_for_status()
     resp = response.json()
     if not resp or not resp["result"]:
@@ -111,10 +117,10 @@ async def parse_registration_action_ticket(reg_ticket, expected_ticket_type, exp
                     reg_ticket["ticket"]["action_ticket"]["api_ticket"] = json.loads(api_ticket_str)
                 except ValueError as ve:
                     logger.warning(f"Failed to base64 decode api_ticket in the {expected_action_type} "
-                                    f"with extra padding registration ticket: {ve}")
+                                   f"with extra padding registration ticket: {ve}")
             else:
                 logger.warning(f"Failed to base64 decode api_ticket in the {expected_action_type} "
-                                f"registration ticket: {ve}")
+                               f"registration ticket: {ve}")
 
     return reg_ticket
 
@@ -154,10 +160,10 @@ async def parse_registration_nft_ticket(reg_ticket):
                     reg_ticket["ticket"]["nft_ticket"]["app_ticket"] = json.loads(app_ticket_str)
                 except ValueError as ve:
                     logger.warning(f"Failed to base64 decode api_ticket in the NFT "
-                                    f"with extra padding registration ticket: {ve}")
+                                   f"with extra padding registration ticket: {ve}")
             else:
                 logger.warning(f"Failed to base64 decode app_ticket in the NFT "
-                                f"registration ticket: {ve}")
+                               f"registration ticket: {ve}")
 
     return reg_ticket
 

@@ -4,8 +4,10 @@ import requests
 from enum import Enum
 
 from app.core.config import settings
+from app.utils.authentication import send_alert_email
 
 logger = logging.getLogger(__name__)
+
 
 class WalletNodeService(Enum):
     NFT = 'nfts'
@@ -25,16 +27,29 @@ def call(post, service: WalletNodeService, url_cmd, payload, files, headers, ret
 
     logger.info(f"Calling WalletNode with: header: {headers} and payload: {payload}")
 
-    if post:
-        response = requests.post(wn_url, headers=headers, data=payload, files=files)
-    else:
-        response = requests.get(wn_url, headers=headers, data=payload, files=files)
+    try:
+        if post:
+            response = requests.post(wn_url, headers=headers, data=payload, files=files, timeout=300)
+        else:
+            response = requests.get(wn_url, headers=headers, data=payload, files=files, timeout=300)
+    except requests.Timeout as te:
+        logger.error(f"Timeout calling WalletNode: {te}")
+        send_alert_email(f"Timeout calling pasteld RPC: {te}")
+        if nothrow:
+            return None
+        raise WalletnodeException()
+    except Exception as e:
+        logger.error(f"Exception calling WalletNode: {e}")
+        if nothrow:
+            return None
+        raise WalletnodeException()
     logger.info(f"Request to WalletNode was: URL: {response.request.url}\nMethod: {response.request.method}"
                 f"\nHeaders: {response.request.headers}")
-    # logger.info(f"Request to WalletNode was: \nBody: {response.request.body}")
-    # logger.info(f"Response from WalletNode: {response.text}")
-    if nothrow and response.status_code != 200:
-        return response
+    if response.status_code != 200:
+        logger.info(f"Request to WalletNode was: \nBody: {response.request.body}")
+        logger.info(f"Response from WalletNode: {response.text}")
+        if nothrow:
+            return response
     response.raise_for_status()
 
     upload_resp = response.json()
@@ -92,6 +107,7 @@ async def get_file_from_pastel(*, reg_ticket_txid, wn_service: WalletNodeService
         logger.error(wn_resp.text)
     return None
 
+
 async def get_nft_dd_result_from_pastel(*, reg_ticket_txid):
     wn_resp = call(False,
                    WalletNodeService.NFT,
@@ -107,6 +123,7 @@ async def get_nft_dd_result_from_pastel(*, reg_ticket_txid):
         return await decode_wn_return(wn_resp, reg_ticket_txid)
     return None
 
+
 async def download_file_from_wn_by_id(file_id, reg_ticket_txid):
     logger.info(f"download_file_from_wn_by_id: file_id = {file_id}; reg_ticket_txid = {reg_ticket_txid}")
     try:
@@ -118,15 +135,18 @@ async def download_file_from_wn_by_id(file_id, reg_ticket_txid):
         file_response = requests.request("GET", file_url, headers=headers, data=payload)
         if file_response.status_code != 200:
             logger.info(f"Calling cNode as: "
-                          f"URL: {file_response.request.url}\nMethod: {file_response.request.method}\nHeaders: {file_response.request.headers}\nBody: {file_response.request.body}")
+                        f"URL: {file_response.request.url}\nMethod: {file_response.request.method}"
+                        f"\nHeaders: {file_response.request.headers}\nBody: {file_response.request.body}")
             logger.info(f"Response from cNode: {file_response.text}")
             logger.error(f"Pastel file not found - reg ticket txid = {reg_ticket_txid}: error in wn/files response")
         else:
-            logger.info(f"download_file_from_wn_by_id: got file. file_id = {file_id}; reg_ticket_txid = {reg_ticket_txid}")
+            logger.info(f"download_file_from_wn_by_id: got file. file_id = {file_id}; "
+                        f"reg_ticket_txid = {reg_ticket_txid}")
             return file_response.content
     except Exception as e:
         logger.error(f"Exception while downloading file from WN {e} - reg ticket txid = {reg_ticket_txid}")
     return None
+
 
 async def decode_wn_return(wn_data, reg_ticket_txid):
     data_bytes = None
