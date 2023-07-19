@@ -47,17 +47,26 @@ def fee_pre_burner():
                 continue
             crud.preburn_tx.mark_non_used(session, transaction.txid)
 
+    height = psl.call("getblockcount", [], True)   # won't throw exception
+    if not height or not isinstance(height, int):
+        logger.error(f"Error while getting height from cNode")
+        return
+
     with db_context() as session:
         all_new = crud.preburn_tx.get_all_new(session)
         for new in all_new:
-            check_preburn_tx(session, new.txid)
+            if new.height + 5 < height:
+                check_preburn_tx(session, new.txid)
 
     with db_context() as session:
         fees = []
         logger.info(f"second: calculate fees")
         for size in range(1, settings.MAX_SIZE_FOR_PREBURN):
             fee = psl.call("storagefee", ["getactionfees", size], True)   # won't throw exception
-            if not fee or not isinstance(fee, int):
+            if not fee or not isinstance(fee, dict):
+                logger.error(f"Error while getting fee for size {size}")
+                continue
+            if 'cascadefee' not in fee or 'sensefee' not in fee:
                 logger.error(f"Error while getting fee for size {size}")
                 continue
             c_fee = float(fee['cascadefee'] / 5)
@@ -72,8 +81,8 @@ def fee_pre_burner():
                     fees.append(s_fee)
 
     height = psl.call("getblockcount", [], True)   # won't throw exception
-    if not fee or not isinstance(fee, int):
-        logger.error(f"Error while getting fee for size {size}")
+    if not height or not isinstance(height, int):
+        logger.error(f"Error while getting height from cNode")
         return
 
     logger.info(f"third: burn fees")

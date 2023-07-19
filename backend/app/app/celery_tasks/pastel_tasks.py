@@ -168,16 +168,32 @@ class PastelAPITask(celery.Task):
                             f'bound to the task [Result ID: {result_id}]')
             else:
                 logger.info(f'{service}: Searching burn tx in preburn table... [Result ID: {result_id}]')
+                have_pending = 0
                 while True:
                     burn_tx = crud.preburn_tx.get_non_used_by_fee(session, fee=preburn_fee)
                     if not burn_tx:
                         break
+                    if burn_tx.height + 5 > height:
+                        logger.info(f'{service}: Found burn tx [{burn_tx.txid}] in preburn table, but it is '
+                                    f'not confirmed yet. Skipping... [Result ID: {result_id}]')
+                        have_pending += 1
+                        continue
                     if check_preburn_tx(session, burn_tx.txid):
                         logger.info(f'{service}: Found burn tx in [{burn_tx.txid}] preburn table... '
                                     f'[Result ID: {result_id}]')
                         break
 
                 if not burn_tx:
+                    if have_pending > 0:
+                        logger.info(f'{service}: Found {have_pending} pre-burn txs in preburn table, but they are '
+                                    f'not confirmed yet. Retrying... [Result ID: {result_id}]')
+                        upd = {
+                            "process_status_message": f'Found {have_pending} pre-burn txs in preburn table, '
+                                                      f'but they are not confirmed yet. Retrying',\
+                            "updated_at": datetime.utcnow(), }
+                        update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
+                        retry_func()
+
                     logger.info(f'{service}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
                     # can throw exception here - this is celery task, it will retry it on specific exceptions
                     burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, preburn_fee])
@@ -191,7 +207,7 @@ class PastelAPITask(celery.Task):
                                 f'bounding it to the task [Result ID: {result_id}]')
                     burn_tx = crud.preburn_tx.bind_pending_to_result(session, burn_tx,
                                                                      result_id=result_id)
-            if burn_tx.height > height - 5:
+            if burn_tx.height + 5 > height:
                 logger.info(f'{service}: Pre-burn tx [{burn_tx.txid}] not confirmed yet, '
                             f'retrying... [Result ID: {result_id}]')
                 upd = {"process_status_message": f'Pre-burn tx [{burn_tx.txid}] not confirmed yet. Retrying',
