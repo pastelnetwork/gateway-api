@@ -34,7 +34,7 @@ def call(post, service: WalletNodeService, url_cmd, payload, files, headers, ret
             response = requests.get(wn_url, headers=headers, data=payload, files=files, timeout=300)
     except requests.Timeout as te:
         logger.error(f"Timeout calling WalletNode: {te}")
-        send_alert_email(f"Timeout calling pasteld RPC: {te}")
+        send_alert_email(f"Timeout calling WalletNode RPC: {te}")
         if nothrow:
             return None
         raise WalletnodeException()
