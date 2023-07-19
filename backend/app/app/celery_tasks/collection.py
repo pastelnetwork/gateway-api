@@ -6,7 +6,7 @@ from datetime import datetime
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
-from .pastel_tasks import PastelAPITask, PastelAPIException
+from .pastel_tasks import PastelAPITask, PastelAPIException, set_status_message
 from app.core.status import DbStatus
 from app import crud, schemas
 from app.utils.walletnode import WalletNodeService, WalletnodeException
@@ -152,10 +152,12 @@ def process(self, result_id) -> str:
                              "task_id", "")
     except Exception as e:
         logger.error(f'Collections-{task_from_db.item_type}: Error calling "WN Start" for result_id. Retrying! {result_id}: {e}')
+        set_status_message(f'Collections-{task_from_db.item_type}: Error calling "WN Start" - {e}. Retrying')
         register.retry()
 
     if not wn_task_id:
         logger.error(f'Collections-{task_from_db.item_type}: No wn_task_id returned from WN for result_id {result_id}')
+        set_status_message(f'Collections-{task_from_db.item_type}: No wn_task_id returned from WN. Throwing exception')
         raise Exception(f'Collections-{task_from_db.item_type}: No wn_task_id returned from WN for result_id {result_id}')
 
     logger.info(f'Collections-{task_from_db.item_type}: WN {task_from_db.item_type} register process started: '
@@ -164,6 +166,7 @@ def process(self, result_id) -> str:
     upd = {
         "wn_task_id": wn_task_id,
         "process_status": DbStatus.STARTED.value,
+        "process_status_message": "Collection ticket registration started",
         "updated_at": datetime.utcnow(),
     }
     with db_context() as session:

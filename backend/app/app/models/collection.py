@@ -26,6 +26,7 @@ class Collection(Base):
     green = Column(Boolean, default=False)
     height = Column(Integer, index=True)
     process_status = Column(String, index=True)
+    process_status_message = Column(String)
     spendable_address = Column(String, index=True)
     retry_num = Column(Integer, default=0)
     wn_task_id = Column(String, index=True)

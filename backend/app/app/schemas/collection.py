@@ -19,6 +19,7 @@ class CollectionBase(BaseModel):
     green: bool
     height: int
     process_status: str
+    process_status_message: Optional[str]
     retry_num: Optional[int] = None
     spendable_address: Optional[str]
     wn_task_id: Optional[str]

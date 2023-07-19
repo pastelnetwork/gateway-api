@@ -90,7 +90,8 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
             .filter(
                 sa.and_(
                     PreBurnTx.result_id == result_id,
-                    PreBurnTx.status != "USED"
+                    PreBurnTx.status != "USED",
+                    PreBurnTx.status != "BAD",
                 )
             )
             .first())

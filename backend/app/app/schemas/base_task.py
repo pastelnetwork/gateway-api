@@ -11,6 +11,7 @@ class BaseTaskBase(BaseModel):
     original_file_local_path: str
     request_id: str
     process_status: str
+    process_status_message: Optional[str]
     result_id: str
     wn_file_id: str
     wn_fee: int

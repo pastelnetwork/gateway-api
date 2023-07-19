@@ -32,6 +32,7 @@ class BaseTask(Base):
     wn_fee = Column(Integer)
     height = Column(Integer, index=True)
     process_status = Column(String, index=True)
+    process_status_message = Column(String)
     retry_num = Column(Integer, default=0)
 
     reg_ticket_txid = Column(String, index=True)
