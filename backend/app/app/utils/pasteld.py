@@ -36,7 +36,7 @@ def call(method, parameters, nothrow=False):
     logger.info(f"Request to cNode was: "
                 f"URL: {response.request.url}\nMethod: {response.request.method}\nHeaders: "
                 f"{response.request.headers}")
-    if response.status_code != 200:
+    if 400 <= response.status_code < 600:
         logger.info(f"Request to cNode was: Body: {response.request.body}")
         logger.info(f"Response from cNode: {response.text}")
         if nothrow:

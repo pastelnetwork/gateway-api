@@ -45,7 +45,7 @@ def call(post, service: WalletNodeService, url_cmd, payload, files, headers, ret
         raise WalletnodeException()
     logger.info(f"Request to WalletNode was: URL: {response.request.url}\nMethod: {response.request.method}"
                 f"\nHeaders: {response.request.headers}")
-    if response.status_code != 200:
+    if 400 <= response.status_code < 600:
         logger.info(f"Request to WalletNode was: \nBody: {response.request.body}")
         logger.info(f"Response from WalletNode: {response.text}")
         if nothrow:
