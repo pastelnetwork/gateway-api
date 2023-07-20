@@ -151,14 +151,18 @@ def process(self, result_id) -> str:
                              },
                              "task_id", "")
     except Exception as e:
-        logger.error(f'Collections-{task_from_db.item_type}: Error calling "WN Start" for result_id. Retrying! {result_id}: {e}')
-        set_status_message(f'Collections-{task_from_db.item_type}: Error calling "WN Start" - {e}. Retrying')
+        logger.error(f'Collections-{task_from_db.item_type}: '
+                     f'Error calling "WN Start" for result_id. Retrying! {result_id}: {e}')
+        set_status_message(crud.collection.update, task_from_db,
+                           f'Collections-{task_from_db.item_type}: Error calling "WN Start" - {e}. Retrying')
         register.retry()
 
     if not wn_task_id:
         logger.error(f'Collections-{task_from_db.item_type}: No wn_task_id returned from WN for result_id {result_id}')
-        set_status_message(f'Collections-{task_from_db.item_type}: No wn_task_id returned from WN. Throwing exception')
-        raise Exception(f'Collections-{task_from_db.item_type}: No wn_task_id returned from WN for result_id {result_id}')
+        set_status_message(crud.collection.update, task_from_db,
+                           f'Collections-{task_from_db.item_type}: No wn_task_id returned from WN. Throwing exception')
+        raise Exception(f'Collections-{task_from_db.item_type}: '
+                        f'No wn_task_id returned from WN for result_id {result_id}')
 
     logger.info(f'Collections-{task_from_db.item_type}: WN {task_from_db.item_type} register process started: '
                 f'wn_task_id {wn_task_id} result_id {result_id}')

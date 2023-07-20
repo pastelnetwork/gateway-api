@@ -95,17 +95,17 @@ class PastelAPITask(celery.Task):
                                               id_field_name, fee_field_name)
         except Exception as e:
             logger.warn(f'{service}: Upload call failed for file {local_file.name} - {e}. Retrying...')
-            set_status_message(task_in_db, f'Upload call failed for file {local_file.name} - {e}')
+            set_status_message(update_task_in_db_func, task_in_db, f'Upload call failed for file {local_file.name} - {e}')
             retry_func()
 
         if not wn_file_id:
             logger.warn(f'{service}: Upload call failed for file {local_file.name} - "wn_file_id" is empty. '
                         f'retrying...')
-            set_status_message(task_in_db, f'Upload call failed for file {local_file.name} - "wn_file_id" is empty. Retrying')
+            set_status_message(update_task_in_db_func, task_in_db, f'Upload call failed for file {local_file.name} - "wn_file_id" is empty. Retrying')
             retry_func()
         if returned_fee <= 0:
             logger.warn(f'{service}: Wrong WN Fee {returned_fee} for file {local_file.name}, retrying...')
-            set_status_message(task_in_db, f'Wrong WN Fee {returned_fee} for file {local_file.name}. Retrying')
+            set_status_message(update_task_in_db_func, task_in_db, f'Wrong WN Fee {returned_fee} for file {local_file.name}. Retrying')
             retry_func()
 
         total_fee = returned_fee*fee_multiplier
@@ -149,7 +149,7 @@ class PastelAPITask(celery.Task):
             return result_id
 
         if not psl.check_balance(task_from_db.wn_fee):   # can throw exception here
-            set_status_message(task_from_db, f'Not enough balance to pay for pre-burn fee. Retrying')
+            set_status_message(update_task_in_db_func, task_from_db, f'Not enough balance to pay for pre-burn fee. Retrying')
             retry_func()
 
         preburn_fee = task_from_db.wn_fee/5
@@ -191,7 +191,7 @@ class PastelAPITask(celery.Task):
                             "process_status_message": f'Found {have_pending} pre-burn txs in preburn table, '
                                                       f'but they are not confirmed yet. Retrying',\
                             "updated_at": datetime.utcnow(), }
-                        update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
+                        update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                         retry_func()
 
                     logger.info(f'{service}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
@@ -212,7 +212,7 @@ class PastelAPITask(celery.Task):
                             f'retrying... [Result ID: {result_id}]')
                 upd = {"process_status_message": f'Pre-burn tx [{burn_tx.txid}] not confirmed yet. Retrying',
                        "updated_at": datetime.utcnow(),}
-                update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
+                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                 retry_func()
 
             logger.info(f'{service}: Have confirmed burn tx [{burn_tx.txid}], for the task [Result ID: {result_id}]')
@@ -252,22 +252,22 @@ class PastelAPITask(celery.Task):
 
         if task_from_db.wn_fee == 0:
             logger.error(f'{service}: Wrong WN Fee for result_id {result_id}')
-            set_status_message(task_from_db, f'Wrong WN Fee. Throwing exception')
+            set_status_message(update_task_in_db_func, task_from_db, f'Wrong WN Fee. Throwing exception')
             raise PastelAPIException(f'{service}: Wrong WN Fee for result_id {result_id}')
 
         if not task_from_db.wn_file_id:
             logger.error(f'{service}: Wrong WN file ID for result_id {result_id}')
-            set_status_message(task_from_db, f'Wrong WN file ID. Throwing exception')
+            set_status_message(update_task_in_db_func, task_from_db, f'Wrong WN file ID. Throwing exception')
             raise PastelAPIException(f'{service}: Wrong WN file ID for result_id {result_id}')
 
         if not psl.check_balance(task_from_db.wn_fee):   # can throw exception here
-            set_status_message(task_from_db, f'Not enough balance to pay WN Fee. Retrying')
+            set_status_message(update_task_in_db_func, task_from_db, f'Not enough balance to pay WN Fee. Retrying')
             retry_func()
 
         ok, err_msg = self.check_specific_conditions(task_from_db)
         if not ok:
             logger.info(err_msg)
-            set_status_message(task_from_db, err_msg)
+            set_status_message(update_task_in_db_func, task_from_db, err_msg)
             return result_id
 
         original_file_ipfs_link = task_from_db.original_file_ipfs_link
@@ -296,12 +296,12 @@ class PastelAPITask(celery.Task):
                                      "task_id", "")
             except Exception as e:
                 logger.error(f'{service}: Error calling "WN Start" for result_id {result_id}: {e}')
-                set_status_message(task_from_db, f'Error calling "WN Start" - {e}. Retrying')
+                set_status_message(update_task_in_db_func, task_from_db, f'Error calling "WN Start" - {e}. Retrying')
                 retry_func()
 
             if not wn_task_id:
                 logger.error(f'{service}: No wn_task_id returned from WN for result_id {result_id}')
-                set_status_message(task_from_db, f'No wn_task_id returned from WN. Throwing exception')
+                set_status_message(update_task_in_db_func, task_from_db, f'No wn_task_id returned from WN. Throwing exception')
                 raise Exception(f'{service}: No wn_task_id returned from WN for result_id {result_id}')
 
             logger.info(f'{service}: WN register process started: wn_task_id {wn_task_id} result_id {result_id}')
@@ -388,18 +388,18 @@ class PastelAPITask(celery.Task):
                                               id_field_name, fee_field_name)
         except Exception as e:
             logger.error(f'{service}: Error calling "WN Start" for result_id {result_id}: {e}')
-            set_status_message(task_from_db, f'Error calling "WN Start" - {e}. Throwing exception')
+            set_status_message(update_task_in_db_func, task_from_db, f'Error calling "WN Start" - {e}. Throwing exception')
             raise e
 
         if not wn_file_id:
             logger.error(f'{service}: Upload call failed for file '
-                        f'{task_from_db.original_file_name} - "wn_file_id" is empty. Retrying...')
-            set_status_message(task_from_db, f'Upload call failed for file {task_from_db.original_file_name}. Throwing exception')
+                         f'{task_from_db.original_file_name} - "wn_file_id" is empty. Retrying...')
+            set_status_message(update_task_in_db_func, task_from_db, f'Upload call failed for file {task_from_db.original_file_name}. Throwing exception')
             raise PastelAPIException(f'{service}: Upload call failed for file {task_from_db.original_file_name}')
         if returned_fee <= 0:
             logger.error(f'{service}: Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name},'
-                        f' retrying...')
-            set_status_message(task_from_db, f'Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name}. Throwing exception')
+                         f' retrying...')
+            set_status_message(update_task_in_db_func, task_from_db, f'Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name}. Throwing exception')
             raise PastelAPIException(f'{service}: Wrong WN Fee {returned_fee} for file '
                                      f'{task_from_db.original_file_name}')
 
@@ -461,7 +461,8 @@ def check_preburn_tx(session, txid: str):
         logger.error(f"Error checking transaction {txid} in the blockchain: {e}")
     return False    # tx is used by some reg ticket
 
-def set_status_message(task_in_db, message: str):
+
+def set_status_message(update_task_in_db_func, task_in_db, message: str):
     upd = {
         "process_status_message": message,
         "updated_at": datetime.utcnow(),

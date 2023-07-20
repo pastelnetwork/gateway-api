@@ -678,7 +678,7 @@ async def compute_hash(upload_file: UploadFile, chunk_size: int = 8192):
     return result
 
 
-async def check_file_is_not_empty(file: UploadFile) -> schemas.ResultRegistrationResult|None:
+async def check_file_is_not_empty(file: UploadFile) -> schemas.ResultRegistrationResult | None:
     if file.filename == "":
         return schemas.ResultRegistrationResult(
             result_status=schemas.Status.ERROR,
@@ -706,7 +706,7 @@ async def check_file_is_not_empty(file: UploadFile) -> schemas.ResultRegistratio
     return None
 
 
-async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult:
+async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult | None:
     if "image" not in file.content_type:
         return schemas.ResultRegistrationResult(
             result_status=schemas.Status.ERROR,
@@ -718,7 +718,7 @@ async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult:
     image_hash = await compute_hash(file)
     tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=image_hash)
     if len(tickets) > 0:
-        message = { "error": "This file has already been registered", "reg_ticket_txid":  tickets[0].reg_ticket_txid}
+        message = {"error": "This file has already been registered", "reg_ticket_txid":  tickets[0].reg_ticket_txid}
 
         return schemas.ResultRegistrationResult(
             result_status=schemas.Status.ERROR,
@@ -728,6 +728,7 @@ async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult:
         )
 
     return None
+
 
 async def transfer_ticket(db, result_id, user_id, pastel_id,
                           get_result_func, update_func):

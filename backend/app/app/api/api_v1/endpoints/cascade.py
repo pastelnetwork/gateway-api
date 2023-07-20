@@ -3,14 +3,12 @@ import zipfile
 import io
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from datetime import datetime
 
 import app.celery_tasks.cascade as cascade
 import app.db.session as session
 from app.api import deps, common
 from app import models, crud, schemas
 import app.utils.walletnode as wn
-import app.utils.pasteld as psl
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs
 
 router = APIRouter()
