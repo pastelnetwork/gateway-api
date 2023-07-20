@@ -61,7 +61,7 @@ def fee_pre_burner():
     with db_context() as session:
         fees = []
         logger.info(f"second: calculate fees")
-        for size in range(1, settings.MAX_SIZE_FOR_PREBURN):
+        for size in range(1, settings.MAX_SIZE_FOR_PREBURN+1):
             fee = psl.call("storagefee", ["getactionfees", size], True)   # won't throw exception
             if not fee or not isinstance(fee, dict):
                 logger.error(f"Error while getting fee for size {size}")
@@ -74,7 +74,7 @@ def fee_pre_burner():
             c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
             s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
             logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
-            for dups in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN)):
+            for dups in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN+1)):
                 if c_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
                     fees.append(c_fee)
                 if s_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
