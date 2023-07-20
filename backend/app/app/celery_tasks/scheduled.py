@@ -74,7 +74,7 @@ def fee_pre_burner():
             c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
             s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
             logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
-            for dups in reversed(range(size, settings.MAX_SIZE_ FOR_PREBURN)):
+            for dups in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN)):
                 if c_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
                     fees.append(c_fee)
                 if s_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
