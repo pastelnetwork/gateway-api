@@ -68,8 +68,11 @@ class CollectionsAPITask(PastelAPITask):
 
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=5,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.COLLECTION_REGISTER_RETRY_BACKOFF,
+             retry_backoff_max=settings.COLLECTION_REGISTER_RETRY_BACKOFF_MAX,
+             max_retries=settings.COLLECTION_REGISTER_MAX_RETRIES,
+             soft_time_limit=settings.COLLECTION_REGISTER_SOFT_TIME_LIMIT,
+             time_limit=settings.COLLECTION_REGISTER_TIME_LIMIT,
              name='collection:register', base=CollectionsAPITask)
 def register(self, result_id, user_id,
              item_type: str, collection_name: str, max_collection_entries: int, collection_item_copy_count: int,
@@ -117,8 +120,11 @@ def register(self, result_id, user_id,
 
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=5,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.PROCESS_RETRY_BACKOFF,
+             retry_backoff_max=settings.PROCESS_RETRY_BACKOFF_MAX,
+             max_retries=settings.PROCESS_MAX_RETRIES,
+             soft_time_limit=settings.PROCESS_SOFT_TIME_LIMIT,
+             time_limit=settings.PROCESS_TIME_LIMIT,
              name='collection:process', base=CollectionsAPITask)
 def process(self, result_id) -> str:
     logger.info(f'Collection: Register file in the Pastel Network... [Result ID: {result_id}]')

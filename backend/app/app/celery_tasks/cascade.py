@@ -39,10 +39,14 @@ class CascadeAPITask(PastelAPITask):
             raise PastelAPIException(f'Cascade: No burn txid for result_id {task_from_db.result_id}')
         return True, ''
 
+
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=5,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.REGISTER_FILE_RETRY_BACKOFF,
+             retry_backoff_max=settings.REGISTER_FILE_RETRY_BACKOFF_MAX,
+             max_retries=settings.REGISTER_FILE_MAX_RETRIES,
+             soft_time_limit=settings.REGISTER_FILE_SOFT_TIME_LIMIT,
+             time_limit=settings.REGISTER_FILE_TIME_LIMIT,
              name='cascade:register_file', base=CascadeAPITask)
 def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: str,
                   make_publicly_accessible: bool, _collection_act_txid, _open_api_group_id,
@@ -73,8 +77,11 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: s
 
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             default_retry_delay=300, retry_backoff=150, max_retries=10,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.PREBURN_FEE_RETRY_BACKOFF,
+             retry_backoff_max=settings.PREBURN_FEE_RETRY_BACKOFF_MAX,
+             max_retries=settings.PREBURN_FEE_MAX_RETRIES,
+             soft_time_limit=settings.PREBURN_FEE_SOFT_TIME_LIMIT,
+             time_limit=settings.PREBURN_FEE_TIME_LIMIT,
              name='cascade:preburn_fee', base=CascadeAPITask)
 def preburn_fee(self, result_id) -> str:
     return self.preburn_fee_task(result_id,
@@ -86,8 +93,11 @@ def preburn_fee(self, result_id) -> str:
 
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=10,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.PROCESS_RETRY_BACKOFF,
+             retry_backoff_max=settings.PROCESS_RETRY_BACKOFF_MAX,
+             max_retries=settings.PROCESS_MAX_RETRIES,
+             soft_time_limit=settings.PROCESS_SOFT_TIME_LIMIT,
+             time_limit=settings.PROCESS_TIME_LIMIT,
              name='cascade:process', base=CascadeAPITask)
 def process(self, result_id) -> str:
     return self.process_task(result_id,
@@ -99,8 +109,11 @@ def process(self, result_id) -> str:
 
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=5,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.RE_REGISTER_FILE_RETRY_BACKOFF,
+             retry_backoff_max=settings.RE_REGISTER_FILE_RETRY_BACKOFF_MAX,
+             max_retries=settings.RE_REGISTER_FILE_MAX_RETRIES,
+             soft_time_limit=settings.RE_REGISTER_FILE_SOFT_TIME_LIMIT,
+             time_limit=settings.RE_REGISTER_FILE_TIME_LIMIT,
              name='cascade:re_register_file', base=CascadeAPITask)
 def re_register_file(self, result_id) -> str:
     return self.re_register_file_task(result_id,

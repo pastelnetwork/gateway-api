@@ -133,8 +133,11 @@ def get_thumbnail_coordinates(image_path: str, thumbnail_size: int) -> schemas.T
 
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=5,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.REGISTER_FILE_RETRY_BACKOFF,
+             retry_backoff_max=settings.REGISTER_FILE_RETRY_BACKOFF_MAX,
+             max_retries=settings.REGISTER_FILE_MAX_RETRIES,
+             soft_time_limit=settings.REGISTER_FILE_SOFT_TIME_LIMIT,
+             time_limit=settings.REGISTER_FILE_TIME_LIMIT,
              name='nft:register_file', base=NftAPITask)
 def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash,
                   make_publicly_accessible: bool, collection_act_txid: str, open_api_group_id: str,
@@ -184,8 +187,11 @@ def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash,
 # NFT registration does not require preburning
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=10,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.PROCESS_RETRY_BACKOFF,
+             retry_backoff_max=settings.PROCESS_RETRY_BACKOFF_MAX,
+             max_retries=settings.PROCESS_MAX_RETRIES,
+             soft_time_limit=settings.PROCESS_SOFT_TIME_LIMIT,
+             time_limit=settings.PROCESS_TIME_LIMIT,
              name='nft:process', base=NftAPITask)
 def process(self, result_id) -> str:
     return self.process_task(result_id,
@@ -197,8 +203,11 @@ def process(self, result_id) -> str:
 
 @shared_task(bind=True,
              autoretry_for=(RequestException, WalletnodeException, PasteldException,),
-             retry_backoff=30, max_retries=5,
-             soft_time_limit=300, time_limit=360,
+             retry_backoff=settings.RE_REGISTER_FILE_RETRY_BACKOFF,
+             retry_backoff_max=settings.RE_REGISTER_FILE_RETRY_BACKOFF_MAX,
+             max_retries=settings.RE_REGISTER_FILE_MAX_RETRIES,
+             soft_time_limit=settings.RE_REGISTER_FILE_SOFT_TIME_LIMIT,
+             time_limit=settings.RE_REGISTER_FILE_TIME_LIMIT,
              name='nft:re_register_file', base=NftAPITask)
 def re_register_file(self, result_id) -> str:
     return self.re_register_file_task(result_id,

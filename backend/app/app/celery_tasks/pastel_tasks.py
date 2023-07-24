@@ -87,12 +87,12 @@ class PastelAPITask(celery.Task):
 
         try:
             wn_file_id, returned_fee = wn.call(True,
-                                              service,
-                                              upload_cmd,
-                                              {},
-                                              [('file', (local_file.name, data, local_file.type))],
-                                              {},
-                                              id_field_name, fee_field_name)
+                                               service,
+                                               upload_cmd,
+                                               {},
+                                               [('file', (local_file.name, data, local_file.type))],
+                                               {},
+                                               id_field_name, fee_field_name)
         except Exception as e:
             logger.warn(f'{service}: Upload call failed for file {local_file.name} - {e}. Retrying...')
             set_status_message(update_task_in_db_func, task_in_db, f'Upload call failed for file {local_file.name} - {e}')
