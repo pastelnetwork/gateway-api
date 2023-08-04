@@ -117,12 +117,25 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             .all()
         )
 
+    def get_all_in_done(
+            self, db: Session, *, limit: int = 100
+    ) -> List[Sense]:
+        return (
+            db.query(self.model)
+            .filter(self.model.process_status == DbStatus.DONE.value)
+            .order_by(self.model.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
+
     def get_all_in_registered_state(
-            self, db: Session
+            self, db: Session, *, limit: int = 100
     ) -> List[Sense]:
         return (
             db.query(self.model)
             .filter(Sense.process_status == DbStatus.REGISTERED.value)
+            .order_by(self.model.updated_at)
+            .limit(limit)
             .all()
         )
 

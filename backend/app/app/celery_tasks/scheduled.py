@@ -253,12 +253,13 @@ def _ticket_activator(all_in_registered_state_func,
                       service: wn.WalletNodeService):
     logger.info(f"ticket_activator task started")
     with db_context() as session:
-        tasks_from_db = all_in_registered_state_func(session)
+        tasks_from_db = all_in_registered_state_func(session, limit=settings.REGISTRATION_RE_PROCESSOR_LIMIT)
     logger.info(f"{service}: Found {len(tasks_from_db)} registered, but not activated tasks")
     for task_from_db in tasks_from_db:
         if task_from_db.pastel_id is None:
             logger.error(f"{service}: Don't know pastel_id, marking task as DEAD. ResultID = {task_from_db.result_id}")
-            upd = {"process_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
+            upd = {"process_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow(),
+                   "process_status_message": f"Don't know pastel_id - {task_from_db.pastel_id}"}
             with db_context() as session:
                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
             continue
@@ -268,63 +269,75 @@ def _ticket_activator(all_in_registered_state_func,
             continue
         try:
             logger.info(f"{service}: Parsing registration ticket {task_from_db.reg_ticket_txid} to find height")
-            height = find_height_in_registration_ticket(task_from_db.reg_ticket_txid, task_from_db.height, service)
+            height, msg = find_height_in_registration_ticket(task_from_db.reg_ticket_txid, task_from_db.height, service)
             if not height:
                 logger.warn(
-                    f"{service}: Didn't found height in registration ticket. "
+                    f"{service}: Didn't found height in registration ticket. {msg}. "
                     f"Skipping for now. ResultID = {task_from_db.result_id}")
+                upd = {"updated_at": datetime.utcnow(), "process_status_message": msg}
+                with db_context() as session:
+                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                 continue
+
+            network_height = psl.call("getblockcount", [])   # can throw exception here
 
             logger.info(f"{service}: Check if activation ticket already exists for "
                         f"registration ticket: {task_from_db.reg_ticket_txid}")
-            act_txid = find_action_ticket(task_from_db.reg_ticket_txid, act_ticket_type)
-            if act_txid:
-                logger.info(f"{service}: Registration ticket {task_from_db.reg_ticket_txid} "
-                            f"already activated: {act_txid}")
+            if task_from_db.act_ticket_txid:
+                act_txid = task_from_db.act_ticket_txid
             else:
-                try:
-                    network_height = psl.call("getblockcount", [])   # can throw exception here
-                except Exception as e:
-                    logger.error(f"{service}: Can't get network height, skipping. Error: {e}")
-                    continue
-                if network_height - height < 5:
-                    logger.info(f"{service}: There are {network_height - height} blocks after "
-                                f"Registration ticket {task_from_db.reg_ticket_txid} was registered. "
-                                f"Waiting for 5 blocks before finalizing - WN can still finish it")
-                    continue
-
-                logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-                act_txid = create_activation_ticket(task_from_db, height, act_ticket_type)
-
+                act_txid = find_activation_ticket(task_from_db.reg_ticket_txid, act_ticket_type)
             if act_txid:
-                finalize_registration(task_from_db, act_txid, update_task_in_db_func, service)
-                # upd = {
-                #     "act_ticket_txid": act_txid,
-                #     "process_status": DbStatus.DONE.value,
-                #     "updated_at": datetime.utcnow(),
-                #     "height": height,
-                # }
-                # with db_context() as session:
-                #     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                msg = f"{service}: Activation ticket transaction {act_txid} for registration ticket " \
+                      f"{task_from_db.reg_ticket_txid}"
+
+                logger.info(f"{msg} already created. Check if it's valid...")
+                at_status = asyncio.run(psl.check_txid(act_txid, msg, network_height - height))
+                if at_status == psl.ActivationTicketStatus.CONFIRMED:
+                    finalize_registration(task_from_db, act_txid, update_task_in_db_func, service)
+                    continue
+                elif at_status == psl.ActivationTicketStatus.WAITING:
+                    continue
+
+            # either activation ticket or its transaction is not found, will try to create activation ticket
+            if network_height - height < 5:
+                logger.info(f"{service}: There are {network_height - height} blocks after "
+                            f"Registration ticket {task_from_db.reg_ticket_txid} was registered. "
+                            f"Waiting for 5 blocks before finalizing - WN can still finish it")
+                continue
+            logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
+            new_act_txid = create_activation_ticket(task_from_db, height, act_ticket_type)
+            if new_act_txid:
+                # setting activation ticket txid in db, but not finalizing yet (keep in registered state)
+                upd = {"act_ticket_txid": new_act_txid, "updated_at": datetime.utcnow(),
+                       "process_status_message": "new activation ticket created"}
+            elif act_txid:
+                # clear act_ticket_txid in db, but keep in registered state
+                upd = {"act_ticket_txid": "", "updated_at": datetime.utcnow(),
+                       "process_status_message": "existing activation ticket txid invalid and can't create new"}
+            with db_context() as session:
+                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+
         except Exception as e:
             logger.error(f"Error while creating activation for registration ticket {task_from_db.reg_ticket_txid}: {e}")
             if hasattr(e, 'response') and hasattr(e.response, 'text'):
                 error_msg = e.response.text
                 msg = f"The Action Registration ticket with this txid [{task_from_db.reg_ticket_txid}] is invalid"
                 if msg in error_msg:
-                    upd = {"process_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow()}
+                    upd = {"process_status": DbStatus.DEAD.value, "updated_at": datetime.utcnow(),
+                           "process_status_message": msg}
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
 
-def find_action_ticket(txid: str, ticket_type: str) -> str|None:
+def find_activation_ticket(txid: str, ticket_type: str) -> str | None:
     try:
         act_ticket = psl.call("tickets", ["find", ticket_type, txid])   # can throw exception here
     except Exception as e:
         logger.error(f"Exception calling pastled to find {ticket_type} ticket: {e}")
         return None
     if act_ticket and isinstance(act_ticket, dict) and 'txid' in act_ticket and act_ticket['txid']:
-        logger.info(f"Found act ticket txid from Pastel network: {act_ticket['txid']}")
+        logger.info(f"Found activation ticket txid from Pastel network: {act_ticket['txid']}")
         return act_ticket['txid']
     return None
 
@@ -351,15 +364,24 @@ def create_activation_ticket(task_from_db, height, ticket_type):
         return None
 
 
-def find_height_in_registration_ticket(reg_txid, db_height, service: wn.WalletNodeService):
+def find_height_in_registration_ticket(reg_txid, db_height, service: wn.WalletNodeService) -> (int | None, str | None):
     try:
         reg_ticket = psl.call("tickets", ['get', reg_txid])   # can throw exception here
+    except psl.PasteldException as pe:
+        if pe.message == 'No information available about transaction':
+            err_msg = f"Registration ticket {reg_txid} not found"
+        else:
+            err_msg = f"Exception calling pastled to get registration ticket: {pe}"
+        logger.error(err_msg)
+        return None, err_msg
     except Exception as e:
-        logger.error(f"Exception calling pastled to get registration ticket: {e}")
-        return None
+        msg = f"Exception calling pastled to get registration ticket: {e}"
+        logger.error(msg)
+        return None, msg
     if not reg_ticket:
-        logger.error(f"{service}: Registration ticket {reg_txid} not found")
-        return None
+        msg = f"Registration ticket {reg_txid} not found"
+        logger.error(msg)
+        return None, msg
 
     if service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.SENSE:
         expected_action_type = 'cascade' if service == wn.WalletNodeService.CASCADE else 'sense'
@@ -372,19 +394,59 @@ def find_height_in_registration_ticket(reg_txid, db_height, service: wn.WalletNo
         ticket_name = 'collection_ticket'
     else:
         logger.error(f"{service}: Unknown service")
-        return None
+        return None, f"Unknown service {service}"
 
     if not reg_ticket:
         logger.error(f"{service}: Error while parsing registration ticket {reg_txid}")
 
     if 'ticket' in reg_ticket and ticket_name in reg_ticket['ticket'] and \
             'blocknum' in reg_ticket['ticket'][ticket_name]:
-        return reg_ticket['ticket'][ticket_name]['blocknum']
+        return reg_ticket['ticket'][ticket_name]['blocknum'], None
 
-    return db_height
+    return db_height, None
 
 
 @shared_task(name="scheduled_tools:watchdog")
 def watchdog():
     logger.info(f"watchdog task started")
+    _ticket_verificator(
+        crud.cascade.get_all_in_done,
+        crud.cascade.update,
+        wn.WalletNodeService.CASCADE
+    )
+    _ticket_verificator(
+        crud.sense.get_all_in_done,
+        crud.sense.update,
+        wn.WalletNodeService.SENSE
+    )
+
     logger.info(f"watchdog task ended")
+
+
+def _ticket_verificator(all_done_func,
+                        update_task_in_db_func,
+                        service: wn.WalletNodeService):
+    logger.info(f"ticket_activator task started")
+    with db_context() as session:
+        tasks_from_db = all_done_func(session)
+    for task_from_db in tasks_from_db:
+        try:
+            network_height = psl.call("getblockcount", [])   # can throw exception here
+
+            msg = f"{service}: Activation ticket transaction {task_from_db.act_ticket_txid} " \
+                  f"for registration ticket {task_from_db.reg_ticket_txid}"
+
+            at_status = asyncio.run(psl.check_txid(task_from_db.act_ticket_txid, msg,
+                                                   network_height - task_from_db.height))
+            if at_status == psl.ActivationTicketStatus.CONFIRMED:
+                continue
+            elif at_status == psl.ActivationTicketStatus.WAITING:
+                continue
+
+            # clear activation ticket txid if it is not found in the network
+            upd = {"act_ticket_txid": "", "process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
+            with db_context() as session:
+                update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+
+        except Exception as e:
+            logger.error(f"Error while verifying registration ticket {task_from_db.reg_ticket_txid}: {e}")

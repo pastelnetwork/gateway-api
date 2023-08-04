@@ -51,11 +51,13 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
             .first())
 
     def get_all_in_registered_state(
-            self, db: Session
+            self, db: Session, *, limit: int = 100
     ) -> List[Collection]:
         return (
             db.query(self.model)
             .filter(Collection.process_status == DbStatus.REGISTERED.value)
+            .order_by(self.model.updated_at)
+            .limit(limit)
             .all()
         )
 

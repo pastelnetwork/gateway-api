@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import requests
+from enum import Enum
 
 from fastapi import HTTPException
 from requests.auth import HTTPBasicAuth
@@ -41,6 +42,10 @@ def call(method, parameters, nothrow=False):
         logger.info(f"Response from cNode: {response.text}")
         if nothrow:
             return response
+        resp = response.json()
+        if resp and "error" in resp:
+            raise PasteldException(resp["error"]["message"])
+
     response.raise_for_status()
     resp = response.json()
     if not resp or not resp["result"]:
@@ -195,3 +200,57 @@ def check_balance(need_amount: float) -> bool:
         send_alert_email(f"Insufficient funds: balance {balance}")
         return False
     return True
+
+
+class ActivationTicketStatus(Enum):
+    IGNORE = 0
+    WAITING = 1
+    CONFIRMED = 2
+
+
+async def check_txid(txid, msg, delta, interval=20, max_history=60) -> ActivationTicketStatus:
+    response = call('getrawtransaction', [txid, 1], nothrow=True)  # won't throw exception here
+    if response and isinstance(response, dict):
+        # activation ticket transaction is found locally
+        if "height" in response:
+            msg += f" is in the block {response['height']}"
+            # activation ticket is probably included into block
+            if "confirmations" in response and response["confirmations"] > 0:
+                # activation ticket is confirmed
+                logger.info(f"{msg} and confirmed")
+                return ActivationTicketStatus.CONFIRMED
+
+            msg += f" but not confirmed yet."
+        else:
+            msg += f" is not included into the block yet"
+
+        # activation ticket is not confirmed yet OR not included into the block yet
+        if delta <= max_history:
+            if delta % interval != 0:
+                logger.info(f"{msg}. Waiting...")
+                return ActivationTicketStatus.WAITING
+
+            logger.info(f"{msg} after {delta} blocks. Resubmitting transaction")
+            if not await sign_and_submit(txid):
+                logger.error(f"{msg} after {delta} blocks. Resubmit failed. Waiting again...")
+            return ActivationTicketStatus.WAITING
+
+    return ActivationTicketStatus.IGNORE
+
+
+async def sign_and_submit(txid) -> bool:
+    try:
+        tnx = call('getrawtransaction', [txid])   # will throw exception here
+        response = call('signrawtransaction', [txid])  # will throw exception here
+        if response and isinstance(response, dict) \
+                and 'complete' in response and response['complete']\
+                and 'hex' in response and response['hex']:
+            signed_txid = call('sendrawtransaction', [response['hex']])
+            return True
+        else:
+            logger.error(f"Failed to signrawtransaction for {txid}: {response}")
+            return False
+    except Exception as e:
+        logger.error(f"Failed to getrawtransaction for {txid}: {e}")
+        return False
+

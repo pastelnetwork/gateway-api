@@ -116,12 +116,25 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             .all()
         )
 
+    def get_all_in_done(
+            self, db: Session, *, limit: int = 100
+    ) -> List[Cascade]:
+        return (
+            db.query(self.model)
+            .filter(self.model.process_status == DbStatus.DONE.value)
+            .order_by(self.model.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
+
     def get_all_in_registered_state(
-            self, db: Session
+            self, db: Session, *, limit: int = 100
     ) -> List[Cascade]:
         return (
             db.query(self.model)
             .filter(Cascade.process_status == DbStatus.REGISTERED.value)
+            .order_by(self.model.updated_at)
+            .limit(limit)
             .all()
         )
 
