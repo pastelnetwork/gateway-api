@@ -33,14 +33,14 @@ def create_celery():
             'task': 'registration_helpers:registration_re_processor',
             'schedule': app_settings.REGISTRATION_RE_PROCESSOR_INTERVAL,
         },
-        # 'scheduled_tools_fee_pre_burner': {
-        #     'task': 'scheduled_tools:fee_pre_burner',
-        #     'schedule': app_settings.FEE_PRE_BURNER_INTERVAL,
-        # },
-        # 'scheduled_tools_reg_tickets_finder': {
-        #     'task': 'scheduled_tools:reg_tickets_finder',
-        #     'schedule': app_settings.REG_TICKETS_FINDER_INTERVAL,
-        # },
+        'scheduled_tools_fee_pre_burner': {
+            'task': 'scheduled_tools:fee_pre_burner',
+            'schedule': app_settings.FEE_PRE_BURNER_INTERVAL,
+        },
+        'scheduled_tools_reg_tickets_finder': {
+            'task': 'scheduled_tools:reg_tickets_finder',
+            'schedule': app_settings.REG_TICKETS_FINDER_INTERVAL,
+        },
         'scheduled_tools_ticket_activator': {
             'task': 'scheduled_tools:ticket_activator',
             'schedule': app_settings.TICKET_ACTIVATOR_INTERVAL,
