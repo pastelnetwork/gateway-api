@@ -11,6 +11,7 @@ class DbStatus(str, Enum):
     RESTARTED = "RESTARTED"         # task is scheduled to be reprocessed
     DEAD = "DEAD"                   # 10 re-processing attempts failed, will not try to re-process
     REGISTERED = "REGISTERED"       # task is registered, reg ticket txid is received
+    BAD = "BAD"
 
 
 # Internal Life cycle of a request (DbStatus):

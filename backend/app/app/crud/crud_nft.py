@@ -120,11 +120,13 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         )
 
     def get_all_in_registered_state(
-            self, db: Session
+            self, db: Session, *, limit: int = 100
     ) -> List[Nft]:
         return (
             db.query(self.model)
             .filter(Nft.process_status == DbStatus.REGISTERED.value)
+            .order_by(self.model.updated_at)
+            .limit(limit)
             .all()
         )
 
