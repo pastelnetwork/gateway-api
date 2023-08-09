@@ -1,6 +1,8 @@
 import base64
 import json
 import logging
+import re
+
 import requests
 from enum import Enum
 
@@ -202,40 +204,42 @@ def check_balance(need_amount: float) -> bool:
     return True
 
 
-class ActivationTicketStatus(Enum):
-    IGNORE = 0
+class TicketTransactionStatus(Enum):
+    NOT_FOUND = 0
     WAITING = 1
     CONFIRMED = 2
 
 
-async def check_txid(txid, msg, delta, interval=20, max_history=60) -> ActivationTicketStatus:
+async def check_ticket_transaction(txid, msg, current_block_height, start_waiting_block_height,
+                                   interval=20, max_wait_blocks=100) -> TicketTransactionStatus:
     response = call('getrawtransaction', [txid, 1], nothrow=True)  # won't throw exception here
     if response and isinstance(response, dict):
-        # activation ticket transaction is found locally
+        # ticket transaction is found at least locally
         if "height" in response:
             msg += f" is in the block {response['height']}"
-            # activation ticket is probably included into block
+            start_waiting_block_height = response['height']
+            # ticket is probably included into block
             if "confirmations" in response and response["confirmations"] > 0:
-                # activation ticket is confirmed
+                # ticket is confirmed
                 logger.info(f"{msg} and confirmed")
-                return ActivationTicketStatus.CONFIRMED
+                return TicketTransactionStatus.CONFIRMED
 
             msg += f" but not confirmed yet."
         else:
             msg += f" is not included into the block yet"
 
-        # activation ticket is not confirmed yet OR not included into the block yet
-        if delta <= max_history:
-            if delta % interval != 0:
-                logger.info(f"{msg}. Waiting...")
-                return ActivationTicketStatus.WAITING
+        # ticket is not confirmed yet OR not included into the block yet
+        if current_block_height - start_waiting_block_height <= max_wait_blocks:
+            # if delta % interval != 0:
+            #     logger.info(f"{msg}. Waiting...")
+            #     return TicketTransactionStatus.WAITING
 
-            logger.info(f"{msg} after {delta} blocks. Resubmitting transaction")
-            if not await sign_and_submit(txid):
-                logger.error(f"{msg} after {delta} blocks. Resubmit failed. Waiting again...")
-            return ActivationTicketStatus.WAITING
+            # logger.info(f"{msg} after {delta} blocks. Resubmitting transaction")
+            # if not await sign_and_submit(txid):
+            #     logger.error(f"{msg} after {delta} blocks. Resubmit failed. Waiting again...")
+            return TicketTransactionStatus.WAITING
 
-    return ActivationTicketStatus.IGNORE
+    return TicketTransactionStatus.NOT_FOUND
 
 
 async def sign_and_submit(txid) -> bool:
@@ -254,3 +258,38 @@ async def sign_and_submit(txid) -> bool:
         logger.error(f"Failed to getrawtransaction for {txid}: {e}")
         return False
 
+
+class TicketCreateStatus(Enum):
+    ALREADY_EXIST = 0
+    CREATED = 1
+    ERROR = 2
+
+
+def create_activation_ticket(task_from_db, height, ticket_type) -> (TicketCreateStatus, str | None):
+    try:
+        if not check_balance(task_from_db.wn_fee + 1000):   # can throw exception here
+            return
+        activation_ticket = call('tickets', ['register', ticket_type,
+                                                 task_from_db.reg_ticket_txid,
+                                                 height,
+                                                 task_from_db.wn_fee,
+                                                 settings.PASTEL_ID,
+                                                 settings.PASTEL_ID_PASSPHRASE]
+                                     )   # can throw exception here
+        if activation_ticket and 'txid' in activation_ticket:
+            logger.info(f"Created {ticket_type} ticket {activation_ticket['txid']}")
+            return TicketCreateStatus.CREATED, activation_ticket['txid']
+
+        logger.error(f"Error while creating {ticket_type} ticket {activation_ticket}")
+        return TicketCreateStatus.ERROR, None
+
+    except PasteldException as e:
+        logger.error(f"Exception calling pastled to create {ticket_type} ticket: {e}")
+        error_msg = (f"Ticket (action-act) is invalid. The Activation ticket for the Registration ticket with txid "
+                     f"[{task_from_db.reg_ticket_txid}] already exists")
+        if hasattr(e, 'message') and error_msg in e.message:
+            match = re.search(r'txid=(.*?)]', e.message)
+            return TicketCreateStatus.ALREADY_EXIST, match.group(1) if match else None
+    except Exception as e:
+        logger.error(f"Exception calling pastled to create {ticket_type} ticket: {e}")
+        return TicketCreateStatus.ERROR, None
