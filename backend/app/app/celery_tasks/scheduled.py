@@ -254,7 +254,7 @@ def _ticket_activator(all_in_registered_state_func,
     logger.info(f"ticket_activator task started")
     try:
         mempoolinfo = psl.call("getmempoolinfo", [])
-        if mempoolinfo and "size" in mempoolinfo and mempoolinfo["size"] > 30:
+        if mempoolinfo and "size" in mempoolinfo and mempoolinfo["size"] > 20:
             logger.info(f"{service}: mempool is too big {mempoolinfo['size']}, skipping")
             return
     except Exception as e:
@@ -336,11 +336,18 @@ def _ticket_activator(all_in_registered_state_func,
                 upd = {"act_ticket_txid": new_act_txid, "updated_at": datetime.utcnow(),
                        "process_status_message": "new activation ticket created"}
             elif result == psl.TicketCreateStatus.ALREADY_EXIST:
-                # set into BAD state
-                upd = {"process_status": DbStatus.BAD.value, "updated_at": datetime.utcnow(),
-                       "process_status_message": "existing activation ticket txid invalid and can't create new"}
-                if new_act_txid:
-                    upd["act_ticket_txid"] = new_act_txid
+                # try to find existing activation ticket
+                existing_act_txid = find_activation_ticket(task_from_db.reg_ticket_txid, act_ticket_type)
+                if existing_act_txid:
+                    # set act_ticket in db, but keep in registered state
+                    upd = {"act_ticket_txid": existing_act_txid, "updated_at": datetime.utcnow(),
+                           "process_status_message": "found existing activation ticket"}
+                else:
+                    # something's wrong. set into BAD state
+                    upd = {"process_status": DbStatus.BAD.value, "updated_at": datetime.utcnow(),
+                           "process_status_message": "existing activation ticket txid invalid but can't find it"}
+                    if new_act_txid:
+                        upd["act_ticket_txid"] = new_act_txid
             else:
                 # clear act_ticket_txid in db, but keep in registered state
                 upd = {"act_ticket_txid": "", "updated_at": datetime.utcnow(),
