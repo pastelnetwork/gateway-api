@@ -295,10 +295,10 @@ def _ticket_activator(all_in_registered_state_func,
 
             logger.info(f"{service}: Parsing registration ticket {task_from_db.reg_ticket_txid} to find height")
 
-            reg_height, msg = parse_registration_ticket(task_from_db.reg_ticket_txid, service)
-            if not reg_height:
+            called_at_height, reg_ticket_height, msg = parse_registration_ticket(task_from_db.reg_ticket_txid, service)
+            if not reg_ticket_height or reg_ticket_height == -1:
                 logger.warn(
-                    f"{service}: Didn't found height in registration ticket. {msg}. "
+                    f"{service}: Registration ticket is not confirmed in blockchain yet. {msg}. "
                     f"Skipping for now. ResultID = {task_from_db.result_id}")
                 upd = {"updated_at": datetime.utcnow(), "process_status_message": msg}
                 with db_context() as session:
@@ -316,7 +316,7 @@ def _ticket_activator(all_in_registered_state_func,
                       f"{task_from_db.reg_ticket_txid}"
 
                 logger.info(f"{msg} already created. Check if it's valid...")
-                at_status = asyncio.run(psl.check_ticket_transaction(act_txid, msg, network_height, reg_height))
+                at_status = asyncio.run(psl.check_ticket_transaction(act_txid, msg, network_height, reg_ticket_height))
                 if at_status == psl.TicketTransactionStatus.CONFIRMED:
                     finalize_registration(task_from_db, act_txid, update_task_in_db_func, service)
                     continue
@@ -324,13 +324,14 @@ def _ticket_activator(all_in_registered_state_func,
                     continue
 
             # either activation ticket or its transaction is not found, will try to create activation ticket
-            if network_height - reg_height < 10:
-                logger.info(f"{service}: There are {network_height - reg_height} blocks after "
+            if network_height - reg_ticket_height < 10:
+                logger.info(f"{service}: There are {network_height - reg_ticket_height} blocks after "
                             f"Registration ticket {task_from_db.reg_ticket_txid} was registered. "
                             f"Waiting for 10 blocks before finalizing - WN can still finish it")
                 continue
+
             logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-            result, new_act_txid = psl.create_activation_ticket(task_from_db, reg_height, act_ticket_type)
+            result, new_act_txid = psl.create_activation_ticket(task_from_db, called_at_height, act_ticket_type)
             if result == psl.TicketCreateStatus.CREATED and new_act_txid:
                 # setting activation ticket txid in db, but not finalizing yet (keep in registered state)
                 upd = {"act_ticket_txid": new_act_txid, "updated_at": datetime.utcnow(),
@@ -379,7 +380,7 @@ def find_activation_ticket(txid: str, ticket_type: str) -> str | None:
     return None
 
 
-def parse_registration_ticket(reg_txid, service: wn.WalletNodeService) -> (int | None, str | None):
+def parse_registration_ticket(reg_txid, service: wn.WalletNodeService) -> (int | None, int | None, str | None):
     try:
         reg_ticket = psl.call("tickets", ['get', reg_txid])   # can throw exception here
     except psl.PasteldException as pe:
@@ -388,37 +389,35 @@ def parse_registration_ticket(reg_txid, service: wn.WalletNodeService) -> (int |
         else:
             err_msg = f"Exception calling pastled to get registration ticket: {pe}"
         logger.error(err_msg)
-        return None, err_msg
+        return None, None, err_msg
     except Exception as e:
         msg = f"Exception calling pastled to get registration ticket: {e}"
         logger.error(msg)
-        return None, msg
+        return None, None, msg
     if not reg_ticket:
         msg = f"Registration ticket {reg_txid} not found"
         logger.error(msg)
-        return None, msg
+        return None, None, msg
 
     if service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.SENSE:
-        expected_action_type = 'cascade' if service == wn.WalletNodeService.CASCADE else 'sense'
-        reg_ticket = asyncio.run(psl.parse_registration_action_ticket(reg_ticket, 'action-reg', [expected_action_type]))
-        ticket_name = 'action_ticket'
-    elif service == wn.WalletNodeService.NFT:
-        reg_ticket = asyncio.run(psl.parse_registration_nft_ticket(reg_ticket))
-        ticket_name = 'nft_ticket'
-    elif service == wn.WalletNodeService.COLLECTION:
-        ticket_name = 'collection_ticket'
+        called_at_name = 'called_at'
+    elif service == wn.WalletNodeService.NFT or service == wn.WalletNodeService.COLLECTION:
+        called_at_name = 'creator_height'
     else:
         logger.error(f"{service}: Unknown service")
         return None, f"Unknown service {service}"
 
-    if not reg_ticket:
-        logger.error(f"{service}: Error while parsing registration ticket {reg_txid}")
+    if ('ticket' in reg_ticket and reg_ticket['ticket'] and
+            'called_at' in reg_ticket['ticket'] and reg_ticket['ticket'][called_at_name]):
+        called_at_height = reg_ticket['ticket'][called_at_name]
+    else:
+        logger.error(f"{service}: Registration ticket {reg_txid} doesn't have called_at_height. Invalid ticket?")
+        return None, None, f"Registration ticket {reg_txid} doesn't have called_at_height"
 
-    if 'ticket' in reg_ticket and ticket_name in reg_ticket['ticket'] and \
-            'blocknum' in reg_ticket['ticket'][ticket_name]:
-        return reg_ticket['ticket'][ticket_name]['blocknum'], None
+    if 'height' in reg_ticket and reg_ticket['height']:
+        return called_at_height, reg_ticket['height'], None
 
-    return None, None
+    return None, None, "Error parsing registration ticket"
 
 
 @shared_task(name="scheduled_tools:watchdog")

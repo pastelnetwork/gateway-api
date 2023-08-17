@@ -215,7 +215,7 @@ async def check_ticket_transaction(txid, msg, current_block_height, start_waitin
     response = call('getrawtransaction', [txid, 1], nothrow=True)  # won't throw exception here
     if response and isinstance(response, dict):
         # ticket transaction is found at least locally
-        if "height" in response:
+        if "height" in response and response["height"] > 0:
             msg += f" is in the block {response['height']}"
             start_waiting_block_height = response['height']
             # ticket is probably included into block
@@ -228,7 +228,7 @@ async def check_ticket_transaction(txid, msg, current_block_height, start_waitin
         else:
             msg += f" is not included into the block yet"
 
-        # ticket is not confirmed yet OR not included into the block yet
+        # ticket is not confirmed yet OR not included into the block yet, will wait for it
         if current_block_height - start_waiting_block_height <= max_wait_blocks:
             # if delta % interval != 0:
             #     logger.info(f"{msg}. Waiting...")
@@ -265,16 +265,16 @@ class TicketCreateStatus(Enum):
     ERROR = 2
 
 
-def create_activation_ticket(task_from_db, height, ticket_type) -> (TicketCreateStatus, str | None):
+def create_activation_ticket(task_from_db, called_at_height, ticket_type) -> (TicketCreateStatus, str | None):
     try:
         if not check_balance(task_from_db.wn_fee + 1000):   # can throw exception here
             return
         activation_ticket = call('tickets', ['register', ticket_type,
-                                                 task_from_db.reg_ticket_txid,
-                                                 height,
-                                                 task_from_db.wn_fee,
-                                                 settings.PASTEL_ID,
-                                                 settings.PASTEL_ID_PASSPHRASE]
+                                             task_from_db.reg_ticket_txid,
+                                             called_at_height,
+                                             task_from_db.wn_fee,
+                                             settings.PASTEL_ID,
+                                             settings.PASTEL_ID_PASSPHRASE]
                                      )   # can throw exception here
         if activation_ticket and 'txid' in activation_ticket:
             logger.info(f"Created {ticket_type} ticket {activation_ticket['txid']}")

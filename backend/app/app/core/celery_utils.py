@@ -25,6 +25,7 @@ def create_celery():
     celery_app.conf.update(worker_max_tasks_per_child=100)
 
     celery_app.conf.beat_schedule = {
+        # registration_helpers
         'registration_helpers_registration_finisher': {
             'task': 'registration_helpers:registration_finisher',
             'schedule': app_settings.REGISTRATION_FINISHER_INTERVAL,
@@ -33,6 +34,8 @@ def create_celery():
             'task': 'registration_helpers:registration_re_processor',
             'schedule': app_settings.REGISTRATION_RE_PROCESSOR_INTERVAL,
         },
+
+        # scheduled_tools
         'scheduled_tools_fee_pre_burner': {
             'task': 'scheduled_tools:fee_pre_burner',
             'schedule': app_settings.FEE_PRE_BURNER_INTERVAL,
