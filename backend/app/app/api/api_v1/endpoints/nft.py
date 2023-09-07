@@ -13,6 +13,7 @@ import app.db.session as session
 from app import models, crud, schemas
 from app.api import deps, common
 import app.utils.walletnode as wn
+from app.core.status import ReqStatus
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs
 from app.utils.filestorage import LocalFile
 
@@ -129,11 +130,15 @@ async def step_2_process_nft(
 @router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True)
 async def get_all_requests(
         *,
+        status_requested: Optional[ReqStatus] = Query(None),
+        offset: int = 0, limit: int = 10000,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> List[schemas.RequestResult]:
-    tasks_from_db = crud.nft.get_multi_by_owner(db=db, owner_id=current_user.id)
+    tasks_from_db = crud.sense.get_multi_by_owner_and_status(db=db, owner_id=current_user.id,
+                                                             req_status=status_requested.value if status_requested else None,
+                                                             skip=offset, limit=limit)
     if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_requests found")
     return await common.parse_users_requests(tasks_from_db, wn.WalletNodeService.NFT)
@@ -161,12 +166,16 @@ async def get_request_by_request_id(
 @router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
 async def get_all_results(
         *,
+        status_requested: Optional[ReqStatus] = Query(None),
+        offset: int = 0, limit: int = 10000,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_nft),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> List[schemas.ResultRegistrationResult]:
     task_results = []
-    tasks_from_db = crud.nft.get_multi_by_owner(db=db, owner_id=current_user.id)
+    tasks_from_db = crud.sense.get_multi_by_owner_and_status(db=db, owner_id=current_user.id,
+                                                             req_status=status_requested.value if status_requested else None,
+                                                             skip=offset, limit=limit)
     if not tasks_from_db:
         raise HTTPException(status_code=404, detail="No gateway_requests found")
     for task_from_db in tasks_from_db:

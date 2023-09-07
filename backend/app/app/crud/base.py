@@ -4,6 +4,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.status import DbStatus
 from app.db.base_class import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
@@ -64,3 +65,17 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db.delete(obj)
         db.commit()
         return obj
+
+    def get_multi_by_owner_and_status(
+            self, db: Session, *, owner_id: int, req_status: str, skip: int = 0, limit: int = 10000
+    ) -> List[ModelType]:
+        query = db.query(self.model).filter(self.model.owner_id == owner_id)
+        if req_status == 'SUCCESS':
+            query = query.filter(self.model.process_status == DbStatus.DONE.value)
+        if req_status == 'FAILED':
+            query = query.filter(self.model.process_status == DbStatus.DEAD.value)
+        if req_status == 'PENDING':
+            query = ((query
+                     .filter(self.model.process_status != DbStatus.DONE.value))
+                     .filter(self.model.process_status != DbStatus.DEAD.value))
+        return query.offset(skip).limit(limit).all()

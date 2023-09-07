@@ -17,7 +17,7 @@ from requests import HTTPError
 from app.utils.filestorage import LocalFile, store_file_into_local_cache, search_file_in_local_cache
 from app import schemas, crud
 from app.core.config import settings
-from app.core.status import DbStatus
+from app.core.status import DbStatus, get_status_from_history_log
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import store_file_to_ipfs, read_file_from_ipfs
@@ -149,7 +149,7 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
     result_registration_status = schemas.Status.UNKNOWN
     if task_from_db.process_status:
         if task_from_db.process_status in [DbStatus.NEW.value, DbStatus.UPLOADED.value,
-                                          DbStatus.PREBURN_FEE.value, DbStatus.STARTED.value]:
+                                           DbStatus.PREBURN_FEE.value, DbStatus.STARTED.value]:
             result_registration_status = schemas.Status.PENDING
         if task_from_db.process_status in [DbStatus.ERROR.value, DbStatus.RESTARTED.value]:
             result_registration_status = schemas.Status.PENDING
@@ -165,11 +165,15 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
         result_registration_status == schemas.Status.PENDING) \
             and task_from_db.wn_task_id:
         try:
-            wn_task_status = wn.call(False,
-                                     service,
-                                     f'{task_from_db.wn_task_id}/history',
-                                     {}, [], {},
-                                     "", "")
+            history_log = get_status_from_history_log(task_from_db, service)
+            if history_log and history_log.status_messages:
+                wn_task_status = history_log.status_messages
+            else:
+                wn_task_status = wn.call(False,
+                                         service,
+                                         f'{task_from_db.wn_task_id}/history',
+                                         {}, [], {},
+                                         "", "")
             if wn_task_status:
                 for step in wn_task_status:
                     if step['status'] == 'Task Rejected' or step['status'] == 'Task Failed':
@@ -216,9 +220,9 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
                 if task_from_db.offer_ticket_intended_rcpt_pastel_id:
                     reg_result.offer_ticket_intended_rcpt_pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
 
-        if wn_task_status:
+        if wn_task_status and settings.RETURN_DETAILED_WN_ERROR:
             reg_result.status_messages = wn_task_status
-    else:
+    elif settings.RETURN_DETAILED_WN_ERROR:
         reg_result.error = wn_task_status
     return reg_result
 

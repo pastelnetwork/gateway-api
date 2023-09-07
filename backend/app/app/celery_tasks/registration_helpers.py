@@ -6,10 +6,10 @@ from datetime import datetime
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
-from app import crud, schemas
+from app import crud
 from app.celery_tasks import cascade, sense, nft, collection
 from app.core.config import settings
-from app.core.status import DbStatus
+from app.core.status import DbStatus, add_status_to_history_log
 from app.db.session import db_context
 from app.utils import walletnode as wn, pasteld as psl
 from app.utils.filestorage import store_file_into_local_cache
@@ -199,42 +199,6 @@ def _registration_finisher(
                                         f" ResultId - {task_from_db.result_id}")
                         finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
                         break
-
-
-def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
-    if not wn_task_status:
-        return
-
-    if wn_service == wn.WalletNodeService.CASCADE:
-        log_klass = crud.cascade_log
-    elif wn_service == wn.WalletNodeService.SENSE:
-        log_klass = crud.sense_log
-    elif wn_service == wn.WalletNodeService.NFT:
-        log_klass = crud.nft_log
-    elif wn_service == wn.WalletNodeService.COLLECTION:
-        log_klass = crud.collection_log
-    else:
-        return
-
-    with db_context() as session:
-        log = log_klass.get_by_ids(session, task_from_db.id, task_from_db.wn_file_id,
-                                   task_from_db.wn_task_id, task_from_db.pastel_id)
-        if not log:
-            log = schemas.HistoryLogCreate(
-                task_id=task_from_db.id,
-                wn_file_id=task_from_db.wn_file_id,
-                wn_task_id=task_from_db.wn_task_id,
-                pastel_id=task_from_db.pastel_id,
-                status_messages=wn_task_status,
-                created_at=datetime.utcnow(),
-            )
-            log_klass.create(session, obj_in=log)
-        else:
-            upd = {
-                "status_messages": wn_task_status,
-                "updated_at": datetime.utcnow(),
-            }
-            log_klass.update(session, db_obj=log, obj_in=upd)
 
 
 def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_service: wn.WalletNodeService):

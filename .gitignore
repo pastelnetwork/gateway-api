@@ -1,5 +1,6 @@
 __pycache__
 .idea/*
+backend/app/.idea/
 .env
 celerybeat-schedule.db
 celerybeat-schedule
