@@ -82,9 +82,9 @@ async def get_request_by_request_id(
 # Note: Only authenticated user with API key
 @router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
 async def get_all_results(
+        *,
         status_requested: Optional[ReqStatus] = Query(None),
         offset: int = 0, limit: int = 10000,
-        *,
         db: Session = Depends(session.get_db_session),
         api_key: models.ApiKey = Depends(deps.APIKeyAuth.get_api_key_for_cascade),
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
