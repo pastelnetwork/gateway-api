@@ -10,8 +10,8 @@ async def master_openapi_gateway_func(email: str, api_key: str, oauth_token: str
         # "authorization": f"bearer {oauth_token}",
         "api_key": f"{api_key}"
     }
-    #base_url = "https://testnet.gateway-api.pastel.network/api/v1/"
-    base_url = "http://localhost:9000/api/v1/"
+    base_url = "https://testnet.gateway-api.pastel.network/api/v1/"
+    #base_url = "http://localhost:9000/api/v1/"
     final_url = base_url + f"{request_type}/{request_argument}"
 
     start_time = time.time()
