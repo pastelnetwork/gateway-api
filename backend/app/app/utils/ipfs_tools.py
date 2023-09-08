@@ -126,7 +126,7 @@ async def pin_file_to_scaleway(ipfs_cid):
                 "cid": {ipfs_cid},
                 "name": "",
                 "origins": ["ipfs"],
-                "pin_options": "",
+                "pin_options": None,
                 "volume_id": settings.SCW_VOLUME_ID
             },
             timeout=10

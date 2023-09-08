@@ -48,9 +48,12 @@ async def check_processed_files_accessibility(get_all_func, update_func, service
         if service == WalletNodeService.NFT:
             await search_nft_dd_result(db=session, task_from_db=task_from_db,
                                        update_task_in_db_func=update_func)
-        await search_processed_file(db=session, task_from_db=task_from_db, update_task_in_db_func=update_func,
-                                    task_done=(task_from_db.process_status in [DbStatus.DONE.value]),
-                                    service=service)
+        data = await search_processed_file(db=session, task_from_db=task_from_db, update_task_in_db_func=update_func,
+                                           task_done=(task_from_db.process_status in [DbStatus.DONE.value]),
+                                           service=service)
+        if not data:
+            print(f"{i}/{records_to_check} Checking {ticket_type} {task_from_db.reg_ticket_txid}... Not found")
+            continue
 
         if check_ipfsio:
             # check if processed file is available on ipfs.io
@@ -58,9 +61,9 @@ async def check_processed_files_accessibility(get_all_func, update_func, service
                 ipfs_cid = task_from_db.stored_file_ipfs_link
                 print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}...", end='\r')
                 if await read_file_from_ipfs(ipfs_cid):
-                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Available")
+                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Available from ipfs.io")
                 else:
-                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Unavailable")
+                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Unavailable from ipfs.io")
                     bad += 1
                     with open(processed_unavailable_file, 'a') as f:
                         f.write(f"{ipfs_cid}\n")
