@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     IPFS_HOST: Optional[str] = None
     IPFS_URL: Optional[str] = None
 
+    SCW_PIN_URL_PREFIX = f"https://api.scaleway.com/ipfs/v1alpha1/regions"
+    SCW_PIN_URL_SUFFIX = f"pins/create-by-cid"
+    SCW_REGION = "fr-par"
+    SCW_SECRET_KEY = "2c95a2f3-802b-4fe2-96c9-374c9974dff9"     # TODO: move to AWS secret manager
+    SCW_VOLUME_ID = "4af3da90-2d92-4079-9b95-f5964e5b2c2c"
+
+
     @validator("IPFS_URL", pre=True)
     def assemble_ipfs_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
         if isinstance(v, str):

@@ -14,7 +14,8 @@ from fastapi import UploadFile, HTTPException, status
 from fastapi.responses import StreamingResponse
 from requests import HTTPError
 
-from app.utils.filestorage import LocalFile, store_file_into_local_cache, search_file_in_local_cache
+from app.utils.filestorage import LocalFile, store_file_into_local_cache, search_file_in_local_cache, \
+    search_nft_dd_result, search_processed_file
 from app import schemas, crud
 from app.core.config import settings
 from app.core.status import DbStatus, get_status_from_history_log
@@ -317,29 +318,12 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail=f"Only owner can download cascade file")
 
-    file_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid)
-    not_locally_cached = not file_bytes
-
-    if not file_bytes and task_from_db.process_status in [DbStatus.DONE.value]:
-        file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, wn_service=service)
-
-    if not file_bytes and task_from_db.stored_file_ipfs_link:
-        file_bytes = await read_file_from_ipfs(task_from_db.stored_file_ipfs_link)
-
-    if not file_bytes:
+    try:
+        return await search_processed_file(db=db, task_from_db=task_from_db,
+                                           update_task_in_db_func=update_task_in_db_func,
+                                           task_done=(task_from_db.process_status in [DbStatus.DONE.value]), service=service)
+    except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
-
-    # cache file in local storage and IPFS
-    if not_locally_cached:
-        cached_result_file = await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid,
-                                                               file_bytes=file_bytes)
-        if cached_result_file and not task_from_db.stored_file_ipfs_link:
-            stored_file_ipfs_link = await store_file_to_ipfs(cached_result_file)
-            if stored_file_ipfs_link:
-                upd = {"stored_file_ipfs_link": stored_file_ipfs_link, "updated_at": datetime.utcnow()}
-                update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
-
-    return file_bytes
 
 
 # search_pastel_file searches for file in 1) local cache; 2) Pastel network
@@ -369,33 +353,14 @@ async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_fu
     if task_from_db.process_status not in [DbStatus.DONE.value]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
-    dd_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, extra_suffix=".dd")
-    not_locally_cached = not dd_bytes
-
-    if not dd_bytes:
-        dd_bytes = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid)
-
-    if not dd_bytes and task_from_db.nft_dd_file_ipfs_link:
-        dd_bytes = await read_file_from_ipfs(task_from_db.nft_dd_file_ipfs_link)
-
-    if not dd_bytes:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Dupe detection data is not found")
-
-    # cache file in local storage and IPFS
-    if not_locally_cached:
-        cached_dd_file = await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid,
-                                                           file_bytes=dd_bytes,
-                                                           extra_suffix=".dd")
-        if cached_dd_file and not task_from_db.nft_dd_file_ipfs_link:
-            nft_dd_file_ipfs_link = await store_file_to_ipfs(cached_dd_file)
-            if nft_dd_file_ipfs_link:
-                upd = {"nft_dd_file_ipfs_link": nft_dd_file_ipfs_link, "updated_at": datetime.utcnow()}
-                update_task_in_db_func(db, db_obj=task_from_db, obj_in=upd)
-
-    return dd_bytes
+    try:
+        return await search_nft_dd_result(db=db, task_from_db=task_from_db,
+                                          update_task_in_db_func=update_task_in_db_func)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
 
-# search_gateway_file searches for file in 1) local cache; 2) Pastel network; 3) IPFS
+# search_nft_dd_result_pastel searches for file in 1) local cache; 2) Pastel network
 # Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
 async def search_nft_dd_result_pastel(*, reg_ticket_txid: str, throw=True) -> bytes:
 
