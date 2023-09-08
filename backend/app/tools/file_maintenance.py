@@ -113,13 +113,13 @@ if __name__ == "__main__":
 
     # re-add original files to IPFS
     # asyncio.run(re_add_original_files_to_ipfs(crud.sense.get_all_in_done, crud.sense.update, 'sense'))
-    asyncio.run(re_add_original_files_to_ipfs(crud.nft.get_all_in_done, crud.nft.update, 'nft'))
+    # asyncio.run(re_add_original_files_to_ipfs(crud.nft.get_all_in_done, crud.nft.update, 'nft'))
 
 
     # check ipfs accessibility from ipfs.io
-    # asyncio.run(check_processed_files_accessibility(crud.cascade.get_all_in_done, crud.cascade.update,
-    #                                                      WalletNodeService.CASCADE, 'cascade'))
-    # asyncio.run(check_processed_files_accessibility(crud.sense.get_all_in_done, crud.sense.update,
-    #                                                      WalletNodeService.SENSE, 'sense'))
     asyncio.run(check_processed_files_accessibility(crud.nft.get_all_in_done, crud.nft.update,
                                                          WalletNodeService.NFT, 'nft'))
+    # asyncio.run(check_processed_files_accessibility(crud.sense.get_all_in_done, crud.sense.update,
+    #                                                      WalletNodeService.SENSE, 'sense'))
+    # asyncio.run(check_processed_files_accessibility(crud.cascade.get_all_in_done, crud.cascade.update,
+    #                                                      WalletNodeService.CASCADE, 'cascade'))
