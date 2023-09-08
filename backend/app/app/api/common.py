@@ -21,7 +21,7 @@ from app.core.config import settings
 from app.core.status import DbStatus, get_status_from_history_log
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
-from app.utils.ipfs_tools import store_file_to_ipfs, read_file_from_ipfs
+from app.utils.ipfs_tools import store_file_to_ipfs
 import app.celery_tasks.nft as nft
 
 logger = logging.getLogger(__name__)

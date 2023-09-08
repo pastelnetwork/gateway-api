@@ -8,7 +8,7 @@ from app import crud
 from app.core.status import DbStatus
 from app.db.session import db_context
 from app.utils.filestorage import search_processed_file, search_nft_dd_result
-from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
+from app.utils.ipfs_tools import store_file_to_ipfs
 from app.utils.walletnode import WalletNodeService
 
 
@@ -52,18 +52,18 @@ async def check_processed_files_accessibility(get_all_func, update_func, service
                                            task_done=(task_from_db.process_status in [DbStatus.DONE.value]),
                                            service=service)
         if not data:
-            print(f"{i}/{records_to_check} Checking {ticket_type} {task_from_db.reg_ticket_txid}... Not found")
+            print(f"{i}/{records_to_check} Checking {ticket_type} {task_from_db.reg_ticket_txid} ... Not found")
             continue
 
         if check_ipfsio:
             # check if processed file is available on ipfs.io
             if task_from_db.stored_file_ipfs_link not in processed_unavailable:
                 ipfs_cid = task_from_db.stored_file_ipfs_link
-                print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}...", end='\r')
+                print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid} ...", end='\r')
                 if await read_file_from_ipfs(ipfs_cid):
-                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Available from ipfs.io")
+                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid} ... Available from ipfs.io")
                 else:
-                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Unavailable from ipfs.io")
+                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid} ... Unavailable from ipfs.io")
                     bad += 1
                     with open(processed_unavailable_file, 'a') as f:
                         f.write(f"{ipfs_cid}\n")

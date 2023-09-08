@@ -75,28 +75,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         return (
             db.query(self.model)
             .filter(Nft.request_id == request_id)
-            .filter(
-                sa.and_(
-                    Nft.burn_txid.is_(None),
-                    Nft.wn_task_id.is_(None),
-                ))
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
-
-    def get_all_in_request_prepaid(
-            self, db: Session, *, request_id: str, skip: int = 0, limit: int = 10000
-    ) -> List[Nft]:
-        return (
-            db.query(self.model)
-            .filter(Nft.request_id == request_id)
-            .filter(
-                sa.and_(
-                    Nft.burn_txid.isnot(None),
-                    Nft.wn_task_id.is_(None),
-                )
-            )
+            .filter(Nft.wn_task_id.is_(None))
             .offset(skip)
             .limit(limit)
             .all()
@@ -108,12 +87,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
         return (
             db.query(self.model)
             .filter(Nft.request_id == request_id)
-            .filter(
-                sa.and_(
-                    Nft.burn_txid.isnot(None),
-                    Nft.wn_task_id.isnot(None),
-                )
-            )
+            .filter(Nft.wn_task_id.isnot(None))
             .offset(skip)
             .limit(limit)
             .all()

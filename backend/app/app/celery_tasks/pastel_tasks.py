@@ -189,7 +189,7 @@ class PastelAPITask(celery.Task):
                                     f'not confirmed yet. Retrying... [Result ID: {result_id}]')
                         upd = {
                             "process_status_message": f'Found {have_pending} pre-burn txs in preburn table, '
-                                                      f'but they are not confirmed yet. Retrying',\
+                                                      f'but they are not confirmed yet. Retrying',
                             "updated_at": datetime.utcnow(), }
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                         retry_func()

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, Query
-from typing import List, Optional
+from typing import List
 import uuid
 
 from sqlalchemy.orm import Session
