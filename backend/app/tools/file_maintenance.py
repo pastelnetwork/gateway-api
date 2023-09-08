@@ -7,7 +7,7 @@ import requests
 from app import crud
 from app.core.status import DbStatus
 from app.db.session import db_context
-from app.utils.filestorage import search_processed_file
+from app.utils.filestorage import search_processed_file, search_nft_dd_result
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
 from app.utils.walletnode import WalletNodeService
 
@@ -24,7 +24,8 @@ async def read_file_from_ipfs(ipfs_cid) -> bool:
     return False
 
 
-async def check_processed_files_ipfs_accessibility(get_all_func, update_func, service: WalletNodeService, ticket_type: str):
+async def check_processed_files_accessibility(get_all_func, update_func, service: WalletNodeService, ticket_type: str,
+                                              check_ipfsio: bool = True):
 
     with db_context() as session:
         tasks_from_db = get_all_func(session)  # get latest 100(!) tasks in DONE state
@@ -44,20 +45,25 @@ async def check_processed_files_ipfs_accessibility(get_all_func, update_func, se
     for task_from_db in tasks_from_db:
         i += 1
         # Validate local cached and IPFS files
+        if service == WalletNodeService.NFT:
+            await search_nft_dd_result(db=session, task_from_db=task_from_db,
+                                       update_task_in_db_func=update_func)
         await search_processed_file(db=session, task_from_db=task_from_db, update_task_in_db_func=update_func,
                                     task_done=(task_from_db.process_status in [DbStatus.DONE.value]),
                                     service=service)
-        # check if processed file is available on ipfs.io
-        if task_from_db.stored_file_ipfs_link not in processed_unavailable:
-            ipfs_cid = task_from_db.stored_file_ipfs_link
-            print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}...", end='\r')
-            if await read_file_from_ipfs(ipfs_cid):
-                print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Available")
-            else:
-                print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Unavailable")
-                bad += 1
-                with open(processed_unavailable_file, 'a') as f:
-                    f.write(f"{ipfs_cid}\n")
+
+        if check_ipfsio:
+            # check if processed file is available on ipfs.io
+            if task_from_db.stored_file_ipfs_link not in processed_unavailable:
+                ipfs_cid = task_from_db.stored_file_ipfs_link
+                print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}...", end='\r')
+                if await read_file_from_ipfs(ipfs_cid):
+                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Available")
+                else:
+                    print(f"{i}/{records_to_check} Checking {ticket_type} {ipfs_cid}... Unavailable")
+                    bad += 1
+                    with open(processed_unavailable_file, 'a') as f:
+                        f.write(f"{ipfs_cid}\n")
 
     print(f"There are {bad} new unavailable {ticket_type} links")
 
@@ -74,11 +80,7 @@ async def re_add_original_files_to_ipfs(get_all_func, update_func, ticket_type: 
     records_to_check = len(tasks_from_db)
     print(f"checking {records_to_check} {ticket_type} links")
 
-    original_unavailable_file = f'original-unavailable-{ticket_type}.txt'
-    original_unavailable = await get_unavailables(original_unavailable_file, ticket_type)
-
     i = 0
-    bad = 0
     for task_from_db in tasks_from_db:
         i += 1
 
@@ -112,7 +114,9 @@ if __name__ == "__main__":
 
 
     # check ipfs accessibility from ipfs.io
-    # asyncio.run(check_processed_files_ipfs_accessibility(crud.cascade.get_all_in_done, crud.cascade.update,
+    # asyncio.run(check_processed_files_accessibility(crud.cascade.get_all_in_done, crud.cascade.update,
     #                                                      WalletNodeService.CASCADE, 'cascade'))
-    # asyncio.run(check_processed_files_ipfs_accessibility(WalletNodeService.SENSE, 'sense'))
-    # asyncio.run(check_processed_files_ipfs_accessibility(WalletNodeService.NFT, 'nft'))
+    # asyncio.run(check_processed_files_accessibility(crud.sense.get_all_in_done, crud.sense.update,
+    #                                                      WalletNodeService.SENSE, 'sense'))
+    asyncio.run(check_processed_files_accessibility(crud.nft.get_all_in_done, crud.nft.update,
+                                                         WalletNodeService.NFT, 'nft'))

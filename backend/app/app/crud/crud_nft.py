@@ -149,6 +149,17 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             .all()
         )
 
+    def get_all_in_done(
+            self, db: Session, *, limit: int = 100
+    ) -> List[Nft]:
+        return (
+            db.query(self.model)
+            .filter(self.model.process_status == DbStatus.DONE.value)
+            .order_by(self.model.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
+
     def get_all_failed(
             self, db: Session, *, skip: int = 0, limit: int = 10000
     ) -> List[Nft]:
