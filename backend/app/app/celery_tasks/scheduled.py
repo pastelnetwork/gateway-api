@@ -434,6 +434,27 @@ def watchdog():
         wn.WalletNodeService.SENSE
     )
 
+    _abandoned_states_cleaner(
+        crud.cascade.get_all_not_finished,
+        crud.cascade.update,
+        wn.WalletNodeService.CASCADE
+    )
+    _abandoned_states_cleaner(
+        crud.sense.get_all_not_finished,
+        crud.sense.update,
+        wn.WalletNodeService.SENSE
+    )
+    _abandoned_states_cleaner(
+        crud.nft.get_all_not_finished,
+        crud.nft.update,
+        wn.WalletNodeService.NFT
+    )
+    _abandoned_states_cleaner(
+        crud.collection.get_all_not_finished,
+        crud.collection.update,
+        wn.WalletNodeService.COLLECTION
+    )
+
     logger.info(f"watchdog task ended")
 
 
@@ -460,3 +481,38 @@ def _ticket_verificator(all_done_func,
 
         except Exception as e:
             logger.error(f"Error while verifying registration ticket {task_from_db.reg_ticket_txid}: {e}")
+
+
+def _abandoned_states_cleaner(get_all_non_finished_func,
+                              update_task_in_db_func,
+                              service: wn.WalletNodeService):
+    logger.info(f"abandoned_states_cleaner task started")
+    with db_context() as session:
+        tasks_from_db = get_all_non_finished_func(session)  # get oldest 100 updated more than 12 hours ago tasks
+    for task_from_db in tasks_from_db:
+        try:
+            obj_in = {"process_status": DbStatus.ERROR.value, "retry_num": 0,
+                      "updated_at": datetime.utcnow(), "process_status_message": "Task was abandoned, set to ERROR"}
+            if task_from_db.wn_task_id:
+                wn_task_status = wn.call(False,
+                                         service,
+                                         f'{task_from_db.wn_task_id}/history',
+                                         {}, [], {},
+                                         "", "")
+                if wn_task_status:
+                    for step in wn_task_status:
+                        if step['status'] == 'Task Completed':
+                            obj_in = {"process_status": DbStatus.DONE.value, "updated_at": datetime.utcnow(),
+                                      "process_status_message": "Task was abandoned, but seems to be completed"}
+                            continue
+                        if step['status'] == 'Request Accepted':
+                            obj_in = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow(),
+                                      "process_status_message": "Task was abandoned, but seems to be accepted"}
+                            continue
+                        if step['status'] == 'Request Registered':
+                            obj_in = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow(),
+                                      "process_status_message": "Task was abandoned, but seems to be registered"}
+                            continue
+            update_task_in_db_func(session, db_obj=task_from_db, obj_in=obj_in)
+        except Exception as e:
+            logger.error(f"Error while checking abandoned task {task_from_db.reg_ticket_txid}: {e}")

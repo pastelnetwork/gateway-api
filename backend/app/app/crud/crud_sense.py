@@ -165,12 +165,12 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
             db.query(self.model)
             .filter(
                 sa.or_(
-                    Sense.process_status == DbStatus.ERROR.value,
-                    Sense.process_status == '',
-                    Sense.process_status.is_(None),
+                    self.model.process_status == DbStatus.ERROR.value,
+                    self.model.process_status == '',
+                    self.model.process_status.is_(None),
                 )
             )
-            .order_by(Sense.updated_at)
+            .order_by(self.model.updated_at)
             .offset(skip)
             .limit(limit)
             .all()

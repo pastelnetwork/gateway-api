@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     IPFS_HOST: Optional[str] = None
     IPFS_URL: Optional[str] = None
 
+    SCW_ENABLED = False
     SCW_PIN_URL_PREFIX = f"https://api.scaleway.com/ipfs/v1alpha1/regions"
     SCW_PIN_URL_SUFFIX = f"pins/create-by-cid"
     SCW_REGION = "fr-par"
