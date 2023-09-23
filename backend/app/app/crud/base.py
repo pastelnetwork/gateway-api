@@ -1,8 +1,10 @@
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from datetime import datetime, timedelta
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import sqlalchemy as sa
 
 from app.core.status import DbStatus
 from app.db.base_class import Base
@@ -79,3 +81,25 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                      .filter(self.model.process_status != DbStatus.DONE.value))
                      .filter(self.model.process_status != DbStatus.DEAD.value))
         return query.offset(skip).limit(limit).all()
+
+    def get_all_not_finished(
+            self, db: Session, *, hours_ago=12, skip: int = 0, limit: int = 100
+    ) -> List[ModelType]:
+        twelve_hours_ago = datetime.utcnow() - timedelta(hours=hours_ago)
+        return (
+            db.query(self.model)
+            .filter(
+                sa.and_(
+                    sa.or_(
+                        self.model.process_status == DbStatus.UPLOADED.value,
+                        self.model.process_status == DbStatus.PREBURN_FEE.value,
+                        self.model.process_status == DbStatus.STARTED.value,
+                    ),
+                    self.model.updated_at < twelve_hours_ago
+                )
+            )
+            .order_by(self.model.updated_at.asc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
