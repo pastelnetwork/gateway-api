@@ -328,7 +328,16 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
 
 # search_pastel_file searches for file in 1) local cache; 2) Pastel network
 # Is used to search for files that were not processed by Gateway: for Sense dd data and NFT dd data
-async def search_pastel_file(*, reg_ticket_txid: str, service: wn.WalletNodeService, throw=True) -> bytes:
+async def search_pastel_file(*, db=None, reg_ticket_txid: str, service: wn.WalletNodeService, throw=True) -> bytes:
+
+    if db:
+        ticket = crud.reg_ticket.get_by_reg_ticket_txid(db=db, txid=reg_ticket_txid)
+        if ticket:
+            if (service == wn.WalletNodeService.SENSE and ticket.ticket_type != 'sense' or
+                    service == wn.WalletNodeService.NFT and ticket.ticket_type != 'nft' or
+                    service == wn.WalletNodeService.CASCADE and ticket.ticket_type != 'cascade' or
+                    service == wn.WalletNodeService.COLLECTION and ticket.ticket_type != 'collection'):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"TXID of wrong ticket type")
 
     file_bytes = await search_file_in_local_cache(reg_ticket_txid=reg_ticket_txid)
     not_locally_cached = not file_bytes
@@ -627,8 +636,7 @@ async def get_public_file(db, ticket_type: str, registration_ticket_txid: str, w
     if not shadow_ticket.is_public:
         raise HTTPException(status_code=403, detail="Non authorized access to file")
 
-    file_bytes = await search_pastel_file(reg_ticket_txid=registration_ticket_txid,
-                                                 service=wn_service)
+    file_bytes = await search_pastel_file(reg_ticket_txid=registration_ticket_txid, service=wn_service)
     return await stream_file(file_bytes=file_bytes, original_file_name=f"{shadow_ticket.file_name}")
 
 

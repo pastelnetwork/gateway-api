@@ -28,7 +28,7 @@ async def check_processed_files_accessibility(get_all_func, update_func, service
                                               check_ipfsio: bool = True):
 
     with db_context() as session:
-        tasks_from_db = get_all_func(session)  # get latest 100(!) tasks in DONE state
+        tasks_from_db = get_all_func(session, limit=1000)  # get latest 100(!) tasks in DONE state
 
     if not tasks_from_db:
         print("No tasks found")

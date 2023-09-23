@@ -134,10 +134,10 @@ async def download_file_from_wn_by_id(file_id, reg_ticket_txid):
         }
         file_response = requests.request("GET", file_url, headers=headers, data=payload)
         if file_response.status_code != 200:
-            logger.info(f"Calling cNode as: "
+            logger.info(f"Calling WN as: "
                         f"URL: {file_response.request.url}\nMethod: {file_response.request.method}"
                         f"\nHeaders: {file_response.request.headers}\nBody: {file_response.request.body}")
-            logger.info(f"Response from cNode: {file_response.text}")
+            logger.info(f"Response from WN: {file_response.text}")
             logger.error(f"Pastel file not found - reg ticket txid = {reg_ticket_txid}: error in wn/files response")
         else:
             logger.info(f"download_file_from_wn_by_id: got file. file_id = {file_id}; "

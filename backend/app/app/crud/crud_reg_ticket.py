@@ -20,6 +20,7 @@ class CRUDRegTicket(CRUDBase[RegTicket, RegTicketCreate, RegTicketUpdate]):
                    file_name: str,
                    is_public: bool,
                    ) -> RegTicket:
+        # noinspection PyArgumentList
         db_obj = RegTicket(
             data_hash=data_hash,
             reg_ticket_txid=reg_ticket_txid,

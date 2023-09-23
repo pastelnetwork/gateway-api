@@ -154,11 +154,23 @@ def _registration_finisher(
                                                 logger.error(f'{wn_service}: Bad pre-burn tx was used. Cleaning up.'
                                                              f'[Result ID: {task_from_db.result_id}]')
                                         clear_preburn = True
+                                    if "image already registered" in step['details']['fields']['error_detail']:
+                                        logger.error(f"Task Rejected because of image already registered: "
+                                                     f"wn_task_id - {task_from_db.wn_task_id}, "
+                                                     f"ResultId - {task_from_db.result_id},"
+                                                     f"burn_txid - {task_from_db.burn_txid}")
+                                        with db_context() as session:
+                                            _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
+                                                                       DbStatus.EXISTING, get_by_preburn_txid_func,
+                                                                       wn_service, clear_preburn)
+                                        break
+
                     # mark result as failed, and requires reprocessing
                     with db_context() as session:
                         logger.error(f"{wn_service}: Marking task as ERROR. ResultId - {task_from_db.result_id}")
                         _mark_task_in_db_as_failed(session, task_from_db, update_task_in_db_func,
-                                                   get_by_preburn_txid_func, wn_service, clear_preburn)
+                                                   DbStatus.ERROR, get_by_preburn_txid_func,
+                                                   wn_service, clear_preburn)
                     break
                 if not task_from_db.reg_ticket_txid:
                     reg = status.split(f'Validating {service_name} Reg TXID: ', 1)
@@ -293,11 +305,15 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
 def _mark_task_in_db_as_failed(session,
                                task_from_db,
                                update_task_in_db_func,
+                               failure_code: DbStatus,
                                get_by_preburn_txid_func,
                                wn_service: wn.WalletNodeService,
                                clear_preburn):
-    logger.info(f"Marking task as failed: {task_from_db.id}")
-    upd = {"process_status": DbStatus.ERROR.value, "updated_at": datetime.utcnow()}
+    if failure_code == DbStatus.ERROR:
+        logger.info(f"Marking task as failed: {task_from_db.id}")
+    elif failure_code == DbStatus.EXISTING:
+        logger.info(f"Marking task as registered elsewhere: {task_from_db.id}")
+    upd = {"process_status": failure_code.value, "updated_at": datetime.utcnow()}
     if clear_preburn:
         upd["burn_txid"] = None
     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)

@@ -219,7 +219,7 @@ async def get_raw_output_file_by_registration_ticket(
                                                           service=wn.WalletNodeService.SENSE,
                                                           update_task_in_db_func=crud.sense.update)
     else:
-        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+        raw_file_bytes = await common.search_pastel_file(db=db, reg_ticket_txid=registration_ticket_txid,
                                                          service=wn.WalletNodeService.SENSE)
     return Response(content=raw_file_bytes, media_type="application/json")
 
@@ -239,7 +239,7 @@ async def get_parsed_output_file_by_registration_ticket(
                                                           service=wn.WalletNodeService.SENSE,
                                                           update_task_in_db_func=crud.sense.update)
     else:
-        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+        raw_file_bytes = await common.search_pastel_file(db=db, reg_ticket_txid=registration_ticket_txid,
                                                          service=wn.WalletNodeService.SENSE)
     parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
@@ -261,7 +261,7 @@ async def get_raw_output_file_by_activation_ticket(
                                                           update_task_in_db_func=crud.sense.update)
     else:
         registration_ticket_txid = await common.get_reg_txid_by_act_txid(activation_ticket_txid)
-        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+        raw_file_bytes = await common.search_pastel_file(db=db, reg_ticket_txid=registration_ticket_txid,
                                                          service=wn.WalletNodeService.SENSE)
     return Response(content=raw_file_bytes, media_type="application/json")
 
@@ -282,7 +282,7 @@ async def parsed_output_file_by_act_txid(
                                                           update_task_in_db_func=crud.sense.update)
     else:
         registration_ticket_txid = await common.get_reg_txid_by_act_txid(activation_ticket_txid)
-        raw_file_bytes = await common.search_pastel_file(reg_ticket_txid=registration_ticket_txid,
+        raw_file_bytes = await common.search_pastel_file(db=db, reg_ticket_txid=registration_ticket_txid,
                                                          service=wn.WalletNodeService.SENSE)
     parsed_file_bytes = await common.parse_dd_data(raw_file_bytes)
     return Response(content=parsed_file_bytes, media_type="application/json")
@@ -294,14 +294,16 @@ async def parsed_output_file_by_act_txid(
 async def get_raw_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
+        db: Session = Depends(session.get_db_session),
 ):
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
                                                                   ticket_type="action",
                                                                   search_data_lambda=lambda txid:
-                                                                    common.search_pastel_file(
-                                                                        reg_ticket_txid=txid,
-                                                                        service=wn.WalletNodeService.SENSE,
-                                                                        throw=False)
+                                                                  common.search_pastel_file(
+                                                                      db=db,
+                                                                      reg_ticket_txid=txid,
+                                                                      service=wn.WalletNodeService.SENSE,
+                                                                      throw=False)
                                                                   )
 
 
@@ -311,14 +313,16 @@ async def get_raw_output_file_by_pastel_id(
 async def parsed_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
+        db: Session = Depends(session.get_db_session),
 ):
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
                                                                   ticket_type="action",
                                                                   search_data_lambda=lambda txid:
-                                                                    common.search_pastel_file(
-                                                                        reg_ticket_txid=txid,
-                                                                        service=wn.WalletNodeService.SENSE,
-                                                                        throw=False),
+                                                                  common.search_pastel_file(
+                                                                      db=db,
+                                                                      reg_ticket_txid=txid,
+                                                                      service=wn.WalletNodeService.SENSE,
+                                                                      throw=False),
                                                                   parse=True)
 
 

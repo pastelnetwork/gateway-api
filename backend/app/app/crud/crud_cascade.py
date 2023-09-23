@@ -14,6 +14,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
     def create_with_owner(
             db: Session, *, obj_in: CascadeCreate, owner_id: int
     ) -> Cascade:
+        # noinspection PyArgumentList
         db_obj = Cascade(
             original_file_name=obj_in.original_file_name,
             original_file_content_type=obj_in.original_file_content_type,

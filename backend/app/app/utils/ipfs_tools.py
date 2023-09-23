@@ -123,7 +123,7 @@ async def pin_file_to_scaleway(ipfs_cid):
                 "Content-Type": "application/json"
             },
             json={
-                "cid": {ipfs_cid},
+                "cid": ipfs_cid,
                 "name": "",
                 "origins": ["ipfs"],
                 "pin_options": None,

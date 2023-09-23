@@ -14,6 +14,7 @@ class CRUDSense(CRUDBase[Sense, SenseCreate, SenseUpdate]):
     def create_with_owner(
             db: Session, *, obj_in: SenseCreate, owner_id: int
     ) -> Sense:
+        # noinspection PyArgumentList
         db_obj = Sense(
             original_file_name=obj_in.original_file_name,
             original_file_content_type=obj_in.original_file_content_type,

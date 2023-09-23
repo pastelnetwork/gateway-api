@@ -30,6 +30,7 @@ class DbStatus(str, Enum):
     DEAD = "DEAD"                   # 10 re-processing attempts failed, will not try to re-process
     REGISTERED = "REGISTERED"       # task is registered, reg ticket txid is received
     BAD = "BAD"
+    EXISTING = "EXISTING"
 
 
 def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
