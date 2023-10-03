@@ -87,7 +87,7 @@ async def process_action_request(
             continue
 
         if service == wn.WalletNodeService.SENSE:
-            reg_result = await check_image(file, db)
+            reg_result = await check_image(file, db, service)
             if reg_result is not None:
                 request_result.results.append(reg_result)
                 continue
@@ -683,8 +683,13 @@ async def check_file_is_not_empty(file: UploadFile) -> schemas.ResultRegistratio
     return None
 
 
-async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult | None:
-    if "image" not in file.content_type:
+async def check_image(file: UploadFile, db,
+                      wn_service: wn.WalletNodeService) -> schemas.ResultRegistrationResult | None:
+    if (
+            ("image/jpeg" not in file.content_type) and
+            ("image/png" not in file.content_type) and
+            ("image/webp" not in file.content_type)
+    ):
         return schemas.ResultRegistrationResult(
             result_status=schemas.Status.ERROR,
             file_name=file.filename,
@@ -692,17 +697,19 @@ async def check_image(file: UploadFile, db) -> schemas.ResultRegistrationResult 
             status_messages=["File type not supported"],
         )
 
-    image_hash = await compute_hash(file)
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=image_hash)
-    if len(tickets) > 0:
-        message = {"error": "This file has already been registered", "reg_ticket_txid":  tickets[0].reg_ticket_txid}
-
-        return schemas.ResultRegistrationResult(
-            result_status=schemas.Status.ERROR,
-            file_name=file.filename,
-            file_type=file.content_type,
-            status_messages=[message],
-        )
+    if wn_service == wn.WalletNodeService.NFT or wn_service == wn.WalletNodeService.SENSE:
+        image_hash = await compute_hash(file)
+        tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=image_hash)
+        for ticket in tickets:
+            if ticket.ticket_type == "sense" or ticket.ticket_type == "nft":
+                message = {"error": "This file has already been registered",
+                           "reg_ticket_txid": tickets[0].reg_ticket_txid}
+                return schemas.ResultRegistrationResult(
+                    result_status=schemas.Status.ERROR,
+                    file_name=file.filename,
+                    file_type=file.content_type,
+                    status_messages=[message],
+                )
 
     return None
 

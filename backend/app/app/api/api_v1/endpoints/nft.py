@@ -44,7 +44,7 @@ async def process_request(
             results=[reg_result]
         )
 
-    reg_result = await common.check_image(file, db)
+    reg_result = await common.check_image(file, db, wn.WalletNodeService.NFT)
     if reg_result is not None:
         return schemas.RequestResult(
             request_id='',
@@ -83,7 +83,7 @@ async def step_1_upload_image_file(
     if reg_result is not None:
         return reg_result
 
-    reg_result = await common.check_image(file, db)
+    reg_result = await common.check_image(file, db, wn.WalletNodeService.NFT)
     if reg_result is not None:
         return reg_result
 
