@@ -699,18 +699,17 @@ async def check_image(file: UploadFile, db,
 
     if wn_service == wn.WalletNodeService.NFT or wn_service == wn.WalletNodeService.SENSE:
         image_hash = await compute_hash(file)
-        tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=image_hash)
+        ticket_type = "nft" if wn_service == wn.WalletNodeService.NFT else "sense"
+        tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=image_hash, ticket_type=ticket_type)
         for ticket in tickets:
-            if ticket.ticket_type == "sense" or ticket.ticket_type == "nft":
-                message = {"error": "This file has already been registered",
-                           "reg_ticket_txid": tickets[0].reg_ticket_txid}
-                return schemas.ResultRegistrationResult(
-                    result_status=schemas.Status.ERROR,
-                    file_name=file.filename,
-                    file_type=file.content_type,
-                    status_messages=[message],
-                )
-
+            message = {"error": f"This file has already been registered in the {ticket_type} ticket",
+                       "reg_ticket_txid": ticket.reg_ticket_txid}
+            return schemas.ResultRegistrationResult(
+                result_status=schemas.Status.ERROR,
+                file_name=file.filename,
+                file_type=file.content_type,
+                status_messages=[message],
+            )
     return None
 
 

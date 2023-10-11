@@ -36,19 +36,24 @@ class CRUDRegTicket(CRUDBase[RegTicket, RegTicketCreate, RegTicketUpdate]):
         return db_obj
 
     @staticmethod
-    def get_by_hash(db: Session, *, data_hash_as_hex: str) -> List[RegTicket]:
+    def get_by_hash(db: Session, *, data_hash_as_hex: str, ticket_type: str) -> List[RegTicket]:
         binary_hash = binascii.unhexlify(data_hash_as_hex)
         b64_hash = base64.b64encode(binary_hash).decode()
-        return db.query(RegTicket).filter(RegTicket.data_hash == b64_hash).all()
+        return (db.query(RegTicket)
+                .filter(RegTicket.data_hash == b64_hash)
+                .filter(RegTicket.ticket_type == ticket_type)
+                .all()
+                )
 
     def get_by_reg_ticket_txid(self, db: Session, *, txid: str) -> RegTicket:
         return db.query(RegTicket).filter(RegTicket.reg_ticket_txid == txid).first()
 
     def get_by_reg_ticket_txid_and_type(self, db: Session, *, txid: str, ticket_type: str) -> RegTicket:
-        return db.query(RegTicket)\
-            .filter(RegTicket.ticket_type == ticket_type)\
-            .filter(RegTicket.reg_ticket_txid == txid)\
-            .first()
+        return (db.query(RegTicket)
+                .filter(RegTicket.ticket_type == ticket_type)
+                .filter(RegTicket.reg_ticket_txid == txid)
+                .first()
+                )
 
     def get_last_blocknum(self, db: Session) -> int:
         last = db.query(RegTicket).order_by(RegTicket.blocknum.desc()).first()

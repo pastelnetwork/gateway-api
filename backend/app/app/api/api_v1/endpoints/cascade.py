@@ -340,11 +340,16 @@ async def get_pastel_registration_ticket_by_stored_file_hash(
         db: Session = Depends(session.get_db_session),
 ):
     output = []
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex)
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex, ticket_type="cascade")
     for ticket in tickets:
-        if ticket.ticket_type == "cascade":
-            reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.CASCADE)
+        try:
+            reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid,
+                                                                     wn.WalletNodeService.CASCADE)
             output.append(reg_ticket)
+        except HTTPException as e:
+            output.append({"reg_ticket_txid": ticket.reg_ticket_txid, "error": str(e.detail)})
+        except Exception:
+            output.append({"reg_ticket_txid": ticket.reg_ticket_txid, "error": "ticket not found"})
     return output
 
 

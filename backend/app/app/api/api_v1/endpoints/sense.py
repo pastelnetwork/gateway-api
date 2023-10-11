@@ -439,11 +439,10 @@ async def get_pastel_ticket_data_from_media_file_hash(
         db: Session = Depends(session.get_db_session),
 ):
     output = []
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex)
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex, ticket_type="sense")
     for ticket in tickets:
-        if ticket.ticket_type == "sense":
-            reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.SENSE)
-            output.append(reg_ticket)
+        reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.SENSE)
+        output.append(reg_ticket)
     return output
 
 
