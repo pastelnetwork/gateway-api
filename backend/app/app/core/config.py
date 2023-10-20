@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     AWS_SECRET_MANAGER_REGION: Optional[str] = None
     AWS_SECRET_MANAGER_PASTEL_IDS: Optional[str] = None
     AWS_SECRET_MANAGER_RDS_CREDENTIALS: Optional[str] = None
+    AWS_SECRET_MANAGER_RDS_PARAMETERS: Optional[str] = None
     AWS_SECRET_MANAGER_SMTP_SECRETS: Optional[str] = None
 
     API_V1_STR: str = "/api/v1"
@@ -84,13 +85,12 @@ class Settings(BaseSettings):
     IPFS_HOST: Optional[str] = None
     IPFS_URL: Optional[str] = None
 
-    SCW_ENABLED = False
-    SCW_PIN_URL_PREFIX = f"https://api.scaleway.com/ipfs/v1alpha1/regions"
-    SCW_PIN_URL_SUFFIX = f"pins/create-by-cid"
-    SCW_REGION = "fr-par"
-    SCW_SECRET_KEY = "2c95a2f3-802b-4fe2-96c9-374c9974dff9"     # TODO: move to AWS secret manager
-    SCW_VOLUME_ID = "4af3da90-2d92-4079-9b95-f5964e5b2c2c"
-
+    SCW_ENABLED: bool = False
+    SCW_PIN_URL_PREFIX: Optional[str] = f"https://api.scaleway.com/ipfs/v1alpha1/regions"
+    SCW_PIN_URL_SUFFIX: Optional[str] = f"pins/create-by-cid"
+    SCW_REGION: Optional[str] = "fr-par"
+    SCW_SECRET_KEY: Optional[str] = "2c95a2f3-802b-4fe2-96c9-374c9974dff9"     # TODO: move to AWS secret manager
+    SCW_VOLUME_ID: Optional[str] = "4af3da90-2d92-4079-9b95-f5964e5b2c2c"
 
     @validator("IPFS_URL", pre=True)
     def assemble_ipfs_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
@@ -135,6 +135,7 @@ class Settings(BaseSettings):
             return get_database_url_from_aws_secret_manager(
                 values.get("AWS_SECRET_MANAGER_REGION"),
                 values.get("AWS_SECRET_MANAGER_RDS_CREDENTIALS"),
+                values.get("AWS_SECRET_MANAGER_RDS_PARAMETERS") or None
             )
 
         if values.get("POSTGRES_SERVER") and values.get("POSTGRES_USER") and values.get("POSTGRES_PASSWORD"):
@@ -263,8 +264,12 @@ def get_secret_string_from_aws_secret_manager(region_name, secret_id) -> Any:
     return secret_json
 
 
-def get_database_url_from_aws_secret_manager(region_name, secret_id) -> Any:
-    secret_json = get_secret_string_from_aws_secret_manager(region_name, secret_id)
+def get_database_url_from_aws_secret_manager(region_name, secret_creds_id, secret_params_id) -> Any:
+    secret_json = get_secret_string_from_aws_secret_manager(region_name, secret_creds_id)
+    if secret_params_id:
+        secret_params_json = get_secret_string_from_aws_secret_manager(region_name, secret_params_id)
+        if secret_params_json:
+            secret_json.update(secret_params_json)
 
     return PostgresDsn.build(
         scheme="postgresql",

@@ -9,8 +9,8 @@ python = "^3.10"
 fastapi = {extras = ["all"], version = "^0.95.2"}
 uvicorn = {version = "^0.22.0", extras = ["standard"]}
 celery = "^5.2.7"
-flower = "^1.2.0"
-httpx = "^0.24.1"
+flower = "^2.0.0"
+httpx = "^0.25.0"
 aiofiles = "^23.1.0"
 SQLAlchemy = "^1.4.40"
 psycopg2-binary = "^2.9.5"
@@ -21,14 +21,14 @@ passlib = {extras = ["bcrypt"], version = "^1.7.2"}
 emails = "^0.6"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 kombu = "^5.2.4"
-redis = "4.5.5"
+redis = "^5.0.0"
 ipfshttpclient = "^0.7.0"
 zstd = "^1.5.4"
 python-redis-cache = "^2.1.2"
 redlock = "^1.2.0"
 boto3 = "^1.26.92"
-gunicorn = "^20.1.0"
-pillow = "^9.5.0"
+gunicorn = "^21.2.0"
+pillow = "^10.0.0"
 aiohttp = "^3.7.4"
 
 [tool.poetry.dev-dependencies]
