@@ -3,6 +3,7 @@ from typing import Optional, Any
 
 from pydantic import BaseModel
 
+
 # Shared properties
 class HistoryLogBase(BaseModel):
     task_id: int
@@ -11,16 +12,20 @@ class HistoryLogBase(BaseModel):
     pastel_id: Optional[str] = None
     status_messages: Any = None
 
+
 class HistoryLogCreate(HistoryLogBase):
     created_at: datetime = datetime.utcnow(),
 
+
 class HistoryLogUpdate(HistoryLogBase):
     updated_at: datetime = datetime.utcnow(),
+
 
 # Properties to return to client
 class HistoryLogInDB(HistoryLogBase):
     id: int
     updated_at: datetime = datetime.utcnow(),
     created_at: datetime = datetime.utcnow(),
+
     class Config:
-        orm_mode = True
+        from_attributes = True

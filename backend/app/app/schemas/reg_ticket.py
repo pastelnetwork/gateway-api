@@ -18,15 +18,17 @@ class RegTicketBase(BaseModel):
 class RegTicketCreate(RegTicketBase):
     pass
 
+
 class RegTicketUpdate(RegTicketBase):
     pass
+
 
 # Properties shared by models stored in DB
 class RegTicketInDBBase(RegTicketBase):
     id: Optional[int] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Properties to return to client

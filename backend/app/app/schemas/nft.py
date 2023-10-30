@@ -5,24 +5,24 @@ from .base_task import BaseTaskBase, BaseTaskCreate, BaseTaskUpdate, BaseTaskInD
 
 
 class ThumbnailCoordinate(BaseModel):
-    bottom_right_x: Optional[float]
-    bottom_right_y: Optional[float]
-    top_left_x: Optional[float]
-    top_left_y: Optional[float]
+    bottom_right_x: Optional[float] = 120.0
+    bottom_right_y: Optional[float] = 120.0
+    top_left_x: Optional[float] = 0.0
+    top_left_y: Optional[float] = 0.0
 
 
 class NftPropertiesExternal(BaseModel):
-    creator_name: Optional[str]
-    creator_website_url: Optional[str]
-    description: Optional[str]
-    green: Optional[bool]
-    issued_copies: Optional[int]
-    keywords: Optional[str]
-    maximum_fee: Optional[float]
-    name: Optional[str]
+    creator_name: Optional[str] = None
+    creator_website_url: Optional[str] = None
+    description: Optional[str] = None
+    green: Optional[bool] = False
+    issued_copies: Optional[int] = 1
+    keywords: Optional[str] = None
+    maximum_fee: Optional[float] = 0.0
+    name: Optional[str] = None
     royalty: Optional[float] = 0.0
-    series_name: Optional[str]
-    youtube_url: Optional[str]
+    series_name: Optional[str] = None
+    youtube_url: Optional[str] = None
 
 
 class NftPropertiesInternal(NftPropertiesExternal):
@@ -31,10 +31,10 @@ class NftPropertiesInternal(NftPropertiesExternal):
 
 # Shared properties
 class NftBase(BaseTaskBase):
-    nft_properties: Optional[NftPropertiesInternal]
-    collection_act_txid: Optional[str]
-    open_api_group_id: Optional[str]
-    nft_dd_file_ipfs_link: Optional[str]
+    nft_properties: Optional[NftPropertiesInternal] = None
+    collection_act_txid: Optional[str] = None
+    open_api_group_id: Optional[str] = None
+    nft_dd_file_ipfs_link: Optional[str] = None
 
 
 # Properties to receive on Nft creation

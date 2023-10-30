@@ -1,12 +1,16 @@
 import secrets
+
 import boto3
 from botocore.exceptions import ClientError
 import json
+from urllib.parse import quote
 
 from functools import lru_cache
 from dotenv import find_dotenv
-from pydantic import BaseSettings, EmailStr, PostgresDsn, validator, AnyHttpUrl
+from pydantic import EmailStr, PostgresDsn, field_validator, AnyHttpUrl
 from typing import Any, Dict, Optional, List, Union
+from pydantic_settings import BaseSettings
+from pydantic_core.core_schema import FieldValidationInfo
 
 
 class Settings(BaseSettings):
@@ -17,6 +21,8 @@ class Settings(BaseSettings):
                                "For more information on Pastel Network, review our " \
                                "<a href=https://docs.pastel.network/introduction/pastel-overview>documentation</a>."
     SERVER_HOST: AnyHttpUrl
+
+    STACK_NAME: str = "pastel-network-api-gateway"
 
     AWS_SECRET_MANAGER_REGION: Optional[str] = None
     AWS_SECRET_MANAGER_PASTEL_IDS: Optional[str] = None
@@ -34,7 +40,7 @@ class Settings(BaseSettings):
     # BACKEND_CORS_ORIGINS is a JSON-formatted list of origins
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = None
 
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
+    @field_validator("BACKEND_CORS_ORIGINS", mode='before')
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
@@ -46,12 +52,14 @@ class Settings(BaseSettings):
     PASTEL_RPC_PORT: Optional[str] = None
     PASTEL_RPC_URL: Optional[str] = None
 
-    @validator("PASTEL_RPC_URL", pre=True)
-    def assemble_pastel_rpc_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("PASTEL_RPC_URL", mode='before')
+    def assemble_pastel_rpc_url(cls, v: Optional[str], info: FieldValidationInfo) -> str:
         if isinstance(v, str):
             return v
         else:
-            return f"http://{values.get('PASTEL_RPC_HOST') or 'localhost'}:{values.get('PASTEL_RPC_PORT') or '19932'}"
+            host = info.data['PASTEL_RPC_HOST'] if check_parameter('PASTEL_RPC_HOST', info) else 'localhost'
+            port = info.data['PASTEL_RPC_PORT'] if check_parameter('PASTEL_RPC_PORT', info) else '19932'
+            return f"http://{host}:{port}"
 
     PASTEL_RPC_USER: str
     PASTEL_RPC_PWD: str
@@ -59,15 +67,17 @@ class Settings(BaseSettings):
     PASTEL_ID: str
     PASTEL_ID_PASSPHRASE: Optional[str] = None
 
-    @validator("PASTEL_ID_PASSPHRASE", pre=True)
-    def get_pastel_id_passphrase(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("PASTEL_ID_PASSPHRASE", mode='before')
+    def get_pastel_id_passphrase(cls, v: Optional[str], info: FieldValidationInfo) -> str:
         if isinstance(v, str):
             return v
-        if values.get("AWS_SECRET_MANAGER_PASTEL_IDS") and values.get("AWS_SECRET_MANAGER_REGION"):
+        if (check_parameter("AWS_SECRET_MANAGER_REGION", info) and
+                check_parameter("AWS_SECRET_MANAGER_PASTEL_IDS", info) and
+                check_parameter("PASTEL_ID", info)):
             secret = get_secret_string_from_aws_secret_manager(
-                values.get("AWS_SECRET_MANAGER_REGION"),
-                values.get("AWS_SECRET_MANAGER_PASTEL_IDS"))
-            return secret[values.get("PASTEL_ID")]
+                info.data["AWS_SECRET_MANAGER_REGION"],
+                info.data["AWS_SECRET_MANAGER_PASTEL_IDS"])
+            return secret[info.data["PASTEL_ID"]]
 
     BURN_ADDRESS: str
 
@@ -75,12 +85,14 @@ class Settings(BaseSettings):
     WN_BASE_PORT: Optional[str] = None
     WN_BASE_URL: Optional[str] = None
 
-    @validator("WN_BASE_URL", pre=True)
-    def assemble_wn_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("WN_BASE_URL", mode='before')
+    def assemble_wn_url(cls, v: Optional[str], info: FieldValidationInfo) -> str:
         if isinstance(v, str):
             return v
         else:
-            return f"http://{values.get('WN_HOST') or 'localhost'}:{values.get('WN_BASE_PORT') or '8080'}"
+            host = info.data['WN_HOST'] if check_parameter('WN_HOST', info) else 'localhost'
+            port = info.data['WN_BASE_PORT'] if check_parameter('WN_BASE_PORT', info) else '8080'
+            return f"http://{host}:{port}"
 
     IPFS_HOST: Optional[str] = None
     IPFS_URL: Optional[str] = None
@@ -92,25 +104,26 @@ class Settings(BaseSettings):
     SCW_SECRET_KEY: Optional[str] = "2c95a2f3-802b-4fe2-96c9-374c9974dff9"     # TODO: move to AWS secret manager
     SCW_VOLUME_ID: Optional[str] = "4af3da90-2d92-4079-9b95-f5964e5b2c2c"
 
-    @validator("IPFS_URL", pre=True)
-    def assemble_ipfs_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("IPFS_URL", mode='before')
+    def assemble_ipfs_url(cls, v: Optional[str], info: FieldValidationInfo) -> str:
         if isinstance(v, str):
             return v
         else:
-            return f"/dns/{values.get('IPFS_HOST') or 'localhost'}/tcp/5001/http"
+            host = info.data['IPFS_HOST'] if check_parameter('IPFS_HOST', info) else 'localhost'
+            return f"/dns/{host}/tcp/5001/http"
 
     REDIS_HOST: Optional[str] = 'localhost'
     REDIS_PORT: Optional[str] = '6379'
     REDIS_URL: Optional[str] = None
 
-    @validator("REDIS_URL", pre=True)
-    def assemble_redis_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("REDIS_URL", mode='before')
+    def assemble_redis_url(cls, v: Optional[str], info: FieldValidationInfo) -> str:
         if isinstance(v, str):
             return v
         else:
-            h = values.get('REDIS_HOST') or 'localhost'
-            p = values.get('REDIS_PORT') or '6379'
-            return f"redis://{h}:{p}/0"
+            host = info.data['REDIS_HOST'] if check_parameter('REDIS_HOST', info) else 'localhost'
+            port = info.data['REDIS_PORT'] if check_parameter('REDIS_PORT', info) else '6379'
+            return f"redis://{host}:{port}/0"
 
     FILE_STORAGE: str
     FILE_STORAGE_FOR_RESULTS_SUFFIX: str = "results"
@@ -120,31 +133,35 @@ class Settings(BaseSettings):
     NFT_THUMBNAIL_SIZE_IN_PIXELS: int = 256
     MAX_SIZE_FOR_PREBURN: int = 20
 
-    POSTGRES_SERVER: Optional[str]
-    POSTGRES_USER: Optional[str]
-    POSTGRES_PASSWORD: Optional[str]
-    POSTGRES_DB: Optional[str]
+    POSTGRES_SERVER: Optional[str] = None
+    POSTGRES_USER: Optional[str] = None
+    POSTGRES_PASSWORD: Optional[str] = None
+    POSTGRES_DB: Optional[str] = None
     SQLALCHEMY_DATABASE_URI: Optional[PostgresDsn] = None
 
-    @validator("SQLALCHEMY_DATABASE_URI", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
+    @field_validator("SQLALCHEMY_DATABASE_URI", mode='after')
+    def assemble_db_connection(cls, v: Optional[str], info: FieldValidationInfo) -> Any:
         if isinstance(v, str):
             return v
 
-        if values.get("AWS_SECRET_MANAGER_RDS_CREDENTIALS") and values.get("AWS_SECRET_MANAGER_REGION"):
+        if (check_parameter('AWS_SECRET_MANAGER_REGION', info) and
+                check_parameter('AWS_SECRET_MANAGER_RDS_CREDENTIALS', info)):
             return get_database_url_from_aws_secret_manager(
-                values.get("AWS_SECRET_MANAGER_REGION"),
-                values.get("AWS_SECRET_MANAGER_RDS_CREDENTIALS"),
-                values.get("AWS_SECRET_MANAGER_RDS_PARAMETERS") or None
+                info.data["AWS_SECRET_MANAGER_REGION"],
+                info.data["AWS_SECRET_MANAGER_RDS_CREDENTIALS"],
+                info.data["AWS_SECRET_MANAGER_RDS_PARAMETERS"]
+                if check_parameter('AWS_SECRET_MANAGER_RDS_PARAMETERS', info) else None
             )
 
-        if values.get("POSTGRES_SERVER") and values.get("POSTGRES_USER") and values.get("POSTGRES_PASSWORD"):
+        if (check_parameter('POSTGRES_USER', info) and
+                check_parameter('POSTGRES_PASSWORD', info) and
+                check_parameter('POSTGRES_SERVER', info)):
             return PostgresDsn.build(
                 scheme="postgresql",
-                user=values.get("POSTGRES_USER"),
-                password=values.get("POSTGRES_PASSWORD"),
-                host=values.get("POSTGRES_SERVER"),
-                path=f"/{values.get('POSTGRES_DB') or ''}",
+                username=info.data["POSTGRES_USER"],
+                password=info.data["POSTGRES_PASSWORD"],
+                host=info.data["POSTGRES_SERVER"],
+                path=f"/{info.data['POSTGRES_DB'] if check_parameter('POSTGRES_DB', info) else ''}",
             )
 
         return None
@@ -158,38 +175,39 @@ class Settings(BaseSettings):
     EMAILS_FROM_NAME: Optional[str] = None
     ALERTS_EMAIL_RCPT: Optional[EmailStr] = None
 
-    @validator("SMTP_PASSWORD", pre=True)
-    def get_smtp_pwd(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("SMTP_PASSWORD", mode='before')
+    def get_smtp_pwd(cls, v: Optional[str], info: FieldValidationInfo) -> str:
         if isinstance(v, str):
             return v
-        if values.get("AWS_SECRET_MANAGER_SMTP_SECRETS") and values.get("AWS_SECRET_MANAGER_REGION"):
+        if (check_parameter('AWS_SECRET_MANAGER_REGION', info) and
+                check_parameter('AWS_SECRET_MANAGER_SMTP_SECRETS', info)):
             secret = get_secret_string_from_aws_secret_manager(
-                values.get("AWS_SECRET_MANAGER_REGION"),
-                values.get("AWS_SECRET_MANAGER_SMTP_SECRETS"))
+                info.data["AWS_SECRET_MANAGER_REGION"],
+                info.data["AWS_SECRET_MANAGER_SMTP_SECRETS"])
             return secret["password"]
 
-    @validator("EMAILS_FROM_NAME")
-    def get_project_name(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+    @field_validator("EMAILS_FROM_NAME", mode='before')
+    def get_project_name(cls, v: Optional[str], info: FieldValidationInfo) -> str:
         if not v:
-            return values["PROJECT_NAME"]
+            return info.data["PROJECT_NAME"]
         return v
 
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
     EMAIL_TEMPLATES_DIR: str = "email-templates"
     EMAILS_ENABLED: bool = False
 
-    @validator("EMAILS_ENABLED", pre=True)
-    def get_emails_enabled(cls, v: bool, values: Dict[str, Any]) -> bool:
+    @field_validator("EMAILS_ENABLED", mode='before')
+    def get_emails_enabled(cls, v: bool, info: FieldValidationInfo) -> bool:
         return bool(
-            values.get("SMTP_HOST")
-            and values.get("SMTP_PORT")
-            and values.get("EMAILS_FROM_EMAIL")
+            check_parameter('SMTP_HOST', info) and
+            check_parameter('SMTP_PORT', info) and
+            check_parameter('EMAILS_FROM_EMAIL', info)
         )
 
     FRONTEND_URL: Optional[AnyHttpUrl] = None
 
-    FIRST_SUPERUSER: Optional[EmailStr]
-    FIRST_SUPERUSER_PASSWORD: Optional[str]
+    FIRST_SUPERUSER: Optional[EmailStr] = None
+    FIRST_SUPERUSER_PASSWORD: Optional[str] = None
     USERS_OPEN_REGISTRATION: bool = False
     RETURN_DETAILED_WN_ERROR: bool = True
 
@@ -271,14 +289,20 @@ def get_database_url_from_aws_secret_manager(region_name, secret_creds_id, secre
         if secret_params_json:
             secret_json.update(secret_params_json)
 
+    url_encoded_password = quote(secret_json["password"])
+
     return PostgresDsn.build(
         scheme="postgresql",
-        user=secret_json["username"],
-        port=str(secret_json["port"]),
-        password=secret_json["password"],
+        username=secret_json["username"],
+        port=secret_json["port"],
+        password=url_encoded_password,
         host=secret_json["host"],
-        path=f"/{secret_json['dbname']}",
+        path=f"{secret_json['dbname']}",
     )
+
+
+def check_parameter(name: str, info: FieldValidationInfo) -> bool:
+    return name in info.data and info.data[name]
 
 
 @lru_cache()

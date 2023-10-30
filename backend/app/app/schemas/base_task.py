@@ -11,7 +11,7 @@ class BaseTaskBase(BaseModel):
     original_file_local_path: str
     request_id: str
     process_status: str
-    process_status_message: Optional[str]
+    process_status_message: Optional[str] = None
     result_id: str
     wn_file_id: str
     wn_fee: int
@@ -24,8 +24,8 @@ class BaseTaskBase(BaseModel):
     stored_file_aws_link: Optional[str] = None
     stored_file_other_links: Optional[Json] = None
     make_publicly_accessible: Optional[bool] = None
-    offer_ticket_txid: Optional[str]
-    offer_ticket_intended_rcpt_pastel_id: Optional[str]
+    offer_ticket_txid: Optional[str] = None
+    offer_ticket_intended_rcpt_pastel_id: Optional[str] = None
     retry_num: Optional[int] = None
 
 
@@ -44,7 +44,7 @@ class BaseTaskInDBBase(BaseTaskBase):
     owner_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class BaseTask(BaseTaskInDBBase):

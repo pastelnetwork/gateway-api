@@ -5,7 +5,6 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, WebSocket, Query, Body
 from typing import List, Optional
 
-from pydantic import parse_raw_as
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
@@ -57,7 +56,7 @@ async def process_request(
     lf = LocalFile(file.filename, file.content_type, result_id)
     await lf.save(file)
 
-    nft_properties = parse_raw_as(schemas.NftPropertiesExternal, nft_details_payload)
+    nft_properties = schemas.NftPropertiesExternal.model_validate_json(nft_details_payload)
     return await common.process_nft_request(db=db, lf=lf,
                                             request_id=request_id,
                                             result_id=result_id,

@@ -19,10 +19,10 @@ class CollectionBase(BaseModel):
     green: bool
     height: int
     process_status: str
-    process_status_message: Optional[str]
+    process_status_message: Optional[str] = None
     retry_num: Optional[int] = None
-    spendable_address: Optional[str]
-    wn_task_id: Optional[str]
+    spendable_address: Optional[str] = None
+    wn_task_id: Optional[str] = None
     reg_ticket_txid: Optional[str] = None
     act_ticket_txid: Optional[str] = None
 
@@ -45,7 +45,7 @@ class CollectionInDBBase(CollectionBase):
     owner_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Properties to return to client
