@@ -195,6 +195,7 @@ async def pin_file_to_scaleway(ipfs_cid):
         if r.status_code != 200:
             logger.error(f"Error pinning file to Scaleway: {r.text}")
             return False
+        logger.info(f"File {ipfs_cid} pinned to Scaleway")
     except Exception as e:
         logger.error(f"Error pinning file to Scaleway: {e}")
         return False
