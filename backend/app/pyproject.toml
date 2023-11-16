@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "psl-gateway"
-version = "1.0.1"
+version = "1.0.1b1"
 description = ""
 authors = ["a-ok123 <alexey@pastel.network>"]
 
