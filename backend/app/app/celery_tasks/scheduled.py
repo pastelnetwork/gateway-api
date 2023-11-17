@@ -408,11 +408,11 @@ def parse_registration_ticket(reg_txid, service: wn.WalletNodeService) -> (int |
         return None, f"Unknown service {service}"
 
     if ('ticket' in reg_ticket and reg_ticket['ticket'] and
-            'called_at' in reg_ticket['ticket'] and reg_ticket['ticket'][called_at_name]):
+            called_at_name in reg_ticket['ticket'] and reg_ticket['ticket'][called_at_name]):
         called_at_height = reg_ticket['ticket'][called_at_name]
     else:
-        logger.error(f"{service}: Registration ticket {reg_txid} doesn't have called_at_height. Invalid ticket?")
-        return None, None, f"Registration ticket {reg_txid} doesn't have called_at_height"
+        logger.error(f"{service}: Registration ticket {reg_txid} doesn't have {called_at_name} height. Invalid ticket?")
+        return None, None, f"Registration ticket {reg_txid} doesn't have {called_at_name} height"
 
     if 'height' in reg_ticket and reg_ticket['height']:
         return called_at_height, reg_ticket['height'], None
