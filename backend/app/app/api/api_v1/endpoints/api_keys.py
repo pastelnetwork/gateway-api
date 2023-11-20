@@ -10,6 +10,7 @@ from app.api import deps
 from app.utils.pasteld import create_pastelid
 from app.utils.authentication import get_random_string
 from app.utils.pasteld import create_address
+from app.utils.aws import store_pastelid
 
 router = APIRouter()
 
@@ -51,6 +52,7 @@ def create_apikey(
         funding_address = create_address()
     apikey = crud.api_key.create_with_owner(db=db, obj_in=apikey_in, owner_id=current_user.id,
                                             pastel_id=pastel_id, funding_address=funding_address)
+    store_pastelid(pastel_id, passkey)
     return apikey
 
 

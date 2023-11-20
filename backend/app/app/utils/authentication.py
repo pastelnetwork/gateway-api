@@ -124,7 +124,7 @@ def verify_password_reset_token(token: str) -> Optional[str]:
 
 
 def get_random_string(length: int = 10) -> str:
-    characters = string.ascii_letters + string.digits + string.punctuation
+    characters = string.ascii_letters + string.digits
     # Generate a random 15-character string
     secret = ''.join(secrets.choice(characters) for _ in range(length))
     return secret
