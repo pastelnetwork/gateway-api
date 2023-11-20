@@ -41,7 +41,7 @@ def get_url():
     # password = os.getenv("POSTGRES_PASSWORD")
     # server = os.getenv("POSTGRES_SERVER")
     # db = os.getenv("POSTGRES_DB")
-    url = settings.SQLALCHEMY_DATABASE_URI
+    url = settings.SQLALCHEMY_DATABASE_URI.unicode_string()
     print(url)
     return url
 
@@ -79,6 +79,8 @@ def run_migrations_online() -> None:
     """
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_url()
+
+    print(configuration)
 
     connectable = engine_from_config(
         configuration,

@@ -21,13 +21,15 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             .filter(ApiKey.api_key == api_key)
             .first())
 
-    def create(self, db: Session, *, obj_in: UserCreate) -> User:
+    def create(self, db: Session, *, obj_in: UserCreate, funding_address: str = None) -> User:
         db_obj = User(
             email=obj_in.email,
             hashed_password=get_secret_hash(obj_in.password),
             full_name=obj_in.full_name,
             is_superuser=obj_in.is_superuser,
         )
+        if funding_address:
+            db_obj.funding_address = funding_address
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)

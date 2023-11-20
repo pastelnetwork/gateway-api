@@ -2,6 +2,8 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
+import string
+import secrets
 
 import emails
 from emails.template import JinjaTemplate
@@ -119,3 +121,10 @@ def verify_password_reset_token(token: str) -> Optional[str]:
         return decoded_token["email"]
     except jwt.JWTError:
         return None
+
+
+def get_random_string(length: int = 10) -> str:
+    characters = string.ascii_letters + string.digits + string.punctuation
+    # Generate a random 15-character string
+    secret = ''.join(secrets.choice(characters) for _ in range(length))
+    return secret

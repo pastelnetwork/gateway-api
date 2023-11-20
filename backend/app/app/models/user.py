@@ -23,6 +23,7 @@ class User(Base):
     nft_tasks = relationship("Nft", back_populates="owner")
     collection_tasks = relationship("Collection", back_populates="owner")
     pastel_ids = relationship("ClaimedPastelId", back_populates="owner")
+    funding_address = Column(String, unique=True, index=True, nullable=True)
 
 
 class ClaimedPastelId(Base):

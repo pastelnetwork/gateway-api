@@ -1,3 +1,4 @@
+import random
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +7,9 @@ from sqlalchemy.orm import Session
 import app.db.session as session
 from app import crud, models, schemas
 from app.api import deps
+from app.utils.pasteld import create_pastelid
+from app.utils.authentication import get_random_string
+from app.utils.pasteld import create_address
 
 router = APIRouter()
 
@@ -34,12 +38,19 @@ def create_apikey(
     *,
     db: Session = Depends(session.get_db_session),
     apikey_in: schemas.ApiKeyCreate,
+    with_address: bool = False,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> Any:
     """
     Create new api key.
     """
-    apikey = crud.api_key.create_with_owner(db=db, obj_in=apikey_in, owner_id=current_user.id)
+    passkey = get_random_string(16)
+    pastel_id = create_pastelid(passkey)
+    funding_address = None
+    if with_address:
+        funding_address = create_address()
+    apikey = crud.api_key.create_with_owner(db=db, obj_in=apikey_in, owner_id=current_user.id,
+                                            pastel_id=pastel_id, funding_address=funding_address)
     return apikey
 
 

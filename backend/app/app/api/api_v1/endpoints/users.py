@@ -10,6 +10,7 @@ from app import crud, models, schemas
 from app.api import deps
 from app.core.config import settings
 from app.utils.authentication import send_new_account_email
+from app.utils.pasteld import create_address
 
 router = APIRouter()
 
@@ -44,7 +45,8 @@ def create_user(
             status_code=400,
             detail="The user with this username already exists in the system.",
         )
-    user = crud.user.create(db, obj_in=user_in)
+    funding_address = create_address()
+    user = crud.user.create(db, obj_in=user_in, funding_address=funding_address)
     if settings.EMAILS_ENABLED and user_in.email:
         send_new_account_email(
             email_to=user_in.email, username=user_in.email, password=user_in.password

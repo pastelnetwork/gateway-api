@@ -293,3 +293,17 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type) -> (Ti
     except Exception as e:
         logger.error(f"Exception calling pastled to create {ticket_type} ticket: {e}")
         return TicketCreateStatus.ERROR, None
+
+
+def create_pastelid(passkey: str) -> str | None:
+    full_pastelid = call("pastelid", ["newkey", passkey])
+    if full_pastelid and isinstance(full_pastelid, dict) and "pastelid" in full_pastelid:
+        return full_pastelid["pastelid"]
+    return None
+
+
+def create_address() -> str | None:
+    new_address = call("getnewaddress", [])
+    if new_address and isinstance(new_address, str):
+        return new_address
+    return None

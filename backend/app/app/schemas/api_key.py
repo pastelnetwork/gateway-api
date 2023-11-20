@@ -27,6 +27,8 @@ class ApiKeyInDBBase(ApiKeyBase):
     api_key: str = None
     created_at: datetime
     owner_id: int
+    pastel_id: Optional[str] = None
+    funding_address: Optional[str] = None
 
     class Config:
         from_attributes = True

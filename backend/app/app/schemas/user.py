@@ -24,6 +24,7 @@ class UserUpdate(UserBase):
 
 class UserInDBBase(UserBase):
     id: Optional[int] = None
+    funding_address: Optional[str] = None
 
     class Config:
         from_attributes = True
