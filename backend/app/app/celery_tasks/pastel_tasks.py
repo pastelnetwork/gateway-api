@@ -8,10 +8,12 @@ from celery.utils.log import get_task_logger
 
 from app import crud
 from app.db.session import db_context
+from app.models import ApiKey
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
 from app.core.status import DbStatus
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
+from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = get_task_logger(__name__)
 
@@ -52,7 +54,7 @@ class PastelAPITask(celery.Task):
     #     print(f'{task_id} retrying: {exc}')
 
     def register_file_task(self,
-                           result_id, local_file, user_id,
+                           result_id, local_file, user_id, api_key: ApiKey,
                            create_klass_lambda,
                            get_task_from_db_by_task_id_func,
                            create_with_owner_func,
@@ -79,6 +81,7 @@ class PastelAPITask(celery.Task):
             logger.info(f'{service}: Ticket will be created at height {height} [Result ID: {result_id}]')
             with db_context() as session:
                 new_task = create_klass_lambda(height)
+                new_task.pastel_id = api_key.pastel_id if (api_key and api_key.pastel_id) else settings.PASTEL_ID
                 task_in_db = create_with_owner_func(session, obj_in=new_task, owner_id=user_id)
             logger.info(f'{service}: New record created... [Result ID: {result_id}]')
 
@@ -279,9 +282,17 @@ class PastelAPITask(celery.Task):
             form = self.get_request_form(task_from_db)   # can throw exception here
 
             if service == wn.WalletNodeService.NFT:
-                cmd = 'register'
+                cmd = "register"
             else:
-                cmd = f'start/{task_from_db.wn_file_id}'
+                cmd = f"start/{task_from_db.wn_file_id}"
+
+            pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+            if not pastel_id_pwd:
+                logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
+                set_status_message(update_task_in_db_func, task_from_db,
+                                   f'No passphrase found for PastelID = {task_from_db.pastel_id}. Throwing exception')
+                raise Exception(f'{service}: No passphrase found for PastelID = {task_from_db.pastel_id}. '
+                                f'Throwing exception')
 
             try:
                 wn_task_id = wn.call(True,
@@ -290,7 +301,7 @@ class PastelAPITask(celery.Task):
                                      form,
                                      [],
                                      {
-                                         'Authorization': settings.PASTEL_ID_PASSPHRASE,
+                                         'Authorization': pastel_id_pwd,
                                          'Content-Type': 'application/json'
                                      },
                                      "task_id", "")
@@ -308,7 +319,6 @@ class PastelAPITask(celery.Task):
 
             upd = {
                 "wn_task_id": wn_task_id,
-                "pastel_id": settings.PASTEL_ID,
                 "process_status": DbStatus.STARTED.value,
                 "process_status_message": "WN register process started",
                 "updated_at": datetime.utcnow(),

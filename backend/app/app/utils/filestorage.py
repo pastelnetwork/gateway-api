@@ -81,7 +81,9 @@ async def search_processed_file(*, db, task_from_db, update_task_in_db_func,
     file_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid)
 
     if not file_bytes and task_done:
-        file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid, wn_service=service)
+        file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                   pastel_id=task_from_db.pastel_id,
+                                                   wn_service=service)
 
     if not file_bytes and task_from_db.stored_file_ipfs_link:
         file_bytes = await read_file_from_ipfs(task_from_db.stored_file_ipfs_link)
@@ -104,7 +106,8 @@ async def search_nft_dd_result(*, db, task_from_db, update_task_in_db_func) -> b
     dd_bytes = await search_file_in_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid, extra_suffix=".dd")
 
     if not dd_bytes:
-        dd_bytes = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid)
+        dd_bytes = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                          pastel_id=task_from_db.pastel_id)
 
     if not dd_bytes and task_from_db.nft_dd_file_ipfs_link:
         dd_bytes = await read_file_from_ipfs(task_from_db.nft_dd_file_ipfs_link)

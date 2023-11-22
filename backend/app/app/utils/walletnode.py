@@ -5,6 +5,7 @@ from enum import Enum
 
 from app.core.config import settings
 from app.utils.authentication import send_alert_email
+from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = logging.getLogger(__name__)
 
@@ -81,18 +82,22 @@ class WalletnodeException(Exception):
         super().__init__(self.message)
 
 
-async def get_file_from_pastel(*, reg_ticket_txid, wn_service: WalletNodeService):
+async def get_file_from_pastel(*, reg_ticket_txid, pastel_id: str, wn_service: WalletNodeService):
     logger.info(f"{wn_service} get_file_from_pastel: reg_ticket_txid = {reg_ticket_txid}")
+    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(pastel_id)
+    if not pastel_id_pwd:
+        logger.error(f"Pastel ID {pastel_id} not found in secret manager")
+        return None
     if wn_service == WalletNodeService.SENSE:
         file_key = "file"
     else:
         file_key = "file_id"
     wn_resp = call(False,
                    wn_service,
-                   f'download?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
+                   f'download?pid={pastel_id}&txid={reg_ticket_txid}',
                    {},
                    [],
-                   {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
+                   {'Authorization': pastel_id_pwd, },
                    file_key, "", True)    # This call will not throw!
 
     if not wn_resp:
@@ -102,19 +107,24 @@ async def get_file_from_pastel(*, reg_ticket_txid, wn_service: WalletNodeService
         if wn_service == WalletNodeService.SENSE:
             return await decode_wn_return(wn_resp, reg_ticket_txid)
         else:
-            return await download_file_from_wn_by_id(wn_resp, reg_ticket_txid)
+            return await download_file_from_wn_by_id(wn_resp, reg_ticket_txid, pastel_id)
     else:
         logger.error(wn_resp.text)
     return None
 
 
-async def get_nft_dd_result_from_pastel(*, reg_ticket_txid):
+async def get_nft_dd_result_from_pastel(*, reg_ticket_txid: str, pastel_id: str):
+    logger.info(f"get_nft_dd_result_from_pastel: reg_ticket_txid = {reg_ticket_txid}")
+    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(pastel_id)
+    if not pastel_id_pwd:
+        logger.error(f"Pastel ID {pastel_id} not found in secret manager")
+        return None
     wn_resp = call(False,
                    WalletNodeService.NFT,
-                   f'get_dd_result_file?pid={settings.PASTEL_ID}&txid={reg_ticket_txid}',
+                   f'get_dd_result_file?pid={pastel_id}&txid={reg_ticket_txid}',
                    {},
                    [],
-                   {'Authorization': settings.PASTEL_ID_PASSPHRASE, },
+                   {'Authorization': pastel_id_pwd, },
                    "file", "", True)    # This call will not throw!
 
     if not wn_resp:
@@ -124,14 +134,16 @@ async def get_nft_dd_result_from_pastel(*, reg_ticket_txid):
     return None
 
 
-async def download_file_from_wn_by_id(file_id, reg_ticket_txid):
+async def download_file_from_wn_by_id(file_id, reg_ticket_txid, pastel_id: str):
     logger.info(f"download_file_from_wn_by_id: file_id = {file_id}; reg_ticket_txid = {reg_ticket_txid}")
+    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(pastel_id)
+    if not pastel_id_pwd:
+        logger.error(f"Pastel ID {pastel_id} not found in secret manager")
+        return None
     try:
-        file_url = f'{settings.WN_BASE_URL}/files/{file_id}?pid={settings.PASTEL_ID}'
+        file_url = f'{settings.WN_BASE_URL}/files/{file_id}?pid={pastel_id}'
         payload = {}
-        headers = {
-            'Authorization': settings.PASTEL_ID_PASSPHRASE,
-        }
+        headers = {'Authorization': pastel_id_pwd, }
         file_response = requests.request("GET", file_url, headers=headers, data=payload)
         if file_response.status_code != 200:
             logger.info(f"Calling WN as: "

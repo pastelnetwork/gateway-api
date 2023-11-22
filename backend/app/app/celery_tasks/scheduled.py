@@ -14,6 +14,7 @@ import app.utils.pasteld as psl
 import app.utils.walletnode as wn
 from app.celery_tasks.registration_helpers import finalize_registration
 from app.models.preburn_tx import PBTXStatus
+from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = get_task_logger(__name__)
 
@@ -271,7 +272,7 @@ def _ticket_activator(all_in_registered_state_func,
             with db_context() as session:
                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
             continue
-        if settings.PASTEL_ID != task_from_db.pastel_id:
+        if not get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id):
             logger.info(f"{service}: Skipping ticket {task_from_db.reg_ticket_txid}, "
                         f"caller pastel_id {task_from_db.pastel_id} is not ours")
             continue
@@ -331,7 +332,11 @@ def _ticket_activator(all_in_registered_state_func,
                 continue
 
             logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-            result, new_act_txid = psl.create_activation_ticket(task_from_db, called_at_height, act_ticket_type)
+            account_funding_address = None
+            with db_context() as db:
+                account_funding_address = crud.user.get_funding_address(db=db, owner_id=task_from_db.owner_id)
+            result, new_act_txid = psl.create_activation_ticket(task_from_db, called_at_height,
+                                                                act_ticket_type, account_funding_address)
             if result == psl.TicketCreateStatus.CREATED and new_act_txid:
                 # setting activation ticket txid in db, but not finalizing yet (keep in registered state)
                 upd = {"act_ticket_txid": new_act_txid, "updated_at": datetime.utcnow(),

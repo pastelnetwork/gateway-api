@@ -45,5 +45,17 @@ class CRUDApiKey(CRUDBase[ApiKey, ApiKeyCreate, ApiKeyUpdate]):
             .all()
         )
 
+    def get_funding_address_by_api_key(self, db: Session, *, api_key: str) -> Optional[str]:
+        db_obj = db.query(self.model).filter(ApiKey.api_key == api_key).first()
+        if not db_obj:
+            return None
+        return db_obj.funding_address
+
+    def get_funding_address_by_pastel_id(self, db: Session, *, pastel_id: str) -> Optional[str]:
+        db_obj = db.query(self.model).filter(ApiKey.pastel_id == pastel_id).first()
+        if not db_obj:
+            return None
+        return db_obj.funding_address
+
 
 api_key = CRUDApiKey(ApiKey)

@@ -14,6 +14,7 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
     def create_with_owner(
             db: Session, *, obj_in: CollectionCreate, owner_id: int
     ) -> Collection:
+        # noinspection PyArgumentList
         db_obj = Collection(
             result_id=obj_in.result_id,
             item_type=obj_in.item_type,

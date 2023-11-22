@@ -34,6 +34,7 @@ async def process_request(
                                                open_api_group_id=open_api_group_id,
                                                after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
                                                user_id=current_user.id,
+                                               api_key=api_key,
                                                service=wn.WalletNodeService.SENSE)
 
 

@@ -1,16 +1,13 @@
 import secrets
 
-import boto3
-from botocore.exceptions import ClientError
-import json
-from urllib.parse import quote
-
 from functools import lru_cache
 from dotenv import find_dotenv
 from pydantic import EmailStr, PostgresDsn, field_validator, AnyHttpUrl
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Optional, List, Union, Dict
 from pydantic_settings import BaseSettings
 from pydantic_core.core_schema import FieldValidationInfo
+
+from app.utils.aws import get_secret_string_from_secret_manager, get_database_url_from_secret_manager
 
 
 class Settings(BaseSettings):
@@ -64,22 +61,10 @@ class Settings(BaseSettings):
     PASTEL_RPC_USER: str
     PASTEL_RPC_PWD: str
 
-    PASTEL_ID: str
-    PASTEL_ID_PASSPHRASE: Optional[str] = None
-
-    @field_validator("PASTEL_ID_PASSPHRASE", mode='before')
-    def get_pastel_id_passphrase(cls, v: Optional[str], info: FieldValidationInfo) -> str:
-        if isinstance(v, str):
-            return v
-        if (check_parameter("AWS_SECRET_MANAGER_REGION", info) and
-                check_parameter("AWS_SECRET_MANAGER_PASTEL_IDS", info) and
-                check_parameter("PASTEL_ID", info)):
-            secret = get_secret_string_from_aws_secret_manager(
-                info.data["AWS_SECRET_MANAGER_REGION"],
-                info.data["AWS_SECRET_MANAGER_PASTEL_IDS"])
-            return secret[info.data["PASTEL_ID"]]
+    PASTEL_ID: Optional[str] = None
 
     BURN_ADDRESS: str
+    MAIN_GATEWAY_ADDRESS: str
 
     WN_HOST: Optional[str] = None
     WN_BASE_PORT: Optional[str] = None
@@ -146,7 +131,7 @@ class Settings(BaseSettings):
 
         if (check_parameter('AWS_SECRET_MANAGER_REGION', info) and
                 check_parameter('AWS_SECRET_MANAGER_RDS_CREDENTIALS', info)):
-            return get_database_url_from_aws_secret_manager(
+            return get_database_url_from_secret_manager(
                 info.data["AWS_SECRET_MANAGER_REGION"],
                 info.data["AWS_SECRET_MANAGER_RDS_CREDENTIALS"],
                 info.data["AWS_SECRET_MANAGER_RDS_PARAMETERS"]
@@ -181,7 +166,7 @@ class Settings(BaseSettings):
             return v
         if (check_parameter('AWS_SECRET_MANAGER_REGION', info) and
                 check_parameter('AWS_SECRET_MANAGER_SMTP_SECRETS', info)):
-            secret = get_secret_string_from_aws_secret_manager(
+            secret = get_secret_string_from_secret_manager(
                 info.data["AWS_SECRET_MANAGER_REGION"],
                 info.data["AWS_SECRET_MANAGER_SMTP_SECRETS"])
             return secret["password"]
@@ -258,47 +243,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = find_dotenv(usecwd=True)
         print("env_file is "+env_file)
-
-
-def get_secret_string_from_aws_secret_manager(region_name, secret_id) -> Any:
-    # Create a Secrets Manager client
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-
-    try:
-        get_secret_value_response = client.get_secret_value(SecretId=secret_id)
-    except ClientError as e:
-        # For a list of exceptions thrown, see
-        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-        raise e
-
-    # Decrypts secret using the associated KMS key.
-    secret_json = json.loads(get_secret_value_response["SecretString"])
-    if not secret_json:
-        raise ValueError(f"Cannot get {secret_id} values from AWS secret manager")
-    return secret_json
-
-
-def get_database_url_from_aws_secret_manager(region_name, secret_creds_id, secret_params_id) -> Any:
-    secret_json = get_secret_string_from_aws_secret_manager(region_name, secret_creds_id)
-    if secret_params_id:
-        secret_params_json = get_secret_string_from_aws_secret_manager(region_name, secret_params_id)
-        if secret_params_json:
-            secret_json.update(secret_params_json)
-
-    url_encoded_password = quote(secret_json["password"])
-
-    return PostgresDsn.build(
-        scheme="postgresql",
-        username=secret_json["username"],
-        port=secret_json["port"],
-        password=url_encoded_password,
-        host=secret_json["host"],
-        path=f"{secret_json['dbname']}",
-    )
 
 
 def check_parameter(name: str, info: FieldValidationInfo) -> bool:

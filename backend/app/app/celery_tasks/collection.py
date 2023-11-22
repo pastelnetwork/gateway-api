@@ -15,6 +15,8 @@ from app.utils.pasteld import PasteldException
 from app.core.config import settings
 from app.db.session import db_context
 from app.utils.authentication import send_alert_email
+from ..models import ApiKey
+from ..utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = get_task_logger(__name__)
 
@@ -48,7 +50,7 @@ class CollectionsAPITask(PastelAPITask):
 
         return json.dumps(
             {
-                "app_pastelid": settings.PASTEL_ID,
+                "app_pastelid": task_from_db.pastel_id,
                 "collection_item_copy_count": task_from_db.collection_item_copy_count,
                 "collection_name": task_from_db.collection_name,
                 "green": task_from_db.green,
@@ -74,7 +76,7 @@ class CollectionsAPITask(PastelAPITask):
              soft_time_limit=settings.COLLECTION_REGISTER_SOFT_TIME_LIMIT,
              time_limit=settings.COLLECTION_REGISTER_TIME_LIMIT,
              name='collection:register', base=CollectionsAPITask)
-def register(self, result_id, user_id,
+def register(self, result_id, user_id, api_key: ApiKey,
              item_type: str, collection_name: str, max_collection_entries: int, collection_item_copy_count: int,
              authorized_pastel_ids: List,
              max_permitted_open_nsfw_score: float, minimum_similarity_score_to_first_entry_in_collection: float,
@@ -98,7 +100,7 @@ def register(self, result_id, user_id,
     new_task = schemas.CollectionCreate(
         result_id=result_id,
         item_type=item_type,
-        pastel_id=settings.PASTEL_ID,
+        pastel_id=api_key.pastel_id if (api_key and api_key.pastel_id) else settings.PASTEL_ID,
         collection_name=collection_name,
         max_collection_entries=max_collection_entries,
         collection_item_copy_count=collection_item_copy_count,
@@ -146,13 +148,21 @@ def process(self, result_id) -> str:
     logger.info(f'Collection-{task_from_db.item_type}: Calling WN to start collection ticket registration [Result ID: {result_id}]')
     wn_task_id = ""
     try:
+        pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+        if not pastel_id_pwd:
+            logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
+            set_status_message(crud.collection.update, task_from_db,
+                               f'No passphrase found for PastelID = {task_from_db.pastel_id}. Throwing exception')
+            raise Exception(f'Collections-{task_from_db.item_type}: No passphrase found for PastelID = '
+                            f'{task_from_db.pastel_id}. Throwing exception')
+
         wn_task_id = wn.call(True,
                              WalletNodeService.COLLECTION,
-                             'register',
+                             "register",
                              form,
                              [],
                              {
-                                 'Authorization': settings.PASTEL_ID_PASSPHRASE,
+                                 'Authorization': pastel_id_pwd,
                                  'Content-Type': 'application/json'
                              },
                              "task_id", "")

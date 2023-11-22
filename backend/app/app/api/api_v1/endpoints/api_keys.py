@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 import app.db.session as session
 from app import crud, models, schemas
 from app.api import deps
-from app.utils.pasteld import create_pastelid
+from app.utils.pasteld import create_and_register_pastelid
 from app.utils.authentication import get_random_string
 from app.utils.pasteld import create_address
-from app.utils.aws import store_pastelid
+from app.utils.secret_manager import store_pastelid_to_secret_manager
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -46,13 +47,13 @@ def create_apikey(
     Create new api key.
     """
     passkey = get_random_string(16)
-    pastel_id = create_pastelid(passkey)
+    pastel_id = create_and_register_pastelid(passkey, settings.MAIN_GATEWAY_ADDRESS)
     funding_address = None
     if with_address:
         funding_address = create_address()
     apikey = crud.api_key.create_with_owner(db=db, obj_in=apikey_in, owner_id=current_user.id,
                                             pastel_id=pastel_id, funding_address=funding_address)
-    store_pastelid(pastel_id, passkey)
+    store_pastelid_to_secret_manager(pastel_id, passkey)
     return apikey
 
 

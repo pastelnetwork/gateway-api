@@ -11,6 +11,7 @@ from requests.auth import HTTPBasicAuth
 
 from app.core.config import settings
 from app.utils.authentication import send_alert_email
+from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = logging.getLogger(__name__)
 
@@ -175,12 +176,13 @@ async def parse_registration_nft_ticket(reg_ticket):
     return reg_ticket
 
 
-async def create_offer_ticket(task_from_db, current_pastel_id, current_passphrase, rcpt_pastel_id):
+async def create_offer_ticket(act_ticket_txid: str, current_pastel_id: str, current_passphrase: str,
+                              rcpt_pastel_id: str, funding_address: str):
     offer_ticket = call('tickets', ['register', 'offer',
-                                    task_from_db.act_ticket_txid,
+                                    act_ticket_txid,
                                     1,
                                     current_pastel_id, current_passphrase,
-                                    0, 0, 1, "",
+                                    0, 0, 1, funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS,
                                     rcpt_pastel_id],
                         nothrow=True)   # won't throw exception here
     if not offer_ticket or not isinstance(offer_ticket, dict):
@@ -196,7 +198,7 @@ async def verify_message(message, signature, pastel_id) -> bool:
 
 
 def check_balance(need_amount: float) -> bool:
-    balance = call("getbalance", [])
+    balance = call('getbalance', [])
     if balance < need_amount:
         logger.error(f"Insufficient funds: balance {balance}")
         send_alert_email(f"Insufficient funds: balance {balance}")
@@ -265,17 +267,20 @@ class TicketCreateStatus(Enum):
     ERROR = 2
 
 
-def create_activation_ticket(task_from_db, called_at_height, ticket_type) -> (TicketCreateStatus, str | None):
+def create_activation_ticket(task_from_db, called_at_height, ticket_type,
+                             funding_address: str) -> (TicketCreateStatus, str | None):
     try:
         if not check_balance(task_from_db.wn_fee + 1000):   # can throw exception here
             return
+        pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
         activation_ticket = call('tickets', ['register', ticket_type,
                                              task_from_db.reg_ticket_txid,
                                              called_at_height,
                                              task_from_db.wn_fee,
-                                             settings.PASTEL_ID,
-                                             settings.PASTEL_ID_PASSPHRASE]
-                                     )   # can throw exception here
+                                             task_from_db.paste_id,
+                                             pastel_id_pwd,
+                                             funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS],
+                                 )   # can throw exception here
         if activation_ticket and 'txid' in activation_ticket:
             logger.info(f"Created {ticket_type} ticket {activation_ticket['txid']}")
             return TicketCreateStatus.CREATED, activation_ticket['txid']
@@ -284,7 +289,7 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type) -> (Ti
         return TicketCreateStatus.ERROR, None
 
     except PasteldException as e:
-        logger.error(f"Exception calling pastled to create {ticket_type} ticket: {e}")
+        logger.error(f"Exception calling pasteld to create {ticket_type} ticket: {e}")
         error_msg = (f"Ticket (action-act) is invalid. The Activation ticket for the Registration ticket with txid "
                      f"[{task_from_db.reg_ticket_txid}] already exists")
         if hasattr(e, 'message') and error_msg in e.message:
@@ -295,15 +300,18 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type) -> (Ti
         return TicketCreateStatus.ERROR, None
 
 
-def create_pastelid(passkey: str) -> str | None:
-    full_pastelid = call("pastelid", ["newkey", passkey])
+def create_and_register_pastelid(passkey: str, funding_address: str) -> str | None:
+    full_pastelid = call('pastelid', ['newkey', passkey])
     if full_pastelid and isinstance(full_pastelid, dict) and "pastelid" in full_pastelid:
-        return full_pastelid["pastelid"]
+        pastelid = full_pastelid["pastelid"]
+        call('tickets', ['register', 'id', pastelid, passkey,
+                         funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS])
+        return pastelid
     return None
 
 
 def create_address() -> str | None:
-    new_address = call("getnewaddress", [])
+    new_address = call('getnewaddress', [])
     if new_address and isinstance(new_address, str):
         return new_address
     return None

@@ -15,6 +15,7 @@ from app.utils import walletnode as wn, pasteld as psl
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
 from app.celery_tasks.pastel_tasks import check_preburn_tx
+from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = get_task_logger(__name__)
 
@@ -232,6 +233,7 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
     try:
         logger.info(f"{wn_service}: Downloading registered file from Pastel: {task_from_db.reg_ticket_txid}")
         file_bytes = asyncio.run(wn.get_file_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                         pastel_id=task_from_db.pastel_id,
                                                          wn_service=wn_service))
         if file_bytes:
             logger.info(f"{wn_service}: Storing downloaded file into local cache: {task_from_db.reg_ticket_txid}")
@@ -245,7 +247,8 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
 
         if wn_service == wn.WalletNodeService.NFT:
             logger.info(f"{wn_service}: Requesting NFT sense data from WN: {task_from_db.reg_ticket_txid}")
-            dd_data = asyncio.run(wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid))
+            dd_data = asyncio.run(wn.get_nft_dd_result_from_pastel(reg_ticket_txid=task_from_db.reg_ticket_txid,
+                                                                   pastel_id=task_from_db.pastel_id))
             if dd_data:
                 if isinstance(dd_data, dict):
                     dd_bytes = json.dumps(dd_data).encode('utf-8')
@@ -284,20 +287,26 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
            wn_service == wn.WalletNodeService.NFT or \
            wn_service == wn.WalletNodeService.SENSE:
             if task_from_db.offer_ticket_intended_rcpt_pastel_id:
-                pastel_id = task_from_db.offer_ticket_intended_rcpt_pastel_id
+                pastel_id_for_trasnfer = task_from_db.offer_ticket_intended_rcpt_pastel_id
                 logger.info(f"{wn_service}: This ticket {task_from_db.reg_ticket_txid} "
                              f"has to transferred to another PastelID: {task_from_db.offer_ticket_intended_rcpt_pastel_id}")
                 # check this just for sanity, should not happen!
                 if task_from_db.offer_ticket_txid:
                     logger.warn(f"{wn_service}: Offer ticket already exists!: {task_from_db.offer_ticket_txid}")
                     return
-                offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db,
-                                                                   settings.PASTEL_ID, settings.PASTEL_ID_PASSPHRASE,
-                                                                   pastel_id))
+                pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+                if not pastel_id_pwd:
+                    logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
+                    return None
+                account_funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
+                offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db.act_ticket_txid,
+                                                                   task_from_db.pastel_id, pastel_id_pwd,
+                                                                   pastel_id_for_trasnfer,
+                                                                   account_funding_address))
                 if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
                     logger.info(f"{wn_service}: Updating task in DB as offered to transfer: {task_from_db.reg_ticket_txid}")
                     upd = {"offer_ticket_txid": offer_ticket['txid'],
-                           "offer_ticket_intended_rcpt_pastel_id": pastel_id,
+                           "offer_ticket_intended_rcpt_pastel_id": pastel_id_for_trasnfer,
                            "updated_at": datetime.utcnow()}
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
@@ -423,7 +432,6 @@ def _clear_task_in_db(task_from_db, update_task_in_db_func, wn_service: wn.Walle
         retries = 1
     cleanup = {
         "wn_task_id": None,
-        "pastel_id": None,
         "reg_ticket_txid": None,
         "act_ticket_txid": None,
         "process_status": DbStatus.RESTARTED.value,

@@ -10,6 +10,7 @@ from app import crud, schemas
 from app.utils.walletnode import WalletNodeService, WalletnodeException
 from app.utils.pasteld import PasteldException
 from app.core.config import settings
+from ..models import ApiKey
 
 logger = get_task_logger(__name__)
 
@@ -25,7 +26,7 @@ class CascadeAPITask(PastelAPITask):
         return json.dumps(
             {
                 "burn_txid": task_from_db.burn_txid,
-                "app_pastelid": settings.PASTEL_ID,
+                "app_pastelid": task_from_db.pastel_id,
                 "make_publicly_accessible": task_from_db.make_publicly_accessible,
             })
 
@@ -48,11 +49,11 @@ class CascadeAPITask(PastelAPITask):
              soft_time_limit=settings.REGISTER_FILE_SOFT_TIME_LIMIT,
              time_limit=settings.REGISTER_FILE_TIME_LIMIT,
              name='cascade:register_file', base=CascadeAPITask)
-def register_file(self, result_id, local_file, request_id, user_id, ipfs_hash: str,
+def register_file(self, result_id, local_file, request_id, user_id, api_key: ApiKey, ipfs_hash: str,
                   make_publicly_accessible: bool, _collection_act_txid, _open_api_group_id,
                   after_activation_transfer_to_pastelid: str) -> str:
     return self.register_file_task(
-        result_id, local_file, user_id,
+        result_id, local_file, user_id, api_key,
         lambda height: schemas.CascadeCreate(
             original_file_name=local_file.name,
             original_file_content_type=local_file.type,

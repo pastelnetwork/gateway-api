@@ -27,6 +27,7 @@ class CRUDCascade(CRUDBase[Cascade, CascadeCreate, CascadeUpdate]):
             wn_file_id=obj_in.wn_file_id,
             wn_fee=obj_in.wn_fee,
             height=obj_in.height,
+            pastel_id=obj_in.pastel_id,
             owner_id=owner_id
         )
         db.add(db_obj)

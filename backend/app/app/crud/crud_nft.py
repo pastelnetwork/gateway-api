@@ -14,6 +14,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
     def create_with_owner(
             db: Session, *, obj_in: NftCreate, owner_id: int
     ) -> Nft:
+        # noinspection PyArgumentList
         db_obj = Nft(
             original_file_name=obj_in.original_file_name,
             original_file_content_type=obj_in.original_file_content_type,
@@ -29,6 +30,7 @@ class CRUDNft(CRUDBase[Nft, NftCreate, NftUpdate]):
             nft_properties=obj_in.nft_properties.dict(),
             collection_act_txid=obj_in.collection_act_txid,
             open_api_group_id=obj_in.open_api_group_id,
+            pastel_id=obj_in.pastel_id,
             owner_id=owner_id
         )
         db.add(db_obj)

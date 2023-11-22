@@ -9,6 +9,7 @@ from app import models, crud, schemas
 from app.api import deps, common
 import app.utils.walletnode as wn
 import app.celery_tasks.collection as collection
+from app.models import ApiKey
 
 router = APIRouter()
 
@@ -38,7 +39,7 @@ async def create_sense_collection(
         max_permitted_open_nsfw_score=max_permitted_open_nsfw_score,
         minimum_similarity_score_to_first_entry_in_collection=minimum_similarity_score_to_first_entry_in_collection,
         no_of_days_to_finalize_collection=no_of_days_to_finalize_collection,
-        royalty=royalty, green=green, user_id=current_user.id)
+        royalty=royalty, green=green, user_id=current_user.id, api_key=api_key)
 
 # Submit an NFT Collection ticket register request for the current user.
 # Note: Only authenticated user with API key
@@ -65,7 +66,7 @@ async def create_nft_collection(
         max_permitted_open_nsfw_score=max_permitted_open_nsfw_score,
         minimum_similarity_score_to_first_entry_in_collection=minimum_similarity_score_to_first_entry_in_collection,
         no_of_days_to_finalize_collection=no_of_days_to_finalize_collection,
-        royalty=royalty, green=green, user_id=current_user.id)
+        royalty=royalty, green=green, user_id=current_user.id, api_key=api_key)
 
 
 async def process_collection_request(
@@ -74,7 +75,7 @@ async def process_collection_request(
         list_of_pastelids_of_authorized_contributors: List,
         max_permitted_open_nsfw_score: float, minimum_similarity_score_to_first_entry_in_collection: float,
         no_of_days_to_finalize_collection: int, royalty: float, green: bool,
-        user_id: int,
+        user_id: int, api_key: ApiKey,
 ) -> schemas.CollectionRegistrationResult:
     if max_permitted_open_nsfw_score < 0 or max_permitted_open_nsfw_score >= 1:
         raise HTTPException(status_code=400, detail="max_permitted_open_nsfw_score must be between 0 and 1")
@@ -91,7 +92,7 @@ async def process_collection_request(
 
     collection_id = str(uuid.uuid4())
     _ = (
-        collection.register.s(collection_id, user_id,
+        collection.register.s(collection_id, user_id, api_key,
                               item_type, collection_name, max_collection_entries, collection_item_copy_count,
                               list_of_pastelids_of_authorized_contributors,
                               max_permitted_open_nsfw_score, minimum_similarity_score_to_first_entry_in_collection,

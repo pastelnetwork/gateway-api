@@ -15,6 +15,7 @@ import app.utils.walletnode as wn
 from app.core.status import ReqStatus
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs
 from app.utils.filestorage import LocalFile
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -65,7 +66,8 @@ async def process_request(
                                             open_api_group_id=open_api_group_id,
                                             after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
                                             nft_details_payload=nft_properties,
-                                            user_id=current_user.id)
+                                            user_id=current_user.id,
+                                            api_key=api_key)
 
 
 # Two-step NFT start - Upload file for NFT request.
@@ -121,7 +123,8 @@ async def step_2_process_nft(
                                             open_api_group_id=open_api_group_id,
                                             after_activation_transfer_to_pastelid=after_activation_transfer_to_pastelid,
                                             nft_details_payload=nft_details_payload,
-                                            user_id=current_user.id)
+                                            user_id=current_user.id,
+                                            api_key=api_key)
 
 
 # Get all NFT OpenAPI gateway_requests for the current user.
@@ -601,9 +604,9 @@ async def get_raw_dd_result_file_by_pastel_id(
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
                                                                   ticket_type="nft",
                                                                   search_data_lambda=lambda txid:
-                                                                    common.search_nft_dd_result_pastel(
-                                                                        reg_ticket_txid=txid,
-                                                                        throw=False)
+                                                                  common.search_nft_dd_result_pastel(
+                                                                      reg_ticket_txid=txid,
+                                                                      throw=False)
                                                                   )
 
 
@@ -617,9 +620,9 @@ async def get_parsed_dd_result_file_by_pastel_id(
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
                                                                   ticket_type="nft",
                                                                   search_data_lambda=lambda txid:
-                                                                    common.search_nft_dd_result_pastel(
-                                                                        reg_ticket_txid=txid,
-                                                                        throw=False),
+                                                                  common.search_nft_dd_result_pastel(
+                                                                      reg_ticket_txid=txid,
+                                                                      throw=False),
                                                                   parse=True)
 
 

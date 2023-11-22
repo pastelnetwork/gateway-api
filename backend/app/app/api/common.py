@@ -14,6 +14,7 @@ from fastapi import UploadFile, HTTPException, status
 from fastapi.responses import StreamingResponse
 from requests import HTTPError
 
+from app.models import ApiKey
 from app.utils.filestorage import LocalFile, store_file_into_local_cache, search_file_in_local_cache, \
     search_nft_dd_result, search_processed_file
 from app import schemas, crud
@@ -23,6 +24,7 @@ from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import store_file_to_ipfs
 import app.celery_tasks.nft as nft
+from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +41,13 @@ async def process_nft_request(
         after_activation_transfer_to_pastelid: str,
         nft_details_payload: schemas.NftPropertiesExternal,
         user_id: int,
+        api_key: ApiKey,
 ) -> schemas.RequestResult:
     await check_pastelid_for_transfer(db=db, pastel_id=after_activation_transfer_to_pastelid, user_id=user_id)
 
     ipfs_hash = await store_file_to_ipfs(lf.path)
     _ = (
-            nft.register_file.s(result_id, lf, request_id, user_id, ipfs_hash, make_publicly_accessible,
+            nft.register_file.s(result_id, lf, request_id, user_id, api_key, ipfs_hash, make_publicly_accessible,
                                 collection_act_txid, open_api_group_id, nft_details_payload,
                                 after_activation_transfer_to_pastelid) |
             nft.process.s()
@@ -70,6 +73,7 @@ async def process_action_request(
         open_api_group_id: str,
         after_activation_transfer_to_pastelid: str,
         user_id: int,
+        api_key: ApiKey,
         service: wn.WalletNodeService
 ) -> schemas.RequestResult:
     request_id = str(uuid.uuid4())
@@ -97,7 +101,7 @@ async def process_action_request(
         await lf.save(file)
         ipfs_hash = await store_file_to_ipfs(lf.path)
         _ = (
-                worker.register_file.s(result_id, lf, request_id, user_id, ipfs_hash,
+                worker.register_file.s(result_id, lf, request_id, user_id, api_key, ipfs_hash,
                                        make_publicly_accessible, collection_act_txid, open_api_group_id,
                                        after_activation_transfer_to_pastelid) |
                 worker.preburn_fee.s() |
@@ -313,7 +317,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
     if (service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT) \
-            and task_from_db.pastel_id != settings.PASTEL_ID:  # and not task_from_db.public:
+            and not get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id):
         logger.error("Backend does not have correct Pastel ID")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail=f"Only owner can download cascade file")
@@ -321,7 +325,8 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
     try:
         return await search_processed_file(db=db, task_from_db=task_from_db,
                                            update_task_in_db_func=update_task_in_db_func,
-                                           task_done=(task_from_db.process_status in [DbStatus.DONE.value]), service=service)
+                                           task_done=(task_from_db.process_status in [DbStatus.DONE.value]),
+                                           service=service)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
@@ -343,7 +348,10 @@ async def search_pastel_file(*, db=None, reg_ticket_txid: str, service: wn.Walle
     not_locally_cached = not file_bytes
 
     if not file_bytes:
-        file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=reg_ticket_txid, wn_service=service)
+        # this supposed to be public file, so any PASTEL_ID will do
+        file_bytes = await wn.get_file_from_pastel(reg_ticket_txid=reg_ticket_txid,
+                                                   pastel_id=settings.PASTEL_ID,
+                                                   wn_service=service)
 
     if not file_bytes and throw:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
@@ -355,7 +363,7 @@ async def search_pastel_file(*, db=None, reg_ticket_txid: str, service: wn.Walle
     return file_bytes
 
 
-# search_gateway_file searches for file in 1) local cache; 2) Pastel network; 3) IPFS
+# search_nft_dd_result_gateway searches for file in 1) local cache; 2) Pastel network; 3) IPFS
 # Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
 async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_func) -> bytes:
 
@@ -370,14 +378,16 @@ async def search_nft_dd_result_gateway(*, db, task_from_db, update_task_in_db_fu
 
 
 # search_nft_dd_result_pastel searches for file in 1) local cache; 2) Pastel network
-# Is used to search for files processed by Gateway: Cascade file, Sense dd data and NFT file
+# Is used to search for dd data - they are available for anyone
 async def search_nft_dd_result_pastel(*, reg_ticket_txid: str, throw=True) -> bytes:
 
     dd_data = await search_file_in_local_cache(reg_ticket_txid=reg_ticket_txid, extra_suffix=".dd")
     not_locally_cached = not dd_data
 
     if not dd_data:
-        dd_data = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=reg_ticket_txid)
+        # this is public data, any PASTEL_ID should do
+        dd_data = await wn.get_nft_dd_result_from_pastel(reg_ticket_txid=reg_ticket_txid,
+                                                         pastel_id=settings.PASTEL_ID)
 
     if not dd_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Dupe detection data is not found")
@@ -713,10 +723,10 @@ async def check_image(file: UploadFile, db,
     return None
 
 
-async def transfer_ticket(db, result_id, user_id, pastel_id,
+async def transfer_ticket(db, result_id, user_id, pastel_id_for_transfer,
                           get_result_func, update_func):
 
-    await check_pastelid_for_transfer(db=db, pastel_id=pastel_id, user_id=user_id)
+    await check_pastelid_for_transfer(db=db, pastel_id=pastel_id_for_transfer, user_id=user_id)
 
     task_from_db = get_result_func(db=db, result_id=result_id, owner_id=user_id)
     if not task_from_db:
@@ -726,11 +736,18 @@ async def transfer_ticket(db, result_id, user_id, pastel_id,
         raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
                                                     f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
 
-    offer_ticket = await psl.create_offer_ticket(task_from_db,
-                                                 settings.PASTEL_ID, settings.PASTEL_ID_PASSPHRASE, pastel_id)
+    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+    if not pastel_id_pwd:
+        logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
+        return None
+    account_funding_address = crud.user.get_funding_address(db=db, owner_id=user_id)
+    offer_ticket = await psl.create_offer_ticket(task_from_db.act_ticket_txid,
+                                                 task_from_db.pastel_id, pastel_id_pwd,
+                                                 pastel_id_for_transfer,
+                                                 account_funding_address)
     if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
         upd = {"offer_ticket_txid": offer_ticket['txid'],
-               "offer_ticket_intended_rcpt_pastel_id": pastel_id,
+               "offer_ticket_intended_rcpt_pastel_id": pastel_id_for_transfer,
                "updated_at": datetime.utcnow()}
         update_func(db=db, db_obj=task_from_db, obj_in=upd)
 
