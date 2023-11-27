@@ -332,7 +332,6 @@ def _ticket_activator(all_in_registered_state_func,
                 continue
 
             logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-            account_funding_address = None
             with db_context() as db:
                 account_funding_address = crud.user.get_funding_address(db=db, owner_id=task_from_db.owner_id)
             result, new_act_txid = psl.create_activation_ticket(task_from_db, called_at_height,

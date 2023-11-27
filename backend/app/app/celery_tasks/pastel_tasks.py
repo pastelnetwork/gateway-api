@@ -43,6 +43,31 @@ class PastelAPITask(celery.Task):
 
     @staticmethod
     def on_failure_base(args, get_task_from_db_by_task_id_func, update_task_in_db_func):
+        """
+        Method Name: on_failure_base
+
+        Parameters:
+        - args: A tuple containing the arguments passed to the task that failed.
+        - get_task_from_db_by_task_id_func: A function that retrieves a task from the database based on the task ID.
+        - update_task_in_db_func: A function that updates the status of a task in the database.
+
+        Return Type: None
+
+        Description:
+        This method is called when a task fails. It logs the error message and updates the status of the task in the database to indicate an error.
+
+        Example usage:
+        # Define a function to retrieve a task from the database
+        def get_task_from_db_by_task_id_func(task_id):
+            # implementation goes here
+
+        # Define a function to update the task status in the database
+        def update_task_in_db_func(task_id, status):
+            # implementation goes here
+
+        # Call the on_failure_base method
+        on_failure_base(args, get_task_from_db_by_task_id_func, update_task_in_db_func)
+        """
         logger.error(f'Error in task: {args}')
         result_id = PastelAPITask.get_result_id_from_args(args)
         PastelAPITask.update_task_in_db_status_func(result_id,
@@ -231,7 +256,7 @@ class PastelAPITask(celery.Task):
         return result_id
 
     @abc.abstractmethod
-    def get_request_form(self, task_from_db) -> str:
+    def get_request_form(self, task_from_db, spendable_address: str) -> str:
         return ""
 
     @abc.abstractmethod
@@ -248,6 +273,7 @@ class PastelAPITask(celery.Task):
 
         with db_context() as session:
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
+            account_funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
 
         if not task_from_db:
             logger.error(f'{service}: No task found for result_id {result_id}')
@@ -279,7 +305,12 @@ class PastelAPITask(celery.Task):
         if not task_from_db.wn_task_id:
             logger.info(f'{service}: Calling "WN Start"... [Result ID: {result_id}]')
 
-            form = self.get_request_form(task_from_db)   # can throw exception here
+            with db_context() as session:
+                funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
+
+            # can throw exception here
+            form = self.get_request_form(task_from_db,
+                                         funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS)
 
             if service == wn.WalletNodeService.NFT:
                 cmd = "register"

@@ -25,7 +25,7 @@ class NftAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.nft.get_by_result_id, crud.nft.update)
 
-    def get_request_form(self, task_from_db) -> str:
+    def get_request_form(self, task_from_db, spendable_address: str) -> str:
         if not task_from_db.nft_properties:
             raise PastelAPIException(f"Task {task_from_db.result_id} doesn't have 'nft_properties'")
 
@@ -45,13 +45,13 @@ class NftAPITask(PastelAPITask):
             else:
                 raise PastelAPIException(f"Failed to call 'storagefee getnetworkfee'")
 
-        # can throw exception here - this called from celery task, it will retry it on specific exceptions
-        address_list = psl.call("listaddressamounts", [])
-        spendable_address = None
-        if address_list:
-            for spendable_address, value in address_list.items():
-                if value > task_from_db.wn_fee:
-                    break
+        if not spendable_address:
+            # can throw exception here - this called from celery task, it will retry it on specific exceptions
+            address_list = psl.call("listaddressamounts", [])
+            if address_list:
+                for spendable_address, value in address_list.items():
+                    if value > task_from_db.wn_fee:
+                        break
 
         if not spendable_address:
             send_alert_email(f"No spendable address found to pay NFT fee in the amount > {task_from_db.wn_fee}")

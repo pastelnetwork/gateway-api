@@ -33,14 +33,14 @@ class CollectionsAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.collection.get_by_result_id, crud.collection.update)
 
-    def get_request_form(self, task_from_db) -> str:
-        # can throw exception here - this called from celery task, it will retry it on specific exceptions
-        address_list = psl.call("listaddressamounts", [])
-        spendable_address = None
-        if address_list:
-            for spendable_address, value in address_list.items():
-                if value > COLLECTION_TICKET_FEE:
-                    break
+    def get_request_form(self, task_from_db, spendable_address: str) -> str:
+        if not spendable_address:
+            # can throw exception here - this called from celery task, it will retry it on specific exceptions
+            address_list = psl.call("listaddressamounts", [])
+            if address_list:
+                for spendable_address, value in address_list.items():
+                    if value > COLLECTION_TICKET_FEE:
+                        break
 
         if not spendable_address:
             logger.error(f"Collection-{task_from_db.item_type}: No spendable address "
@@ -143,7 +143,12 @@ def process(self, result_id) -> str:
                     f'Should be {DbStatus.RESTARTED.value} OR {DbStatus.NEW.value}... [Result ID: {result_id}]')
         return result_id
 
-    form = self.get_request_form(task_from_db)   # can throw exception here
+    with db_context() as session:
+        funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
+
+    # can throw exception here
+    form = self.get_request_form(task_from_db,
+                                 funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS)
 
     logger.info(f'Collection-{task_from_db.item_type}: Calling WN to start collection ticket registration [Result ID: {result_id}]')
     wn_task_id = ""

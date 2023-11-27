@@ -22,13 +22,14 @@ class SenseAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.sense.get_by_result_id, crud.sense.update)
 
-    def get_request_form(self, task_from_db) -> str:
+    def get_request_form(self, task_from_db, spendable_address: str) -> str:
         return json.dumps(
             {
                 "burn_txid": task_from_db.burn_txid,
                 "app_pastelid": task_from_db.pastel_id,
                 "collection_act_txid": task_from_db.collection_act_txid,
                 "open_api_group_id": task_from_db.open_api_group_id,
+                "spendable_address": spendable_address,
             })
 
     def check_specific_conditions(self, task_from_db) -> (bool, str):
