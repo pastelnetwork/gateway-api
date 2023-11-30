@@ -34,25 +34,41 @@ def create_celery():
             'task': 'registration_helpers:registration_re_processor',
             'schedule': app_settings.REGISTRATION_RE_PROCESSOR_INTERVAL,
         },
-
-        # scheduled_tools
-        'scheduled_tools_fee_pre_burner': {
-            'task': 'scheduled_tools:fee_pre_burner',
-            'schedule': app_settings.FEE_PRE_BURNER_INTERVAL,
-        },
-        'scheduled_tools_reg_tickets_finder': {
-            'task': 'scheduled_tools:reg_tickets_finder',
-            'schedule': app_settings.REG_TICKETS_FINDER_INTERVAL,
-        },
-        'scheduled_tools_ticket_activator': {
-            'task': 'scheduled_tools:ticket_activator',
-            'schedule': app_settings.TICKET_ACTIVATOR_INTERVAL,
-        },
-        'scheduled_tools_watchdog': {
-            'task': 'scheduled_tools:watchdog',
-            'schedule': app_settings.WATCHDOG_INTERVAL,
-        },
     }
+
+    if app_settings.FEE_PRE_BURNER_ENABLED:
+        celery_app.conf.beat_schedule.update(
+            {
+                'scheduled_tools_fee_pre_burner': {
+                    'task': 'scheduled_tools:fee_pre_burner',
+                    'schedule': app_settings.FEE_PRE_BURNER_INTERVAL,
+                }
+            })
+    if app_settings.REG_TICKETS_FINDER_ENABLED:
+        celery_app.conf.beat_schedule.update(
+            {
+                'scheduled_tools_reg_tickets_finder': {
+                    'task': 'scheduled_tools:reg_tickets_finder',
+                    'schedule': app_settings.REG_TICKETS_FINDER_INTERVAL,
+                }
+            })
+    if app_settings.TICKET_ACTIVATOR_ENABLED:
+        celery_app.conf.beat_schedule.update(
+            {
+                'scheduled_tools_ticket_activator': {
+                    'task': 'scheduled_tools:ticket_activator',
+                    'schedule': app_settings.TICKET_ACTIVATOR_INTERVAL,
+                }
+            })
+    if app_settings.WATCHDOG_ENABLED:
+        celery_app.conf.beat_schedule.update(
+            {
+                'scheduled_tools_watchdog': {
+                    'task': 'scheduled_tools:watchdog',
+                    'schedule': app_settings.WATCHDOG_INTERVAL,
+                }
+            })
+
     celery_app.conf.timezone = 'UTC'
 
     return celery_app

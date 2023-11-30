@@ -25,7 +25,15 @@ class NftAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.nft.get_by_result_id, crud.nft.update)
 
-    def get_request_form(self, task_from_db, spendable_address: str) -> str:
+    def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
+        if not spendable_address:
+            spendable_address = psl.find_address_with_funds(task_from_db.wn_fee)
+            if not spendable_address:
+                logger.error(f"No spendable address found for amount > {task_from_db.wn_fee}. "
+                             f"[Result ID: {task_from_db.result_id}]")
+                send_alert_email(f"No spendable address found to pay NFT fee in the amount > {task_from_db.wn_fee}")
+                raise PastelAPIException(f"No spendable address found for amount > {task_from_db.wn_fee}")
+
         if not task_from_db.nft_properties:
             raise PastelAPIException(f"Task {task_from_db.result_id} doesn't have 'nft_properties'")
 
@@ -41,21 +49,9 @@ class NftAPITask(PastelAPITask):
             # can throw exception here - this called from celery task, it will retry it on specific exceptions
             storage_fees = psl.call("storagefee", ["getnetworkfee"])
             if storage_fees and "networkfee" in storage_fees:
-                maximum_fee = storage_fees["networkfee"]*settings.NFT_DEFAULT_MAX_FILE_SIZE_FOR_FEE_IN_MB
+                maximum_fee = storage_fees["networkfee"] * settings.NFT_DEFAULT_MAX_FILE_SIZE_FOR_FEE_IN_MB
             else:
                 raise PastelAPIException(f"Failed to call 'storagefee getnetworkfee'")
-
-        if not spendable_address:
-            # can throw exception here - this called from celery task, it will retry it on specific exceptions
-            address_list = psl.call("listaddressamounts", [])
-            if address_list:
-                for spendable_address, value in address_list.items():
-                    if value > task_from_db.wn_fee:
-                        break
-
-        if not spendable_address:
-            send_alert_email(f"No spendable address found to pay NFT fee in the amount > {task_from_db.wn_fee}")
-            raise PastelAPIException(f"No spendable address found for amount > {task_from_db.wn_fee}")
 
         return json.dumps(
             {
@@ -67,36 +63,51 @@ class NftAPITask(PastelAPITask):
                 "collection_act_txid": task_from_db.collection_act_txid,
                 "open_api_group_id": task_from_db.open_api_group_id,
 
-                "creator_name": task_from_db.nft_properties["creator_name"] \
+                "creator_name":
+                    task_from_db.nft_properties["creator_name"]
                     if "creator_name" in task_from_db.nft_properties else "",
-                "creator_website_url": task_from_db.nft_properties["creator_website_url"] \
+                "creator_website_url":
+                    task_from_db.nft_properties["creator_website_url"]
                     if "creator_website_url" in task_from_db.nft_properties else "",
-                "description": task_from_db.nft_properties["description"] \
+                "description":
+                    task_from_db.nft_properties["description"]
                     if "description" in task_from_db.nft_properties else "",
-                "green": task_from_db.nft_properties["green"] \
+                "green":
+                    task_from_db.nft_properties["green"]
                     if "green" in task_from_db.nft_properties else "",
-                "issued_copies": task_from_db.nft_properties["issued_copies"] \
+                "issued_copies":
+                    task_from_db.nft_properties["issued_copies"]
                     if "issued_copies" in task_from_db.nft_properties else "",
-                "keywords": task_from_db.nft_properties["keywords"] \
+                "keywords":
+                    task_from_db.nft_properties["keywords"]
                     if "keywords" in task_from_db.nft_properties else "",
-                "maximum_fee": maximum_fee,
-                "name": task_from_db.nft_properties["name"] \
+                "maximum_fee":
+                    maximum_fee,
+                "name":
+                    task_from_db.nft_properties["name"]
                     if "name" in task_from_db.nft_properties else "",
-                "royalty": task_from_db.nft_properties["royalty"] \
+                "royalty":
+                    task_from_db.nft_properties["royalty"]
                     if "royalty" in task_from_db.nft_properties else "",
-                "series_name": task_from_db.nft_properties["series_name"] \
+                "series_name":
+                    task_from_db.nft_properties["series_name"]
                     if "series_name" in task_from_db.nft_properties else "",
                 "thumbnail_coordinate": {
-                    "bottom_right_x": task_from_db.nft_properties["thumbnail_coordinate_bottom_right_x"] \
+                    "bottom_right_x":
+                        task_from_db.nft_properties["thumbnail_coordinate_bottom_right_x"]
                         if "thumbnail_coordinate_bottom_right_x" in task_from_db.nft_properties else 256,
-                    "bottom_right_y": task_from_db.nft_properties["thumbnail_coordinate_bottom_right_y"] \
+                    "bottom_right_y":
+                        task_from_db.nft_properties["thumbnail_coordinate_bottom_right_y"]
                         if "thumbnail_coordinate_bottom_right_y" in task_from_db.nft_properties else 256,
-                    "top_left_x": task_from_db.nft_properties["thumbnail_coordinate_top_left_x"] \
+                    "top_left_x":
+                        task_from_db.nft_properties["thumbnail_coordinate_top_left_x"]
                         if "thumbnail_coordinate_top_left_x" in task_from_db.nft_properties else 0,
-                    "top_left_y": task_from_db.nft_properties["thumbnail_coordinate_top_left_y"] \
+                    "top_left_y":
+                        task_from_db.nft_properties["thumbnail_coordinate_top_left_y"]
                         if "thumbnail_coordinate_top_left_y" in task_from_db.nft_properties else 0,
-                },
-                "youtube_url": task_from_db.nft_properties["youtube_url"] \
+                    },
+                "youtube_url":
+                    task_from_db.nft_properties["youtube_url"]
                     if "youtube_url" in task_from_db.nft_properties else "",
             }
         )

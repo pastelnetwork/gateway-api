@@ -2,6 +2,8 @@ import base64
 import json
 import logging
 import re
+import time
+from typing import Dict
 
 import requests
 from enum import Enum
@@ -51,7 +53,7 @@ def call(method, parameters, nothrow=False):
 
     response.raise_for_status()
     resp = response.json()
-    if not resp or not resp["result"]:
+    if not resp or "result" not in resp:
         if nothrow:
             return None
         raise PasteldException()
@@ -176,11 +178,19 @@ async def parse_registration_nft_ticket(reg_ticket):
     return reg_ticket
 
 
-async def create_offer_ticket(act_ticket_txid: str, current_pastel_id: str, current_passphrase: str,
-                              rcpt_pastel_id: str, funding_address: str):
+async def create_offer_ticket(act_ticket_txid: str, price: int, current_pastel_id: str, current_passphrase: str,
+                              rcpt_pastel_id: str, funding_address: str | None):
+    if not funding_address:
+        spendable_address = find_address_with_funds(settings.COLLECTION_TICKET_FEE)
+        if not spendable_address:
+            logger.error(f"No spendable address found for amount > {price}. [act_ticket_txid: {act_ticket_txid}]")
+            send_alert_email(
+                f"No spendable address found to pay Offer ticket fee in the amount > {settings.COLLECTION_TICKET_FEE}")
+            raise HTTPException(status_code=500, detail=f"Failed to create offer ticket for: {act_ticket_txid}")
+
     offer_ticket = call('tickets', ['register', 'offer',
                                     act_ticket_txid,
-                                    1,
+                                    price,
                                     current_pastel_id, current_passphrase,
                                     0, 0, 1, funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS,
                                     rcpt_pastel_id],
@@ -197,11 +207,12 @@ async def verify_message(message, signature, pastel_id) -> bool:
     return False
 
 
-def check_balance(need_amount: float) -> bool:
+def check_balance(need_amount: float, send_email: bool = True) -> bool:
     balance = call('getbalance', [])
     if balance < need_amount:
         logger.error(f"Insufficient funds: balance {balance}")
-        send_alert_email(f"Insufficient funds: balance {balance}")
+        if send_email:
+            send_alert_email(f"Insufficient funds: balance {balance}")
         return False
     return True
 
@@ -213,7 +224,7 @@ class TicketTransactionStatus(Enum):
 
 
 async def check_ticket_transaction(txid, msg, current_block_height, start_waiting_block_height,
-                                   interval=20, max_wait_blocks=100) -> TicketTransactionStatus:
+                                   max_wait_blocks=100) -> TicketTransactionStatus:
     response = call('getrawtransaction', [txid, 1], nothrow=True)  # won't throw exception here
     if response and isinstance(response, dict):
         # ticket transaction is found at least locally
@@ -232,33 +243,9 @@ async def check_ticket_transaction(txid, msg, current_block_height, start_waitin
 
         # ticket is not confirmed yet OR not included into the block yet, will wait for it
         if current_block_height - start_waiting_block_height <= max_wait_blocks:
-            # if delta % interval != 0:
-            #     logger.info(f"{msg}. Waiting...")
-            #     return TicketTransactionStatus.WAITING
-
-            # logger.info(f"{msg} after {delta} blocks. Resubmitting transaction")
-            # if not await sign_and_submit(txid):
-            #     logger.error(f"{msg} after {delta} blocks. Resubmit failed. Waiting again...")
             return TicketTransactionStatus.WAITING
 
     return TicketTransactionStatus.NOT_FOUND
-
-
-async def sign_and_submit(txid) -> bool:
-    try:
-        tnx = call('getrawtransaction', [txid])   # will throw exception here
-        response = call('signrawtransaction', [txid])  # will throw exception here
-        if response and isinstance(response, dict) \
-                and 'complete' in response and response['complete']\
-                and 'hex' in response and response['hex']:
-            signed_txid = call('sendrawtransaction', [response['hex']])
-            return True
-        else:
-            logger.error(f"Failed to signrawtransaction for {txid}: {response}")
-            return False
-    except Exception as e:
-        logger.error(f"Failed to getrawtransaction for {txid}: {e}")
-        return False
 
 
 class TicketCreateStatus(Enum):
@@ -268,18 +255,20 @@ class TicketCreateStatus(Enum):
 
 
 def create_activation_ticket(task_from_db, called_at_height, ticket_type,
-                             funding_address: str) -> (TicketCreateStatus, str | None):
+                             funding_address: str | None) -> (TicketCreateStatus, str | None):
     try:
-        if not check_balance(task_from_db.wn_fee + 1000):   # can throw exception here
-            return
+        # can throw exception here
+        min_ticket_fee = task_from_db.wn_fee + settings.MIN_TICKET_PRICE_BALANCE
+        if not check_address_balance(funding_address, min_ticket_fee, f"{ticket_type} ticket"):
+            return TicketCreateStatus.ERROR, None
         pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
         activation_ticket = call('tickets', ['register', ticket_type,
                                              task_from_db.reg_ticket_txid,
                                              called_at_height,
                                              task_from_db.wn_fee,
-                                             task_from_db.paste_id,
+                                             task_from_db.pastel_id,
                                              pastel_id_pwd,
-                                             funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS],
+                                             funding_address if funding_address else None]
                                  )   # can throw exception here
         if activation_ticket and 'txid' in activation_ticket:
             logger.info(f"Created {ticket_type} ticket {activation_ticket['txid']}")
@@ -314,4 +303,92 @@ def create_address() -> str | None:
     new_address = call('getnewaddress', [])
     if new_address and isinstance(new_address, str):
         return new_address
+    return None
+
+
+def check_address_balance(address: str | None, need_amount: float, what: str, send_email: bool = True) -> bool:
+    if not address:
+        return check_balance(need_amount, send_email)
+
+    address_balance = call("z_getbalance", [address])
+    if address_balance < need_amount:
+        logger.error(f"Not enough funds on {address} to pay for {what}."
+                     f"Need > {need_amount} but has {address_balance}")
+        if send_email:
+            send_alert_email(f"No enough funds on {address} to pay for {what}."
+                             f"Need > {need_amount} but has {address_balance}")
+        return False
+    return True
+
+
+def send_to_many_z(from_address: str, to_addresses: Dict[str, float], _fee: float = 0.0001) -> str | None:
+    to_addresses_upd = [{"address": key, "amount": value} for key, value in to_addresses.items()]
+    total_amount = sum(to_addresses.values())
+    try:
+        opid = call("z_sendmanywithchangetosender", [from_address, to_addresses_upd])
+        if opid and isinstance(opid, str):
+            for _ in range(5):
+                op_status = call("z_getoperationstatus", [[opid]])
+                for operation in op_status:
+                    if operation['id'] == opid:
+                        status = operation['status']
+                        if status == 'success':
+                            return operation['result']['txid']
+                        elif status == 'failed':
+                            logger.error(f"z_sendmanywithchangetosender failed: {operation['error']['message']}")
+                            return None
+                        else:
+                            break
+    except PasteldException as e:
+        logger.error(f"Exception calling pasteld z_sendmanywithchangetosender: {e}")
+    except Exception as e:
+        logger.error(f"Exception calling pasteld z_sendmanywithchangetosender: {e}")
+    logger.error(f"Failed to send {total_amount} using z_sendmanywithchangetosender from {from_address}")
+    return None
+
+
+def get_amount_for_address(address):
+    response = call('listaddressamounts', [])
+    if response and isinstance(response, dict):
+        return response.get(address, 0)
+    return 0
+
+
+def check_wallet_balance_and_wait(address: str, need_amount, wait_loops=5, wait_time=120):
+    height_before = call("getblockcount", [])
+    height_now = 0
+    wallet_balance = get_amount_for_address(address)
+    for ind in range(wait_loops):
+
+        address_balance = call("z_getbalance", [address])
+        if address_balance > need_amount:
+            return True
+
+        logger.info(f"Address balance is not enough: {address_balance} < {need_amount}."
+                    f"will check wallet balance and wait for the next block, if wallet balance is enough")
+
+        wallet_balance = get_amount_for_address(address)
+        if wallet_balance > need_amount:
+            if height_now > height_before:
+                logger.error(f"Not enough balance even after next block: "
+                             f"wallet_balance={wallet_balance}, need_amount={need_amount}")
+                return False
+            height_now = call("getblockcount", [])
+            logger.info(f"Wallet balance is enough: {wallet_balance} > {need_amount},"
+                        f" but there are no UTXOs to spend yet. Waiting for the next block - "
+                        f"{height_before + 1}. Now is {height_now}")
+            if ind < wait_loops:
+                time.sleep(wait_time)  # 2 minutes delay
+
+    logger.error(f"Not enough balance even after {wait_time*wait_loops} seconds: "
+                 f"wallet_balance={wallet_balance}, need_amount={need_amount}")
+    return False
+
+
+def find_address_with_funds(need_amount: float) -> str | None:
+    address_list = call("listaddressamounts", [])
+    if address_list:
+        for address, value in address_list.items():
+            if value > need_amount:
+                return address
     return None

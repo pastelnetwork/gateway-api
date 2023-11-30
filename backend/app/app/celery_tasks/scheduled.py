@@ -22,46 +22,50 @@ logger = get_task_logger(__name__)
 @shared_task(name="scheduled_tools:fee_pre_burner")
 def fee_pre_burner():
     logger.info(f"fee_pre_burner task started")
-    logger.info(f"first: release non used")
-    with db_context() as session:
-        all_used_or_pending = crud.preburn_tx.get_all_used_or_pending(session)
-        for transaction in all_used_or_pending:
-            tx = psl.call("tickets", ["find", "nft", transaction.txid], True)   # won't throw exception
-            if tx and (isinstance(tx, dict) or isinstance(tx, list)):
-                if transaction.status == PBTXStatus.PENDING:
-                    crud.preburn_tx.mark_used(session, transaction.txid)
-                continue
-            tx = psl.call("tickets", ["find", "action", transaction.txid], True)   # won't throw exception
-            if tx and (isinstance(tx, dict) or isinstance(tx, list)):
-                if transaction.status == PBTXStatus.PENDING:
-                    crud.preburn_tx.mark_used(session, transaction.txid)
-                continue
-            from_cascade = crud.cascade.get_by_preburn_txid(session, txid=transaction.txid)
-            if from_cascade and (from_cascade.process_status != 'DEAD' and from_cascade.process_status != 'ERROR'):
-                if transaction.status == PBTXStatus.PENDING:
-                    crud.preburn_tx.mark_used(session, transaction.txid)
-                continue
-            from_sense = crud.sense.get_by_preburn_txid(session, txid=transaction.txid)
-            if from_sense and (from_sense.process_status != 'DEAD' and from_sense.process_status != 'ERROR'):
-                if transaction.status == PBTXStatus.PENDING:
-                    crud.preburn_tx.mark_used(session, transaction.txid)
-                continue
-            crud.preburn_tx.mark_non_used(session, transaction.txid)
+    if settings.FEE_PRE_BURNER_RELEASE_NON_USED:
+        logger.info(f"release non used")
+        with db_context() as session:
+            all_used_or_pending = crud.preburn_tx.get_all_used_or_pending(session)
+            for transaction in all_used_or_pending:
+                tx = psl.call("tickets", ["find", "nft", transaction.txid], True)   # won't throw exception
+                if tx and (isinstance(tx, dict) or isinstance(tx, list)):
+                    if transaction.status == PBTXStatus.PENDING:
+                        crud.preburn_tx.mark_used(session, transaction.txid)
+                    continue
+                tx = psl.call("tickets", ["find", "action", transaction.txid], True)   # won't throw exception
+                if tx and (isinstance(tx, dict) or isinstance(tx, list)):
+                    if transaction.status == PBTXStatus.PENDING:
+                        crud.preburn_tx.mark_used(session, transaction.txid)
+                    continue
+                from_cascade = crud.cascade.get_by_preburn_txid(session, txid=transaction.txid)
+                if from_cascade and (from_cascade.process_status != 'DEAD' and from_cascade.process_status != 'ERROR'):
+                    if transaction.status == PBTXStatus.PENDING:
+                        crud.preburn_tx.mark_used(session, transaction.txid)
+                    continue
+                from_sense = crud.sense.get_by_preburn_txid(session, txid=transaction.txid)
+                if from_sense and (from_sense.process_status != 'DEAD' and from_sense.process_status != 'ERROR'):
+                    if transaction.status == PBTXStatus.PENDING:
+                        crud.preburn_tx.mark_used(session, transaction.txid)
+                    continue
+                crud.preburn_tx.mark_non_used(session, transaction.txid)
 
-    height = psl.call("getblockcount", [], True)   # won't throw exception
-    if not height or not isinstance(height, int):
-        logger.error(f"Error while getting height from cNode")
-        return
+    if settings.FEE_PRE_BURNER_CHECK_NEW:
+        logger.info(f"check new")
+        height = psl.call("getblockcount", [], True)   # won't throw exception
+        if not height or not isinstance(height, int):
+            logger.error(f"Error while getting height from cNode")
+            return
 
-    with db_context() as session:
-        all_new = crud.preburn_tx.get_all_new(session)
-        for new in all_new:
-            if new.height + 5 < height:
-                check_preburn_tx(session, new.txid)
+        with db_context() as session:
+            all_new = crud.preburn_tx.get_all_new(session)
+            for new in all_new:
+                if new.height + 5 < height:
+                    check_preburn_tx(session, new.txid)
 
+    logger.info(f"pre burn fees")
     with db_context() as session:
         fees = []
-        logger.info(f"second: calculate fees")
+        logger.info(f"first: calculate missing fees")
         for size in range(1, settings.MAX_SIZE_FOR_PREBURN+1):
             fee = psl.call("storagefee", ["getactionfees", size], True)   # won't throw exception
             if not fee or not isinstance(fee, dict):
@@ -75,7 +79,7 @@ def fee_pre_burner():
             c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
             s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
             logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
-            for dups in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN+1)):
+            for _ in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN+1)):
                 if c_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
                     fees.append(c_fee)
                 if s_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
@@ -86,20 +90,21 @@ def fee_pre_burner():
         logger.error(f"Error while getting height from cNode")
         return
 
-    logger.info(f"third: burn fees")
-    with db_context() as session:
-        for burn_amount in fees:
-            try:
-                if not psl.check_balance(burn_amount):   # can throw exception here
-                    return
-                burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])   # can throw exception
-            except Exception as e:
-                logger.error(f"Error while burning fee {e}")
-                continue
-            crud.preburn_tx.create_new(session,
-                                       fee=burn_amount,
-                                       height=height,
-                                       txid=burn_txid)
+    if len(fees) > 0:
+        logger.info(f"second: burn missing fees")
+        with db_context() as session:
+            for burn_amount in fees:
+                try:
+                    if not psl.check_balance(burn_amount):  # can throw exception here
+                        return
+                    burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])  # can throw exception
+                    if not burn_txid or not isinstance(burn_txid, str):
+                        logger.error(f"Error while burning fee")
+                        continue
+                except Exception as e:
+                    logger.error(f"Error while burning fee {e}")
+                    continue
+                crud.preburn_tx.create_new(session, fee=burn_amount, height=height, txid=burn_txid)
 
 
 @shared_task(name="scheduled_tools:reg_tickets_finder", task_id="reg_tickets_finder")
@@ -110,12 +115,13 @@ def registration_tickets_finder():
         with db_context() as session:
             last_processed_block = crud.reg_ticket.get_last_blocknum(session)
 
-        nft_tickets = psl.call("tickets", ['list', 'nft', 'active', last_processed_block+1], nothrow=True)   # won't throw exception
+        nft_tickets = psl.call("tickets", ['list', 'nft', 'active', last_processed_block+1],
+                               nothrow=True)   # won't throw exception
         process_nft_tickets(nft_tickets, last_processed_block)
 
-        action_ticket = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1], nothrow=True)   # won't throw exception
+        action_ticket = psl.call("tickets", ['list', 'action', 'active', last_processed_block+1],
+                                 nothrow=True)   # won't throw exception
         process_action_tickets(action_ticket, last_processed_block)
-
 
     except Exception as e:
         logger.error(f"Error while processing cascade tickets {e}")
@@ -332,8 +338,10 @@ def _ticket_activator(all_in_registered_state_func,
                 continue
 
             logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-            with db_context() as db:
-                account_funding_address = crud.user.get_funding_address(db=db, owner_id=task_from_db.owner_id)
+            account_funding_address = None
+            # with db_context() as db:
+            #     account_funding_address = crud.user.get_funding_address(db=db, owner_id=task_from_db.owner_id,
+            #                                                             default_value=settings.MAIN_GATEWAY_ADDRESS)
             result, new_act_txid = psl.create_activation_ticket(task_from_db, called_at_height,
                                                                 act_ticket_type, account_funding_address)
             if result == psl.TicketCreateStatus.CREATED and new_act_txid:
@@ -479,7 +487,8 @@ def _ticket_verificator(all_done_func,
                                                                  network_height, task_from_db.height))
             if at_status == psl.TicketTransactionStatus.NOT_FOUND:
                 # clear activation ticket txid if it is not found in the network
-                upd = {"act_ticket_txid": "", "process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow()}
+                upd = {"act_ticket_txid": "", "process_status": DbStatus.REGISTERED.value,
+                       "updated_at": datetime.utcnow()}
                 with db_context() as session:
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 

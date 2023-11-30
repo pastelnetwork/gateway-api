@@ -54,7 +54,8 @@ class PastelAPITask(celery.Task):
         Return Type: None
 
         Description:
-        This method is called when a task fails. It logs the error message and updates the status of the task in the database to indicate an error.
+        This method is called when a task fails. It logs the error message and updates the status of
+        the task in the database to indicate an error.
 
         Example usage:
         # Define a function to retrieve a task from the database
@@ -123,17 +124,20 @@ class PastelAPITask(celery.Task):
                                                id_field_name, fee_field_name)
         except Exception as e:
             logger.warn(f'{service}: Upload call failed for file {local_file.name} - {e}. Retrying...')
-            set_status_message(update_task_in_db_func, task_in_db, f'Upload call failed for file {local_file.name} - {e}')
+            set_status_message(update_task_in_db_func, task_in_db,
+                               f'Upload call failed for file {local_file.name} - {e}')
             retry_func()
 
         if not wn_file_id:
             logger.warn(f'{service}: Upload call failed for file {local_file.name} - "wn_file_id" is empty. '
                         f'retrying...')
-            set_status_message(update_task_in_db_func, task_in_db, f'Upload call failed for file {local_file.name} - "wn_file_id" is empty. Retrying')
+            set_status_message(update_task_in_db_func, task_in_db,
+                               f'Upload call failed for file {local_file.name} - "wn_file_id" is empty. Retrying')
             retry_func()
         if returned_fee <= 0:
             logger.warn(f'{service}: Wrong WN Fee {returned_fee} for file {local_file.name}, retrying...')
-            set_status_message(update_task_in_db_func, task_in_db, f'Wrong WN Fee {returned_fee} for file {local_file.name}. Retrying')
+            set_status_message(update_task_in_db_func, task_in_db,
+                               f'Wrong WN Fee {returned_fee} for file {local_file.name}. Retrying')
             retry_func()
 
         total_fee = returned_fee*fee_multiplier
@@ -176,9 +180,14 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
-        if not psl.check_balance(task_from_db.wn_fee):   # can throw exception here
-            set_status_message(update_task_in_db_func, task_from_db, f'Not enough balance to pay for pre-burn fee. Retrying')
-            retry_func()
+        # with db_context() as session:
+        #     funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
+        #                                                     default_value=settings.MAIN_GATEWAY_ADDRESS)
+        # if not psl.check_address_balance(funding_address, task_from_db.wn_fee, f"pre-burn fee for {service}"):
+        #     set_status_message(update_task_in_db_func, task_from_db,
+        #                        f"No enough funds in spendable address {funding_address} "
+        #                        f"to pre-burn fee for {service} ticket. Retrying")
+        #     retry_func()
 
         preburn_fee = task_from_db.wn_fee/5
         # can throw exception here - this is celery task, it will retry it on specific exceptions
@@ -223,8 +232,27 @@ class PastelAPITask(celery.Task):
                         retry_func()
 
                     logger.info(f'{service}: No pre-burn tx, calling sendtoaddress... [Result ID: {result_id}]')
+                    if not psl.check_balance(task_from_db.wn_fee):  # can throw exception here
+                        set_status_message(update_task_in_db_func, task_from_db,
+                                           f'Not enough balance to pay for pre-burn fee. Retrying')
+                        retry_func()
                     # can throw exception here - this is celery task, it will retry it on specific exceptions
-                    burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, preburn_fee])
+                    burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, preburn_fee])  # can throw exception
+                    if not burn_txid:
+                        logger.info(f'{service}: Error while burning fee... [Result ID: {result_id}]')
+                        set_status_message(update_task_in_db_func, task_from_db,
+                                           f'Error while burning fee. Retrying')
+                        retry_func()
+                    # burn_txid = psl.send_to_many_z(funding_address, {settings.BURN_ADDRESS: preburn_fee})
+                    # if not burn_txid:
+                        # if psl.check_wallet_balance_and_wait(settings.funding_address, preburn_fee, 2):
+                        #     # retry burn again after waiting
+                        #     burn_txid = psl.send_to_many_z(funding_address, {settings.BURN_ADDRESS: preburn_fee})
+                        # if not burn_txid:
+                        #     logger.info(f'{service}: Error while burning fee... [Result ID: {result_id}]')
+                        #     set_status_message(update_task_in_db_func, task_from_db,
+                        #                        f'Error while burning fee. Retrying')
+                        #     retry_func()
                     burn_tx = crud.preburn_tx.create_new_bound(session,
                                                                fee=preburn_fee,
                                                                height=height,
@@ -239,7 +267,7 @@ class PastelAPITask(celery.Task):
                 logger.info(f'{service}: Pre-burn tx [{burn_tx.txid}] not confirmed yet, '
                             f'retrying... [Result ID: {result_id}]')
                 upd = {"process_status_message": f'Pre-burn tx [{burn_tx.txid}] not confirmed yet. Retrying',
-                       "updated_at": datetime.utcnow(),}
+                       "updated_at": datetime.utcnow()}
                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                 retry_func()
 
@@ -256,7 +284,7 @@ class PastelAPITask(celery.Task):
         return result_id
 
     @abc.abstractmethod
-    def get_request_form(self, task_from_db, spendable_address: str) -> str:
+    def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
         return ""
 
     @abc.abstractmethod
@@ -273,7 +301,6 @@ class PastelAPITask(celery.Task):
 
         with db_context() as session:
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
-            account_funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
 
         if not task_from_db:
             logger.error(f'{service}: No task found for result_id {result_id}')
@@ -292,6 +319,16 @@ class PastelAPITask(celery.Task):
         if not psl.check_balance(task_from_db.wn_fee):   # can throw exception here
             set_status_message(update_task_in_db_func, task_from_db, f'Not enough balance to pay WN Fee. Retrying')
             retry_func()
+        funding_address = None
+        # with db_context() as session:
+        #     funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
+        #                                                     default_value=settings.MAIN_GATEWAY_ADDRESS)
+        # can throw exception here
+        # if not psl.check_address_balance(funding_address, task_from_db.wn_fee, f"{service} ticket"):
+        #     set_status_message(update_task_in_db_func, task_from_db,
+        #                        f'No enough funds in spendable address {funding_address} '
+        #                        f'to pay {service} ticket fee. Retrying')
+        #     retry_func()
 
         ok, err_msg = self.check_specific_conditions(task_from_db)
         if not ok:
@@ -305,12 +342,8 @@ class PastelAPITask(celery.Task):
         if not task_from_db.wn_task_id:
             logger.info(f'{service}: Calling "WN Start"... [Result ID: {result_id}]')
 
-            with db_context() as session:
-                funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
-
             # can throw exception here
-            form = self.get_request_form(task_from_db,
-                                         funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS)
+            form = self.get_request_form(task_from_db, funding_address)
 
             if service == wn.WalletNodeService.NFT:
                 cmd = "register"
@@ -343,7 +376,8 @@ class PastelAPITask(celery.Task):
 
             if not wn_task_id:
                 logger.error(f'{service}: No wn_task_id returned from WN for result_id {result_id}')
-                set_status_message(update_task_in_db_func, task_from_db, f'No wn_task_id returned from WN. Throwing exception')
+                set_status_message(update_task_in_db_func, task_from_db,
+                                   f'No wn_task_id returned from WN. Throwing exception')
                 raise Exception(f'{service}: No wn_task_id returned from WN for result_id {result_id}')
 
             logger.info(f'{service}: WN register process started: wn_task_id {wn_task_id} result_id {result_id}')
@@ -399,7 +433,7 @@ class PastelAPITask(celery.Task):
             return result_id
 
         logger.info(f'{service}: Searching for file locally at {task_from_db.original_file_local_path}; or'
-                     f' in IPFS at {task_from_db.original_file_ipfs_link}... [Result ID: {result_id}]')
+                    f' in IPFS at {task_from_db.original_file_ipfs_link}... [Result ID: {result_id}]')
 
         data = asyncio.run(search_file_locally_or_in_ipfs(task_from_db.original_file_local_path,
                                                           task_from_db.original_file_ipfs_link, True))
@@ -418,29 +452,33 @@ class PastelAPITask(celery.Task):
         logger.info(f'{service}: Re-uploading file - calling WN... [Result ID: {result_id}]')
         try:
             wn_file_id, returned_fee = wn.call(True,
-                                              service,
-                                              upload_cmd,
-                                              {},
-                                              [('file',
-                                                (task_from_db.original_file_name,
-                                                 data,
-                                                 task_from_db.original_file_content_type))],
-                                              {},
-                                              id_field_name, fee_field_name)
+                                               service,
+                                               upload_cmd,
+                                               {},
+                                               [('file',
+                                                 (task_from_db.original_file_name,
+                                                  data,
+                                                  task_from_db.original_file_content_type))],
+                                               {},
+                                               id_field_name, fee_field_name)
         except Exception as e:
             logger.error(f'{service}: Error calling "WN Start" for result_id {result_id}: {e}')
-            set_status_message(update_task_in_db_func, task_from_db, f'Error calling "WN Start" - {e}. Throwing exception')
+            set_status_message(update_task_in_db_func, task_from_db,
+                               f'Error calling "WN Start" - {e}. Throwing exception')
             raise e
 
         if not wn_file_id:
             logger.error(f'{service}: Upload call failed for file '
                          f'{task_from_db.original_file_name} - "wn_file_id" is empty. Retrying...')
-            set_status_message(update_task_in_db_func, task_from_db, f'Upload call failed for file {task_from_db.original_file_name}. Throwing exception')
+            set_status_message(update_task_in_db_func, task_from_db,
+                               f'Upload call failed for file {task_from_db.original_file_name}. Throwing exception')
             raise PastelAPIException(f'{service}: Upload call failed for file {task_from_db.original_file_name}')
         if returned_fee <= 0:
             logger.error(f'{service}: Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name},'
                          f' retrying...')
-            set_status_message(update_task_in_db_func, task_from_db, f'Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name}. Throwing exception')
+            set_status_message(update_task_in_db_func, task_from_db,
+                               f'Wrong WN Fee {returned_fee} for file {task_from_db.original_file_name}. '
+                               f'Throwing exception')
             raise PastelAPIException(f'{service}: Wrong WN Fee {returned_fee} for file '
                                      f'{task_from_db.original_file_name}')
 

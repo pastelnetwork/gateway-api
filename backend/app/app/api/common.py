@@ -110,7 +110,7 @@ async def process_action_request(
 
         reg_result = await make_pending_result(file.filename, file.content_type, ipfs_hash, result_id)
         if service == wn.WalletNodeService.CASCADE:
-            reg_result.make_publicly_accessible=make_publicly_accessible
+            reg_result.make_publicly_accessible = make_publicly_accessible
         request_result.results.append(reg_result)
 
     all_failed = True
@@ -438,7 +438,8 @@ async def stream_file(*, file_bytes, original_file_name: str, content_type: str 
     return response
 
 
-async def get_all_sense_or_nft_dd_data_from_request(*, tasks_from_db, gateway_request_id, search_data_lambda, file_suffix, parse=False):
+async def get_all_sense_or_nft_dd_data_from_request(*, tasks_from_db, gateway_request_id, search_data_lambda,
+                                                    file_suffix, parse=False):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for task_from_db in tasks_from_db:
@@ -457,7 +458,8 @@ async def get_all_sense_or_nft_dd_data_from_request(*, tasks_from_db, gateway_re
                              content_type="application/zip")
 
 
-async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_type: str, search_data_lambda, parse=False):
+async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_type: str,
+                                                    search_data_lambda, parse=False):
     registration_ticket_txids = await get_reg_txids_by_pastel_id(pastel_id=pastel_id, ticket_type=ticket_type)
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
@@ -498,7 +500,8 @@ async def get_registration_action_ticket(ticket_txid, service: wn.WalletNodeServ
     except psl.PasteldException as e:
         raise HTTPException(status_code=404, detail=f"{expected_action_type} registration ticket not found - {e}")
     except HTTPError as e:
-        raise HTTPException(status_code=400, detail=f"Failed to get {expected_action_type} activation ticket - {e.response.text}")
+        raise HTTPException(status_code=400, detail=f"Failed to get {expected_action_type} "
+                                                    f"activation ticket - {e.response.text}")
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Failed to get {expected_action_type} registration ticket - {e}")
 
@@ -523,7 +526,8 @@ async def get_activation_ticket(ticket_txid, service: wn.WalletNodeService):
     except psl.PasteldException as e:
         raise HTTPException(status_code=501, detail=f"{expected_action_type} activation ticket not found - {e}")
     except HTTPError as e:
-        raise HTTPException(status_code=400, detail=f"Failed to get {expected_action_type} activation ticket - {e.response.text}")
+        raise HTTPException(status_code=400, detail=f"Failed to get {expected_action_type} "
+                                                    f"activation ticket - {e.response.text}")
     except Exception as e:
         raise HTTPException(status_code=501, detail=f"Failed to get {expected_action_type} activation ticket - {e}")
 
@@ -740,8 +744,14 @@ async def transfer_ticket(db, result_id, user_id, pastel_id_for_transfer,
     if not pastel_id_pwd:
         logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
         return None
-    account_funding_address = crud.user.get_funding_address(db=db, owner_id=user_id)
-    offer_ticket = await psl.create_offer_ticket(task_from_db.act_ticket_txid,
+
+    account_funding_address = None
+    # account_funding_address = crud.user.get_funding_address(db=db, owner_id=user_id,
+    #                                                         default_value=settings.MAIN_GATEWAY_ADDRESS)
+    # if not psl.check_address_balance(account_funding_address, settings.MIN_TICKET_PRICE_BALANCE, "Offer ticket"):
+    #     raise HTTPException(status_code=501, detail=f"No enough funds in spendable address {account_funding_address} "
+    #                                                 f"to pay Offer ticket fee")
+    offer_ticket = await psl.create_offer_ticket(task_from_db.act_ticket_txid, 1,
                                                  task_from_db.pastel_id, pastel_id_pwd,
                                                  pastel_id_for_transfer,
                                                  account_funding_address)

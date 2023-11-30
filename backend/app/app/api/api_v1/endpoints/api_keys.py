@@ -16,7 +16,7 @@ from app.core.config import settings
 router = APIRouter()
 
 
-@router.get("", response_model=List[schemas.ApiKey])
+@router.get("", response_model=List[schemas.ApiKey], response_model_exclude_none=True)
 def read_apikeys(
     db: Session = Depends(session.get_db_session),
     skip: int = 0,
@@ -35,12 +35,12 @@ def read_apikeys(
     return apikeys
 
 
-@router.post("", response_model=schemas.ApiKey)
+@router.post("", response_model=schemas.ApiKey, response_model_exclude_none=True)
 def create_apikey(
     *,
     db: Session = Depends(session.get_db_session),
     apikey_in: schemas.ApiKeyCreate,
-    with_address: bool = False,
+    # with_address: bool = False,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> Any:
     """
@@ -49,15 +49,15 @@ def create_apikey(
     passkey = get_random_string(16)
     pastel_id = create_and_register_pastelid(passkey, settings.MAIN_GATEWAY_ADDRESS)
     funding_address = None
-    if with_address:
-        funding_address = create_address()
+    # if with_address:
+    #     funding_address = create_address()
     apikey = crud.api_key.create_with_owner(db=db, obj_in=apikey_in, owner_id=current_user.id,
                                             pastel_id=pastel_id, funding_address=funding_address)
     store_pastelid_to_secret_manager(pastel_id, passkey)
     return apikey
 
 
-@router.get("/{api_key}", response_model=schemas.ApiKey)
+@router.get("/{api_key}", response_model=schemas.ApiKey, response_model_exclude_none=True)
 def read_apikey(
     *,
     db: Session = Depends(session.get_db_session),

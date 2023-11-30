@@ -90,8 +90,8 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
             .filter(
                 sa.and_(
                     PreBurnTx.result_id == result_id,
-                    PreBurnTx.status != "USED",
-                    PreBurnTx.status != "BAD",
+                    PreBurnTx.status != PBTXStatus.USED,
+                    PreBurnTx.status != PBTXStatus.BAD,
                 )
             )
             .first())
@@ -100,7 +100,7 @@ class CRUDPreBurnTx(CRUDBase[PreBurnTx, PreBurnTxCreate, PreBurnTxUpdate]):
         return db.execute(
             db.query(self.model).filter(PreBurnTx.fee == fee)
             .filter(PreBurnTx.status == PBTXStatus.NEW)
-            .statement.with_only_columns([func.count()]).order_by(None)
+            .statement.with_only_columns(func.count()).order_by(None)
         ).scalar()
 
     def get_all_used(self, db: Session) -> list[PreBurnTx]:

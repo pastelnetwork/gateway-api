@@ -15,7 +15,7 @@ from app.utils.pasteld import create_address
 router = APIRouter()
 
 
-@router.get("", response_model=List[schemas.User])
+@router.get("", response_model=List[schemas.User], response_model_exclude_none=True)
 def read_users(
     db: Session = Depends(session.get_db_session),
     skip: int = 0,
@@ -29,7 +29,7 @@ def read_users(
     return users
 
 
-@router.post("", response_model=schemas.User)
+@router.post("", response_model=schemas.User, response_model_exclude_none=True)
 def create_user(
     *,
     db: Session = Depends(session.get_db_session),
@@ -45,7 +45,8 @@ def create_user(
             status_code=400,
             detail="The user with this username already exists in the system.",
         )
-    funding_address = create_address()
+    funding_address = None
+    # funding_address = create_address()
     user = crud.user.create(db, obj_in=user_in, funding_address=funding_address)
     if settings.EMAILS_ENABLED and user_in.email:
         send_new_account_email(
@@ -54,7 +55,7 @@ def create_user(
     return user
 
 
-@router.put("/me", response_model=schemas.User)
+@router.put("/me", response_model=schemas.User, response_model_exclude_none=True)
 def update_user_me(
     *,
     db: Session = Depends(session.get_db_session),
@@ -78,7 +79,7 @@ def update_user_me(
     return user
 
 
-@router.get("/me", response_model=schemas.User)
+@router.get("/me", response_model=schemas.User, response_model_exclude_none=True)
 def read_user_me(
     db: Session = Depends(session.get_db_session),
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
@@ -89,7 +90,7 @@ def read_user_me(
     return current_user
 
 
-@router.post("/open", response_model=schemas.User)
+@router.post("/open", response_model=schemas.User, response_model_exclude_none=True)
 def create_user_open(
     *,
     db: Session = Depends(session.get_db_session),
@@ -116,7 +117,7 @@ def create_user_open(
     return user
 
 
-@router.get("/{user_id}", response_model=schemas.User)
+@router.get("/{user_id}", response_model=schemas.User, response_model_exclude_none=True)
 def read_user_by_id(
     user_id: int,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
@@ -135,7 +136,7 @@ def read_user_by_id(
     return user
 
 
-@router.put("/{user_id}", response_model=schemas.User)
+@router.put("/{user_id}", response_model=schemas.User, response_model_exclude_none=True)
 def update_user(
     *,
     db: Session = Depends(session.get_db_session),

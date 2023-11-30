@@ -20,11 +20,9 @@ from ..utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
 logger = get_task_logger(__name__)
 
-COLLECTION_TICKET_FEE = 1000
-
-
 # NEW->STARTED->REGISTERED->DONE
 #               ERROR->RESTARTED->STARTED->REGISTERED->DONE
+
 
 class CollectionsAPITask(PastelAPITask):
     def on_success(self, retval, result_id, args, kwargs):
@@ -33,21 +31,16 @@ class CollectionsAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.collection.get_by_result_id, crud.collection.update)
 
-    def get_request_form(self, task_from_db, spendable_address: str) -> str:
+    def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
         if not spendable_address:
-            # can throw exception here - this called from celery task, it will retry it on specific exceptions
-            address_list = psl.call("listaddressamounts", [])
-            if address_list:
-                for spendable_address, value in address_list.items():
-                    if value > COLLECTION_TICKET_FEE:
-                        break
-
-        if not spendable_address:
-            logger.error(f"Collection-{task_from_db.item_type}: No spendable address "
-                         f"found for amount > {COLLECTION_TICKET_FEE}. [Result ID: {task_from_db.result_id}]")
-            send_alert_email(f"No spendable address found to pay Collection fee in the amount > {COLLECTION_TICKET_FEE}")
-            raise PastelAPIException(f"No spendable address found for amount > {COLLECTION_TICKET_FEE}")
-
+            spendable_address = psl.find_address_with_funds(settings.COLLECTION_TICKET_FEE)
+            if not spendable_address:
+                logger.error(f"Collection-{task_from_db.item_type}: No spendable address "
+                             f"found for amount > {settings.COLLECTION_TICKET_FEE}. "
+                             f"[Result ID: {task_from_db.result_id}]")
+                send_alert_email(f"No spendable address found to pay Collection fee in the amount > "
+                                 f"{settings.COLLECTION_TICKET_FEE}")
+                raise PastelAPIException(f"No spendable address found for amount > {settings.COLLECTION_TICKET_FEE}")
         return json.dumps(
             {
                 "app_pastelid": task_from_db.pastel_id,
@@ -58,7 +51,8 @@ class CollectionsAPITask(PastelAPITask):
                 "list_of_pastelids_of_authorized_contributors": task_from_db.authorized_pastel_ids,
                 "max_collection_entries": task_from_db.max_collection_entries,
                 "max_permitted_open_nsfw_score": task_from_db.max_permitted_open_nsfw_score,
-                "minimum_similarity_score_to_first_entry_in_collection": task_from_db.minimum_similarity_score_to_first_entry_in_collection,
+                "minimum_similarity_score_to_first_entry_in_collection":
+                    task_from_db.minimum_similarity_score_to_first_entry_in_collection,
                 "no_of_days_to_finalize_collection": task_from_db.no_of_days_to_finalize_collection,
                 "royalty": task_from_db.royalty,
                 "spendable_address": spendable_address
@@ -139,18 +133,25 @@ def process(self, result_id) -> str:
         raise PastelAPIException(f'Collection: No task found for result_id {result_id}')
 
     if task_from_db.process_status != DbStatus.RESTARTED.value and task_from_db.process_status != DbStatus.NEW.value:
-        logger.warn(f'Collection-{task_from_db.item_type}: process: Wrong task state - "{task_from_db.process_status}", '
+        logger.warn(f'Collection-{task_from_db.item_type}: process: '
+                    f'Wrong task state - "{task_from_db.process_status}", '
                     f'Should be {DbStatus.RESTARTED.value} OR {DbStatus.NEW.value}... [Result ID: {result_id}]')
         return result_id
 
-    with db_context() as session:
-        funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
+    funding_address = None
+    # with db_context() as session:
+    #     funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
+    #                                                     default_value=settings.MAIN_GATEWAY_ADDRESS)
+    # if not psl.check_address_balance(funding_address, settings.MIN_TICKET_PRICE_BALANCE,
+    #                                  f"Collection-{task_from_db.item_type} ticket"):
+    #     raise PastelAPIException(f"No enough funds in spendable address {funding_address} "
+    #                              f"to pay Collection-{task_from_db.item_type} ticket fee")
 
     # can throw exception here
-    form = self.get_request_form(task_from_db,
-                                 funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS)
+    form = self.get_request_form(task_from_db, funding_address)
 
-    logger.info(f'Collection-{task_from_db.item_type}: Calling WN to start collection ticket registration [Result ID: {result_id}]')
+    logger.info(f'Collection-{task_from_db.item_type}: Calling WN to start collection ticket registration '
+                f'[Result ID: {result_id}]')
     wn_task_id = ""
     try:
         pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
@@ -199,4 +200,3 @@ def process(self, result_id) -> str:
 
     logger.info(f'Collections-{task_from_db.item_type}: process_task exiting for result_id {result_id}')
     return result_id
-

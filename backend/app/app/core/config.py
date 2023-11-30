@@ -201,10 +201,17 @@ class Settings(BaseSettings):
     REGISTRATION_RE_PROCESSOR_INTERVAL: float = 700.0
 
     # scheduled_tools
+    FEE_PRE_BURNER_ENABLED: bool = True
     FEE_PRE_BURNER_INTERVAL: float = 500.0
+    FEE_PRE_BURNER_RELEASE_NON_USED: bool = True
+    FEE_PRE_BURNER_CHECK_NEW: bool = True
+
+    REG_TICKETS_FINDER_ENABLED: bool = True
     REG_TICKETS_FINDER_INTERVAL: float = 150.0
     TICKET_ACTIVATOR_INTERVAL: float = 500.0
+    TICKET_ACTIVATOR_ENABLED: bool = True
     WATCHDOG_INTERVAL: float = 1200.0
+    WATCHDOG_ENABLED: bool = True
 
     # celery config
     # 10 retries with exponential delays starting from 180 seconds, capped at 10 hours will take ~32 hours
@@ -239,6 +246,19 @@ class Settings(BaseSettings):
     COLLECTION_REGISTER_TIME_LIMIT: int = 360
 
     REGISTRATION_RE_PROCESSOR_LIMIT: int = 10
+
+    # ticket prices
+    PASTELID_TICKET_PRICE: int = 1000
+    NFT_REG_TICKET_PRICE: int = 10        # + 10% of reg fee
+    NFT_ACT_TICKET_PRICE: int = 10        # + 90% of reg fee
+    ACTION_REG_TICKET_PRICE: int = 10     # + 20% of reg fee
+    ACTION_ACT_TICKET_PRICE: int = 10     # + 80% of reg fee
+    COLLECTION_REG_TICKET_PRICE: int = 10
+    COLLECTION_ACT_TICKET_PRICE: int = 10
+    OFFER_TICKET_PRICE: int = 10          # OR 2% of Offered price
+    ACCEPT_TICKET_PRICE: int = 100        # OR 1% of Offered price
+    TRANSFER_TICKET_PRICE: int = 10
+    MIN_TICKET_PRICE_BALANCE: int = 1000  # used for balance check, just in case, so value is arbitrary
 
     class Config:
         env_file = find_dotenv(usecwd=True)

@@ -22,14 +22,15 @@ class CascadeAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.cascade.get_by_result_id, crud.cascade.update)
 
-    def get_request_form(self, task_from_db, spendable_address: str) -> str:
-        return json.dumps(
-            {
-                "burn_txid": task_from_db.burn_txid,
-                "app_pastelid": task_from_db.pastel_id,
-                "make_publicly_accessible": task_from_db.make_publicly_accessible,
-                "spendable_address": spendable_address,
-            })
+    def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
+        form = {
+            "burn_txid": task_from_db.burn_txid,
+            "app_pastelid": task_from_db.pastel_id,
+            "make_publicly_accessible": task_from_db.make_publicly_accessible,
+        }
+        if spendable_address:
+            form["spendable_address"] = spendable_address
+        return json.dumps(form)
 
     def check_specific_conditions(self, task_from_db) -> (bool, str):
         if task_from_db.process_status != DbStatus.PREBURN_FEE.value:

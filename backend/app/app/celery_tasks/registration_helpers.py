@@ -96,7 +96,8 @@ def _registration_finisher(
                 if (wn_service == wn.WalletNodeService.SENSE or wn_service == wn.WalletNodeService.CASCADE) \
                         and task_from_db.burn_txid:
                     try:
-                        reg_ticket = psl.call("tickets", ["find", "action", task_from_db.burn_txid])   # can throw exception here
+                        reg_ticket = psl.call("tickets",
+                                              ["find", "action", task_from_db.burn_txid])   # can throw exception here
                     except Exception as e:
                         logger.error(f"Call to PastelD failed: {e}")
                         reg_ticket = None
@@ -135,7 +136,8 @@ def _registration_finisher(
                     if wn_service != wn.WalletNodeService.NFT and wn_service != wn.WalletNodeService.COLLECTION:
                         if 'details' in step and step['details']:
                             if 'fields' in step['details'] and step['details']['fields']:
-                                if 'error_detail' in step['details']['fields'] and step['details']['fields']['error_detail']:
+                                if ('error_detail' in step['details']['fields'] and
+                                        step['details']['fields']['error_detail']):
                                     if 'duplicate burnTXID' in step['details']['fields']['error_detail']:
                                         logger.error(f"Task Rejected because of duplicate burnTXID: "
                                                      f"wn_task_id - {task_from_db.wn_task_id}, "
@@ -187,12 +189,15 @@ def _registration_finisher(
                 if not task_from_db.act_ticket_txid:
                     if task_from_db.reg_ticket_txid:
                         try:
-                            act_ticket = psl.call("tickets", ['find', verb, task_from_db.reg_ticket_txid])   # can throw exception here
+                            act_ticket = psl.call("tickets",
+                                                  ['find', verb,
+                                                   task_from_db.reg_ticket_txid])   # can throw exception here
                         except Exception as e:
                             logger.error(f"Call to PastelD failed: {e}")
                             act_ticket = None
                         if act_ticket and 'txid' in act_ticket and act_ticket['txid']:
-                            logger.info(f"{wn_service}: Found act ticket txid from Pastel network: {act_ticket['txid']}."
+                            logger.info(f"{wn_service}: Found act ticket txid from Pastel network: "
+                                        f"{act_ticket['txid']}."
                                         f" ResultId - {task_from_db.result_id}")
                             finalize_registration(task_from_db, act_ticket['txid'], update_task_in_db_func, wn_service)
                             break
@@ -209,7 +214,7 @@ def _registration_finisher(
                     act = status.split(f'Activated {service_name} Registration Ticket TXID: ', 1)
                     if len(act) == 2:
                         logger.info(f"{wn_service}: Found act ticket txid from WalletNode: {act[2]}."
-                                        f" ResultId - {task_from_db.result_id}")
+                                    f" ResultId - {task_from_db.result_id}")
                         finalize_registration(task_from_db, act[2], update_task_in_db_func, wn_service)
                         break
 
@@ -287,9 +292,10 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
            wn_service == wn.WalletNodeService.NFT or \
            wn_service == wn.WalletNodeService.SENSE:
             if task_from_db.offer_ticket_intended_rcpt_pastel_id:
-                pastel_id_for_trasnfer = task_from_db.offer_ticket_intended_rcpt_pastel_id
+                pastel_id_for_transfer = task_from_db.offer_ticket_intended_rcpt_pastel_id
                 logger.info(f"{wn_service}: This ticket {task_from_db.reg_ticket_txid} "
-                             f"has to transferred to another PastelID: {task_from_db.offer_ticket_intended_rcpt_pastel_id}")
+                            f"has to transferred to another PastelID: "
+                            f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
                 # check this just for sanity, should not happen!
                 if task_from_db.offer_ticket_txid:
                     logger.warn(f"{wn_service}: Offer ticket already exists!: {task_from_db.offer_ticket_txid}")
@@ -298,15 +304,21 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
                 if not pastel_id_pwd:
                     logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
                     return None
-                account_funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id)
-                offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db.act_ticket_txid,
+                funding_address = None
+                # funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
+                #                                                 default_value=settings.MAIN_GATEWAY_ADDRESS)
+                # if not psl.check_address_balance(funding_address, settings.MIN_TICKET_PRICE_BALANCE,
+                #                                  f"{wn_service} Offer ticket"):
+                #     return None
+                offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db.act_ticket_txid, 1,
                                                                    task_from_db.pastel_id, pastel_id_pwd,
-                                                                   pastel_id_for_trasnfer,
-                                                                   account_funding_address))
+                                                                   pastel_id_for_transfer,
+                                                                   funding_address))
                 if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
-                    logger.info(f"{wn_service}: Updating task in DB as offered to transfer: {task_from_db.reg_ticket_txid}")
+                    logger.info(f"{wn_service}: Updating task in DB as offered to transfer: "
+                                f"{task_from_db.reg_ticket_txid}")
                     upd = {"offer_ticket_txid": offer_ticket['txid'],
-                           "offer_ticket_intended_rcpt_pastel_id": pastel_id_for_trasnfer,
+                           "offer_ticket_intended_rcpt_pastel_id": pastel_id_for_transfer,
                            "updated_at": datetime.utcnow()}
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
 
@@ -377,11 +389,11 @@ def _registration_re_processor(all_failed_func, update_task_in_db_func, reproces
             interval = datetime.utcnow() - task_from_db.updated_at
             if interval.seconds < settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num:
                 logger.info(f"Task {task_from_db.id} was reprocessed recently, skipping: time from last update: "
-                             f"{interval.seconds} seconds; wait time for the next reprocess after previous: "
-                             f"{settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num} seconds "
-                             f"(this is retry number {task_from_db.retry_num}); next re-process in "
-                             f"{settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num - interval.seconds} "
-                             f"seconds")
+                            f"{interval.seconds} seconds; wait time for the next reprocess after previous: "
+                            f"{settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num} seconds "
+                            f"(this is retry number {task_from_db.retry_num}); next re-process in "
+                            f"{settings.REGISTRATION_RE_PROCESSOR_INTERVAL * task_from_db.retry_num - interval.seconds}"
+                            f" seconds")
                 continue
 
             if not task_from_db.process_status or task_from_db.process_status == "":
