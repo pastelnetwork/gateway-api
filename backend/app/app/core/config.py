@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     PASTEL_ID: Optional[str] = None
 
     BURN_ADDRESS: str
-    MAIN_GATEWAY_ADDRESS: str
+    MAIN_GATEWAY_ADDRESS: Optional[str] = None
 
     WN_HOST: Optional[str] = None
     WN_BASE_PORT: Optional[str] = None
