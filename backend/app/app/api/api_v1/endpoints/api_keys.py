@@ -47,7 +47,7 @@ def create_apikey(
     Create new api key.
     """
     passkey = get_random_string(16)
-    pastel_id = create_and_register_pastelid(passkey, settings.MAIN_GATEWAY_ADDRESS)
+    pastel_id = create_and_register_pastelid(passkey)
     funding_address = None
     # if with_address:
     #     funding_address = create_address()

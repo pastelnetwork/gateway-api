@@ -33,14 +33,15 @@ class CollectionsAPITask(PastelAPITask):
 
     def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
         if not spendable_address:
-            spendable_address = psl.find_address_with_funds(settings.COLLECTION_TICKET_FEE)
+            spendable_address = psl.find_address_with_funds(settings.COLLECTION_REG_TICKET_PRICE)
             if not spendable_address:
                 logger.error(f"Collection-{task_from_db.item_type}: No spendable address "
-                             f"found for amount > {settings.COLLECTION_TICKET_FEE}. "
+                             f"found for amount > {settings.COLLECTION_REG_TICKET_PRICE}. "
                              f"[Result ID: {task_from_db.result_id}]")
                 send_alert_email(f"No spendable address found to pay Collection fee in the amount > "
-                                 f"{settings.COLLECTION_TICKET_FEE}")
-                raise PastelAPIException(f"No spendable address found for amount > {settings.COLLECTION_TICKET_FEE}")
+                                 f"{settings.COLLECTION_REG_TICKET_PRICE}")
+                raise PastelAPIException(f"No spendable address found for amount > "
+                                         f"{settings.COLLECTION_REG_TICKET_PRICE}")
         return json.dumps(
             {
                 "app_pastelid": task_from_db.pastel_id,

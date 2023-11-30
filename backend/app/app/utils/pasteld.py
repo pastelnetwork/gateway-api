@@ -180,19 +180,16 @@ async def parse_registration_nft_ticket(reg_ticket):
 
 async def create_offer_ticket(act_ticket_txid: str, price: int, current_pastel_id: str, current_passphrase: str,
                               rcpt_pastel_id: str, funding_address: str | None):
-    if not funding_address:
-        spendable_address = find_address_with_funds(settings.COLLECTION_TICKET_FEE)
-        if not spendable_address:
-            logger.error(f"No spendable address found for amount > {price}. [act_ticket_txid: {act_ticket_txid}]")
-            send_alert_email(
-                f"No spendable address found to pay Offer ticket fee in the amount > {settings.COLLECTION_TICKET_FEE}")
-            raise HTTPException(status_code=500, detail=f"Failed to create offer ticket for: {act_ticket_txid}")
+
+    min_ticket_fee = max(price/50, settings.OFFER_TICKET_PRICE) + settings.MIN_TICKET_PRICE_BALANCE
+    if not check_address_balance(funding_address, min_ticket_fee, f"offer ticket"):
+        return TicketCreateStatus.ERROR, None
 
     offer_ticket = call('tickets', ['register', 'offer',
                                     act_ticket_txid,
                                     price,
                                     current_pastel_id, current_passphrase,
-                                    0, 0, 1, funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS,
+                                    0, 0, 1, funding_address if funding_address else '',
                                     rcpt_pastel_id],
                         nothrow=True)   # won't throw exception here
     if not offer_ticket or not isinstance(offer_ticket, dict):
@@ -290,11 +287,12 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type,
 
 
 def create_and_register_pastelid(passkey: str, funding_address: str) -> str | None:
+    if not funding_address:
+        funding_address = find_address_with_funds(settings.PASTELID_TICKET_PRICE * 2)   # just in case
     full_pastelid = call('pastelid', ['newkey', passkey])
     if full_pastelid and isinstance(full_pastelid, dict) and "pastelid" in full_pastelid:
         pastelid = full_pastelid["pastelid"]
-        call('tickets', ['register', 'id', pastelid, passkey,
-                         funding_address if funding_address else settings.MAIN_GATEWAY_ADDRESS])
+        call('tickets', ['register', 'id', pastelid, passkey, funding_address])
         return pastelid
     return None
 
