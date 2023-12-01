@@ -2,7 +2,7 @@ import asyncio
 import time
 import random
 import binascii
-from typing import Any
+from typing import Any, Dict, List, Union
 from cachetools import TTLCache
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,6 +12,9 @@ import app.db.session as session
 from app import crud, models
 from app.api import deps
 import app.utils.pasteld as psl
+from app.models.user import TXType
+from app.schemas import AccountTransactions
+from app.utils.accounts import get_total_balance
 
 router = APIRouter()
 cache = TTLCache(maxsize=100, ttl=600)
@@ -86,3 +89,53 @@ def check_new_pastelid(current_user, db, pastel_id):
                 status_code=400,
                 detail="The Pastel ID is already claimed by this user",
             )
+
+
+@router.get("/my_total_balance")
+def my_total_balance(
+    *,
+    db: Session = Depends(session.get_db_session),
+    current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
+) -> Dict:
+    return get_total_balance(db, user=current_user)
+
+
+@router.get("/total_balances")
+def total_balances(
+    *,
+    db: Session = Depends(session.get_db_session),
+    super_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
+) -> List[Dict]:
+    total_balances_list = []
+    for user in crud.user.get_multi(db):
+        total_balances_list.append({
+            "user_id": user.id,
+            "user_email": user.email,
+            "balances": get_total_balance(db, user=user),
+        })
+
+    return total_balances_list
+
+
+@router.post("/add_funds", response_model=AccountTransactions)
+def add_funds(
+    *,
+    user_id_or_email: Union[int, str],
+    amount: float,
+    db: Session = Depends(session.get_db_session),
+    super_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
+) -> AccountTransactions:
+    if isinstance(user_id_or_email, int):
+        user = crud.user.get(db, id=user_id_or_email)
+    else:
+        user = crud.user.get_by_email(db, email=user_id_or_email)
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this ID does not exist in the system.",
+        )
+    transaction = crud.account_transactions.create_with_owner(db=db,
+                                                              owner_id=user.id,
+                                                              balance=amount,
+                                                              tx_type=TXType.DEPOSIT)
+    return transaction

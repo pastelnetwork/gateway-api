@@ -1,6 +1,8 @@
 from typing import Optional
-
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
+
+from app.models.user import TXType
 
 
 # Shared properties
@@ -25,6 +27,7 @@ class UserUpdate(UserBase):
 class UserInDBBase(UserBase):
     id: Optional[int] = None
     funding_address: Optional[str] = None
+    balance: Optional[float] = 0.0
 
     class Config:
         from_attributes = True
@@ -38,3 +41,39 @@ class User(UserInDBBase):
 # Additional properties stored in DB
 class UserInDB(UserInDBBase):
     hashed_password: str
+
+
+######################################################
+class AccountTransactionsBase(BaseModel):
+    pass
+
+
+# Properties to receive via API on creation
+class AccountTransactionsCreate(AccountTransactionsBase):
+    pass
+
+
+# Properties to receive via API on update
+class AccountTransactionsUpdate(AccountTransactionsBase):
+    pass
+
+
+class AccountTransactionsInDBBase(AccountTransactionsBase):
+    id: Optional[int] = None
+    type: TXType
+    balance: Optional[float] = 0.0
+    added_at: datetime
+    owner_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Additional properties to return via API
+class AccountTransactions(AccountTransactionsInDBBase):
+    pass
+
+
+# Additional properties stored in DB
+class AccountTransactionsInDB(AccountTransactionsInDBBase):
+    pass

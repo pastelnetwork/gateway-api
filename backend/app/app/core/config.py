@@ -248,17 +248,19 @@ class Settings(BaseSettings):
     REGISTRATION_RE_PROCESSOR_LIMIT: int = 10
 
     # ticket prices
-    PASTELID_TICKET_PRICE: int = 1000
-    NFT_REG_TICKET_PRICE: int = 10        # + 10% of reg fee
-    NFT_ACT_TICKET_PRICE: int = 10        # + 90% of reg fee
-    ACTION_REG_TICKET_PRICE: int = 10     # + 20% of reg fee
-    ACTION_ACT_TICKET_PRICE: int = 10     # + 80% of reg fee
-    COLLECTION_REG_TICKET_PRICE: int = 10
-    COLLECTION_ACT_TICKET_PRICE: int = 10
-    OFFER_TICKET_PRICE: int = 10          # OR 2% of Offered price
-    ACCEPT_TICKET_PRICE: int = 100        # OR 1% of Offered price
-    TRANSFER_TICKET_PRICE: int = 10
-    MIN_TICKET_PRICE_BALANCE: int = 1000  # used for balance check, just in case, so value is arbitrary
+    TICKET_PRICE_PASTELID: int = 1000
+    TICKET_PRICE_NFT_REG: int = 10        # + 10% of reg fee
+    TICKET_PRICE_NFT_ACT: int = 10        # + 90% of reg fee
+    TICKET_PRICE_ACTION_REG: int = 10     # + 20% of reg fee
+    TICKET_PRICE_ACTION_ACT: int = 10     # + 80% of reg fee
+    TICKET_PRICE_COLLECTION_REG: int = 10
+    TICKET_PRICE_COLLECTION_ACT: int = 10
+    TICKET_PRICE_OFFER: int = 10          # OR 2% of Offered price
+    TICKET_PRICE_ACCEPT: int = 100        # OR 1% of Offered price
+    TICKET_PRICE_TRANSFER: int = 10
+    TICKET_PRICE_MIN_BALANCE: int = 1000  # used for balance check, just in case, so value is arbitrary
+
+    DEFAULT_NEW_USER_BALANCE: int = 10000
 
     class Config:
         env_file = find_dotenv(usecwd=True)

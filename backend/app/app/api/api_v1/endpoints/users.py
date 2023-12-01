@@ -20,7 +20,7 @@ def read_users(
     db: Session = Depends(session.get_db_session),
     skip: int = 0,
     limit: int = 100,
-    current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
+    super_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
 ) -> Any:
     """
     Retrieve users.
@@ -34,7 +34,7 @@ def create_user(
     *,
     db: Session = Depends(session.get_db_session),
     user_in: schemas.UserCreate,
-    current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
+    super_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
 ) -> Any:
     """
     Create new user.
@@ -47,7 +47,9 @@ def create_user(
         )
     funding_address = None
     # funding_address = create_address()
-    user = crud.user.create(db, obj_in=user_in, funding_address=funding_address)
+    user = crud.user.create(db, obj_in=user_in,
+                            balance=settings.DEFAULT_NEW_USER_BALANCE,
+                            funding_address=funding_address)
     if settings.EMAILS_ENABLED and user_in.email:
         send_new_account_email(
             email_to=user_in.email, username=user_in.email, password=user_in.password
@@ -142,7 +144,7 @@ def update_user(
     db: Session = Depends(session.get_db_session),
     user_id: int,
     user_in: schemas.UserUpdate,
-    current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
+    super_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
 ) -> Any:
     """
     Update a user.

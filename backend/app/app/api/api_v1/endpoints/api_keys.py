@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 import app.db.session as session
 from app import crud, models, schemas
 from app.api import deps
+from app.utils.accounts import get_total_balance_by_userid
 from app.utils.pasteld import create_and_register_pastelid
 from app.utils.authentication import get_random_string
 from app.utils.pasteld import create_address
@@ -46,6 +47,10 @@ def create_apikey(
     """
     Create new api key.
     """
+    balances = get_total_balance_by_userid(db, user_id=current_user.id)
+    if balances and balances["available_balance"] < settings.TICKET_PRICE_PASTELID:
+        raise HTTPException(status_code=400, detail=f"Not enough balance to pay Ticket Fee "
+                                                    f"{settings.TICKET_PRICE_PASTELID}. {balances}")
     passkey = get_random_string(16)
     pastel_id = create_and_register_pastelid(passkey)
     funding_address = None
@@ -53,6 +58,7 @@ def create_apikey(
     #     funding_address = create_address()
     apikey = crud.api_key.create_with_owner(db=db, obj_in=apikey_in, owner_id=current_user.id,
                                             pastel_id=pastel_id, funding_address=funding_address)
+    crud.user.decrement_balance(db, user_id=current_user.id, amount=settings.TICKET_PRICE_PASTELID)
     store_pastelid_to_secret_manager(pastel_id, passkey)
     return apikey
 

@@ -12,6 +12,7 @@ from app.models import ApiKey
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
 from app.core.status import DbStatus
+from app.utils.accounts import get_total_balance, get_total_balance_by_userid
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
 from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
@@ -142,8 +143,25 @@ class PastelAPITask(celery.Task):
 
         total_fee = returned_fee*fee_multiplier
 
+        with db_context() as session:
+            balances = get_total_balance_by_userid(session, user_id=user_id)
+        if balances and balances["available_balance"] < total_fee:
+            logger.error(f'{service}: Not enough balance to pay WN Fee {total_fee} for file {local_file.name}, '
+                         f'. Throwing exception...')
+            upd = {
+                "process_status": DbStatus.ERROR.value,
+                "process_status_message": f'Not enough balance to pay WN Fee {total_fee} for file {local_file.name}.'
+                                          f' Throwing exception',
+                "wn_file_id": wn_file_id,
+                "wn_fee": total_fee,
+            }
+            with db_context() as session:
+                update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
+            raise PastelAPIException(f'{service}: Wrong WN Fee for result_id {result_id}')
+
         logger.info(f'{service}: File was registered with WalletNode with\n:'
                     f'\twn_file_id = {wn_file_id} and fee = {total_fee}. [Result ID: {result_id}]')
+
         upd = {
             "process_status": DbStatus.UPLOADED.value,
             "process_status_message": "File was uploaded to WN.",
@@ -171,7 +189,7 @@ class PastelAPITask(celery.Task):
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
         if not task_from_db:
-            logger.error(f'{service}: No task found for result_id {result_id}')
+            logger.error(f'{service}: No task found for result_id {result_id}. Throwing exception')
             raise PastelAPIException(f'{service}: No task found for result_id {result_id}')
 
         if task_from_db.process_status != DbStatus.UPLOADED.value:
@@ -303,7 +321,7 @@ class PastelAPITask(celery.Task):
             task_from_db = get_task_from_db_by_task_id_func(session, result_id=result_id)
 
         if not task_from_db:
-            logger.error(f'{service}: No task found for result_id {result_id}')
+            logger.error(f'{service}: No task found for result_id {result_id}. Throwing exception')
             raise PastelAPIException(f'{service}: No task found for result_id {result_id}')
 
         if task_from_db.wn_fee == 0:

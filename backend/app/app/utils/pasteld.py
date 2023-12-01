@@ -181,7 +181,7 @@ async def parse_registration_nft_ticket(reg_ticket):
 async def create_offer_ticket(act_ticket_txid: str, price: int, current_pastel_id: str, current_passphrase: str,
                               rcpt_pastel_id: str, funding_address: str | None):
 
-    min_ticket_fee = max(price/50, settings.OFFER_TICKET_PRICE) + settings.MIN_TICKET_PRICE_BALANCE
+    min_ticket_fee = max(price / 50, settings.TICKET_PRICE_OFFER) + settings.TICKET_PRICE_MIN_BALANCE
     if not check_address_balance(funding_address, min_ticket_fee, f"offer ticket"):
         return TicketCreateStatus.ERROR, None
 
@@ -255,7 +255,7 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type,
                              funding_address: str | None) -> (TicketCreateStatus, str | None):
     try:
         # can throw exception here
-        min_ticket_fee = task_from_db.wn_fee + settings.MIN_TICKET_PRICE_BALANCE
+        min_ticket_fee = task_from_db.wn_fee + settings.TICKET_PRICE_MIN_BALANCE
         if not check_address_balance(funding_address, min_ticket_fee, f"{ticket_type} ticket"):
             return TicketCreateStatus.ERROR, None
         pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
@@ -288,7 +288,7 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type,
 
 def create_and_register_pastelid(passkey: str, funding_address: str) -> str | None:
     if not funding_address:
-        funding_address = find_address_with_funds(settings.PASTELID_TICKET_PRICE * 2)   # just in case
+        funding_address = find_address_with_funds(settings.TICKET_PRICE_PASTELID * 2)   # just in case
     full_pastelid = call('pastelid', ['newkey', passkey])
     if full_pastelid and isinstance(full_pastelid, dict) and "pastelid" in full_pastelid:
         pastelid = full_pastelid["pastelid"]

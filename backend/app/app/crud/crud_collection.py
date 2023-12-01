@@ -148,5 +148,15 @@ class CRUDCollection(CRUDBase[Collection, CollectionCreate, CollectionUpdate]):
             .filter(Collection.act_ticket_txid == act_txid)
             .first())
 
+    def get_number_of_pending(self, db, *, owner_id: int) -> float:
+        res = (db.query(self.model)
+               .filter(self.model.owner_id == owner_id)
+               .filter(sa.and_(self.model.process_status != 'DONE',
+                               self.model.process_status == 'DEAD')
+                       )
+               .count()
+                )
+        return res if res else 0
+
 
 collection = CRUDCollection(Collection)

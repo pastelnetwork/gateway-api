@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, and_, func
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.base_class import Base, gen_rand_id
@@ -41,3 +41,12 @@ class BaseTask(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+    def get_all_pending_fee_sum(self, db):
+        return (db.query(BaseTask)
+                .filter(and_(self.process_status != 'DONE',
+                             self.process_status == 'DEAD')
+                        )
+                .with_entities(func.sum(self.wn_fee))
+                .scalar()
+                )

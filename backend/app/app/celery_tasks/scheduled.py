@@ -504,6 +504,7 @@ def _abandoned_states_cleaner(get_all_non_finished_func,
         tasks_from_db = get_all_non_finished_func(session)  # get oldest 100 updated more than 12 hours ago tasks
     for task_from_db in tasks_from_db:
         try:
+            done = False
             obj_in = {"process_status": DbStatus.ERROR.value, "retry_num": 0,
                       "updated_at": datetime.utcnow(), "process_status_message": "Task was abandoned, set to ERROR"}
             if task_from_db.wn_task_id:
@@ -517,6 +518,7 @@ def _abandoned_states_cleaner(get_all_non_finished_func,
                         if step['status'] == 'Task Completed':
                             obj_in = {"process_status": DbStatus.DONE.value, "updated_at": datetime.utcnow(),
                                       "process_status_message": "Task was abandoned, but seems to be completed"}
+                            done = True
                             continue
                         if step['status'] == 'Request Accepted':
                             obj_in = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow(),
@@ -526,6 +528,10 @@ def _abandoned_states_cleaner(get_all_non_finished_func,
                             obj_in = {"process_status": DbStatus.REGISTERED.value, "updated_at": datetime.utcnow(),
                                       "process_status_message": "Task was abandoned, but seems to be registered"}
                             continue
-            update_task_in_db_func(session, db_obj=task_from_db, obj_in=obj_in)
+            with db_context() as session:
+                update_task_in_db_func(session, db_obj=task_from_db, obj_in=obj_in)
+                if done:
+                    crud.user.decrement_balance(session, user_id=task_from_db.owner_id, amount=task_from_db.wn_fee)
+
         except Exception as e:
             logger.error(f"Error while checking abandoned task {task_from_db.reg_ticket_txid}: {e}")

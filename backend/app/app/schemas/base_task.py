@@ -101,11 +101,14 @@ class ResultRegistrationBase(BaseModel):
     offer_ticket_intended_rcpt_pastel_id: Optional[str] = None
     error: Optional[Any] = None
 
+
 class ResultRegistrationResult(ResultRegistrationBase):
     result_id: Optional[str]
 
+
 class CollectionRegistrationResult(ResultRegistrationBase):
     collection_id: Optional[str]
+
 
 class RequestResult(BaseModel):
     request_id: str

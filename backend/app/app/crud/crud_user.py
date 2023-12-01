@@ -3,11 +3,11 @@ from typing import Any, Dict, Optional, Union
 from sqlalchemy.orm import Session
 
 from app.core.security import get_secret_hash, verify_hashed_secret
-from app.crud.base import CRUDBase
-from app.models.user import User
+from app.crud.base import CRUDBase, CreateSchemaType, ModelType, UpdateSchemaType
+from app.models.user import User, AccountTransactions, TXType
 from app.models.api_key import ApiKey
 from app.models.user import ClaimedPastelId
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import UserCreate, UserUpdate, AccountTransactionsCreate, AccountTransactionsUpdate
 
 
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
@@ -21,7 +21,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             .filter(ApiKey.api_key == api_key)
             .first())
 
-    def create(self, db: Session, *, obj_in: UserCreate, funding_address: str = None) -> User:
+    def create(self, db: Session, *, obj_in: UserCreate,
+               balance: float = 0.0, funding_address: str = None) -> User:
         db_obj = User(
             email=obj_in.email,
             hashed_password=get_secret_hash(obj_in.password),
@@ -30,6 +31,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         )
         if funding_address:
             db_obj.funding_address = funding_address
+        if balance > 0:
+            db_obj.balance = balance
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -87,5 +90,74 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return None
         return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
 
+    def decrement_balance(self, db: Session, *, owner_id: int, amount: float) -> Optional[User]:
+        db_obj = db.query(self.model).filter(User.id == owner_id).first()
+        if not db_obj:
+            return None
+        # if db_obj.balance < amount:
+        #     return None
+        db_obj.balance -= amount
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def increment_balance(self, db: Session, *, owner_id: int, amount: float) -> Optional[User]:
+        db_obj = db.query(self.model).filter(User.id == owner_id).first()
+        if not db_obj:
+            return None
+        db_obj.balance += amount
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def check_balance(self, db: Session, *, owner_id: int, amount: float) -> bool:
+        db_obj = db.query(self.model).filter(User.id == owner_id).first()
+        if not db_obj:
+            return False
+        if db_obj.balance < amount:
+            return False
+        return True
+
+
+class CRUDAccountTransactions(CRUDBase[AccountTransactions, AccountTransactionsCreate, AccountTransactionsUpdate]):
+    def create_with_owner(self, db: Session, *, owner_id: int, balance: float, tx_type: TXType) -> AccountTransactions:
+        db_obj = AccountTransactions(
+            owner_id=owner_id,
+            type=tx_type,
+            balance=balance
+        )
+
+        # Update user's current balance
+        user_obj = db.query(User).filter_by(id=owner_id).one()
+        if tx_type == TXType.DEPOSIT:
+            user_obj.balance += balance
+        elif tx_type == TXType.WITHDRAWAL or tx_type == TXType.USAGE:
+            if user_obj.balance < balance:
+                return None
+            user_obj.balance -= balance
+        elif tx_type == TXType.MOVED_TO_APIKEY:
+            if user_obj.balance < balance:
+                return None
+            user_obj.balance -= balance
+            api_key_obj = db.query(ApiKey).filter_by(id=owner_id).one()
+            api_key_obj.balance += balance
+        else:
+            return None
+
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def create(self, db: Session, *, obj_in: CreateSchemaType) -> ModelType:
+        pass
+
+    def update(self, db: Session, *, db_obj: ModelType, obj_in: Union[UpdateSchemaType, Dict[str, Any]]) -> ModelType:
+        pass
+
+    def remove(self, db: Session, *, id: int) -> ModelType:
+        pass
+
 
 user = CRUDUser(User)
+account_transactions = CRUDAccountTransactions(AccountTransactions)

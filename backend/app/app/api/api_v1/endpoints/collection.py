@@ -9,7 +9,9 @@ from app import models, crud, schemas
 from app.api import deps, common
 import app.utils.walletnode as wn
 import app.celery_tasks.collection as collection
+from app.core.config import settings
 from app.models import ApiKey
+from app.utils.accounts import get_total_balance_by_userid
 
 router = APIRouter()
 
@@ -33,6 +35,7 @@ async def create_sense_collection(
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.CollectionRegistrationResult:
     return await process_collection_request(
+        db,
         item_type="sense", collection_name=collection_name,
         max_collection_entries=max_collection_entries, collection_item_copy_count=collection_item_copy_count,
         list_of_pastelids_of_authorized_contributors=list_of_pastelids_of_authorized_contributors,
@@ -60,6 +63,7 @@ async def create_nft_collection(
         current_user: models.User = Depends(deps.APIKeyAuth.get_user_by_apikey)
 ) -> schemas.CollectionRegistrationResult:
     return await process_collection_request(
+        db,
         item_type="nft", collection_name=collection_name,
         max_collection_entries=max_collection_entries, collection_item_copy_count=collection_item_copy_count,
         list_of_pastelids_of_authorized_contributors=list_of_pastelids_of_authorized_contributors,
@@ -70,13 +74,18 @@ async def create_nft_collection(
 
 
 async def process_collection_request(
-        *,
+        db: Session, *,
         item_type: str, collection_name: str, max_collection_entries: int, collection_item_copy_count: int,
         list_of_pastelids_of_authorized_contributors: List,
         max_permitted_open_nsfw_score: float, minimum_similarity_score_to_first_entry_in_collection: float,
         no_of_days_to_finalize_collection: int, royalty: float, green: bool,
         user_id: int, api_key: ApiKey,
 ) -> schemas.CollectionRegistrationResult:
+    balances = get_total_balance_by_userid(db, user_id=user_id)
+    if balances and balances["available_balance"] < settings.TICKET_PRICE_COLLECTION_REG:
+        raise HTTPException(status_code=400, detail=f"Not enough balance to pay Ticket Fee "
+                                                    f"{settings.TICKET_PRICE_COLLECTION_REG}. {balances}")
+
     if max_permitted_open_nsfw_score < 0 or max_permitted_open_nsfw_score >= 1:
         raise HTTPException(status_code=400, detail="max_permitted_open_nsfw_score must be between 0 and 1")
     if minimum_similarity_score_to_first_entry_in_collection < 0 or minimum_similarity_score_to_first_entry_in_collection >= 1:

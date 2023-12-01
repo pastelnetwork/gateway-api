@@ -103,3 +103,15 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             .limit(limit)
             .all()
         )
+
+    def get_pending_fee_sum(self, db: Session, owner_id: int) -> float:
+        res = (db.query(self.model)
+               .filter(self.model.owner_id == owner_id)
+               .filter(sa.and_(self.model.process_status != 'DONE',
+                               self.model.process_status == 'DEAD')
+                       )
+               .with_entities(sa.func.sum(self.model.wn_fee))
+               .scalar()
+               )
+        return res if res else 0.0
+
