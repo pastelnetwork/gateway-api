@@ -143,21 +143,9 @@ class PastelAPITask(celery.Task):
 
         total_fee = returned_fee*fee_multiplier
 
-        with db_context() as session:
-            balances = get_total_balance_by_userid(session, user_id=user_id)
-        if balances and balances["available_balance"] < total_fee:
-            logger.error(f'{service}: Not enough balance to pay WN Fee {total_fee} for file {local_file.name}, '
-                         f'. Throwing exception...')
-            upd = {
-                "process_status": DbStatus.ERROR.value,
-                "process_status_message": f'Not enough balance to pay WN Fee {total_fee} for file {local_file.name}.'
-                                          f' Throwing exception',
-                "wn_file_id": wn_file_id,
-                "wn_fee": total_fee,
-            }
-            with db_context() as session:
-                update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
-            raise PastelAPIException(f'{service}: Wrong WN Fee for result_id {result_id}')
+        # this method can throw and exception that is not retriable
+        check_balance(local_file.name, result_id, service, task_in_db,
+                      total_fee, update_task_in_db_func, user_id, wn_file_id)
 
         logger.info(f'{service}: File was registered with WalletNode with\n:'
                     f'\twn_file_id = {wn_file_id} and fee = {total_fee}. [Result ID: {result_id}]')
@@ -502,6 +490,10 @@ class PastelAPITask(celery.Task):
 
         total_fee = returned_fee*fee_multiplier
 
+        # this method can throw and exception that is not retriable
+        check_balance(task_from_db.original_file_name, result_id, service, task_from_db,
+                      total_fee, update_task_in_db_func, task_from_db.owner_id, wn_file_id)
+
         with db_context() as session:
             upd = {
                 "wn_file_id": wn_file_id,
@@ -566,3 +558,22 @@ def set_status_message(update_task_in_db_func, task_in_db, message: str):
     }
     with db_context() as session:
         update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
+
+
+def check_balance(local_file_name, result_id, service, task_in_db,
+                  total_fee, update_task_in_db_func, user_id, wn_file_id):
+    with db_context() as session:
+        balances = get_total_balance_by_userid(session, user_id=user_id)
+    if balances and balances["available_balance"] < total_fee:
+        logger.error(f'{service}: Not enough balance to pay WN Fee {total_fee} for file {local_file_name}, '
+                     f'. Throwing exception...')
+        upd = {
+            "process_status": DbStatus.ERROR.value,
+            "process_status_message": f'Not enough balance to pay WN Fee {total_fee} for file {local_file_name}.'
+                                      f' Throwing exception',
+            "wn_file_id": wn_file_id,
+            "wn_fee": total_fee,
+        }
+        with db_context() as session:
+            update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
+        raise PastelAPIException(f'{service}: Wrong WN Fee for result_id {result_id}')
