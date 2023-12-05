@@ -482,7 +482,7 @@ async def get_all_parsed_dd_result_files_from_request(
 # Get the underlying NFT raw_dd_result_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
 @router.get("/raw_dd_result_file/{gateway_result_id}")
-async def get_raw_dd_result_file(
+async def get_raw_dd_result_file_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -501,7 +501,7 @@ async def get_raw_dd_result_file(
 # Get the underlying NFT parsed_dd_result_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
 @router.get("/parsed_dd_result_file/{gateway_result_id}")
-async def get_parsed_dd_result_file(
+async def get_parsed_dd_result_file_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),

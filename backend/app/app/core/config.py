@@ -17,6 +17,7 @@ class Settings(BaseSettings):
                                "via a lightweight, centralized service.<br/> " \
                                "For more information on Pastel Network, review our " \
                                "<a href=https://docs.pastel.network/introduction/pastel-overview>documentation</a>."
+    PROJECT_VERSION: str = "1.0.0"
     SERVER_HOST: AnyHttpUrl
 
     STACK_NAME: str = "pastel-network-api-gateway"

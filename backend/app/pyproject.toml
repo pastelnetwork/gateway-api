@@ -18,7 +18,7 @@ psycopg2-binary = "^2.9.5"
 alembic = "^1.12"
 tenacity = "^8.0.1"
 pydantic = "^2.4"
-passlib = {extras = ["bcrypt"], version = "^1.7.2"}
+passlib = {extras = ["bcrypt"], version = "^1.7"}
 emails = "^0.6"
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 kombu = "^5.2.4"

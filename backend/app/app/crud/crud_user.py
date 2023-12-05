@@ -90,8 +90,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return None
         return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
 
-    def decrement_balance(self, db: Session, *, owner_id: int, amount: float) -> Optional[User]:
-        db_obj = db.query(self.model).filter(User.id == owner_id).first()
+    def decrement_balance(self, db: Session, *, user_id: int, amount: float) -> Optional[User]:
+        db_obj = db.query(self.model).filter(User.id == user_id).first()
         if not db_obj:
             return None
         # if db_obj.balance < amount:

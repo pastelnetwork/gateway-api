@@ -11,7 +11,8 @@ def create_app() -> FastAPI:
     current_app = FastAPI(title=settings.PROJECT_NAME,
                           description=settings.PROJECT_DESCRIPTION,
                           openapi_url=f"{settings.API_V1_STR}/openapi.json",
-                          docs_url="/", )
+                          docs_url="/",
+                          version=settings.PROJECT_VERSION)
 
     from app.core.logging import configure_logging
     configure_logging()

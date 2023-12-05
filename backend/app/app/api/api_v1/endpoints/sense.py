@@ -167,7 +167,7 @@ async def get_all_parsed_output_files_from_request(
 # Get the underlying Sense raw_outputs_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
 @router.get("/raw_output_file/{gateway_result_id}")
-async def get_raw_output_file(
+async def get_raw_output_file_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -187,7 +187,7 @@ async def get_raw_output_file(
 # Get the underlying Sense parsed_outputs_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
 @router.get("/parsed_output_file/{gateway_result_id}")
-async def get_parsed_output_file(
+async def get_parsed_output_file_by_result_id(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -270,7 +270,7 @@ async def get_raw_output_file_by_activation_ticket(
 # Get the underlying Sense parsed_output_file from the corresponding Sense Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/parsed_output_file_by_activation_txid/{activation_ticket_txid}")
-async def parsed_output_file_by_act_txid(
+async def parsed_output_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
         db: Session = Depends(session.get_db_session)

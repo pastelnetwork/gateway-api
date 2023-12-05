@@ -52,7 +52,7 @@ def create_apikey(
         raise HTTPException(status_code=400, detail=f"Not enough balance to pay Ticket Fee "
                                                     f"{settings.TICKET_PRICE_PASTELID}. {balances}")
     passkey = get_random_string(16)
-    pastel_id = create_and_register_pastelid(passkey)
+    pastel_id = create_and_register_pastelid(passkey, settings.MAIN_GATEWAY_ADDRESS)
     funding_address = None
     # if with_address:
     #     funding_address = create_address()

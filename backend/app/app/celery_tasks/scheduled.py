@@ -62,49 +62,50 @@ def fee_pre_burner():
                 if new.height + 5 < height:
                     check_preburn_tx(session, new.txid)
 
-    logger.info(f"pre burn fees")
-    with db_context() as session:
+    if settings.FEE_PRE_BURNER_ENABLED:
+        logger.info(f"pre burn fees")
         fees = []
-        logger.info(f"first: calculate missing fees")
-        for size in range(1, settings.MAX_SIZE_FOR_PREBURN+1):
-            fee = psl.call("storagefee", ["getactionfees", size], True)   # won't throw exception
-            if not fee or not isinstance(fee, dict):
-                logger.error(f"Error while getting fee for size {size}")
-                continue
-            if 'cascadefee' not in fee or 'sensefee' not in fee:
-                logger.error(f"Error while getting fee for size {size}")
-                continue
-            c_fee = float(fee['cascadefee'] / 5)
-            s_fee = float(fee['sensefee'] / 5)
-            c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
-            s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
-            logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
-            for _ in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN+1)):
-                if c_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
-                    fees.append(c_fee)
-                if s_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
-                    fees.append(s_fee)
-
-    height = psl.call("getblockcount", [], True)   # won't throw exception
-    if not height or not isinstance(height, int):
-        logger.error(f"Error while getting height from cNode")
-        return
-
-    if len(fees) > 0:
-        logger.info(f"second: burn missing fees")
         with db_context() as session:
-            for burn_amount in fees:
-                try:
-                    if not psl.check_balance(burn_amount):  # can throw exception here
-                        return
-                    burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])  # can throw exception
-                    if not burn_txid or not isinstance(burn_txid, str):
-                        logger.error(f"Error while burning fee")
-                        continue
-                except Exception as e:
-                    logger.error(f"Error while burning fee {e}")
+            logger.info(f"first: calculate missing fees")
+            for size in range(1, settings.MAX_SIZE_FOR_PREBURN+1):
+                fee = psl.call("storagefee", ["getactionfees", size], True)   # won't throw exception
+                if not fee or not isinstance(fee, dict):
+                    logger.error(f"Error while getting fee for size {size}")
                     continue
-                crud.preburn_tx.create_new(session, fee=burn_amount, height=height, txid=burn_txid)
+                if 'cascadefee' not in fee or 'sensefee' not in fee:
+                    logger.error(f"Error while getting fee for size {size}")
+                    continue
+                c_fee = float(fee['cascadefee'] / 5)
+                s_fee = float(fee['sensefee'] / 5)
+                c_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=c_fee)
+                s_num = crud.preburn_tx.get_number_non_used_by_fee(session, fee=s_fee)
+                logger.info(f"For size {size} c_fee = {c_fee} s_fee = {s_fee}")
+                for _ in reversed(range(size, settings.MAX_SIZE_FOR_PREBURN+1)):
+                    if c_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
+                        fees.append(c_fee)
+                    if s_num < settings.MAX_SIZE_FOR_PREBURN-size+1:
+                        fees.append(s_fee)
+
+        height = psl.call("getblockcount", [], True)   # won't throw exception
+        if not height or not isinstance(height, int):
+            logger.error(f"Error while getting height from cNode")
+            return
+
+        if len(fees) > 0:
+            logger.info(f"second: burn missing fees")
+            with db_context() as session:
+                for burn_amount in fees:
+                    try:
+                        if not psl.check_balance(burn_amount):  # can throw exception here
+                            return
+                        burn_txid = psl.call("sendtoaddress", [settings.BURN_ADDRESS, burn_amount])  # can throw exception
+                        if not burn_txid or not isinstance(burn_txid, str):
+                            logger.error(f"Error while burning fee")
+                            continue
+                    except Exception as e:
+                        logger.error(f"Error while burning fee {e}")
+                        continue
+                    crud.preburn_tx.create_new(session, fee=burn_amount, height=height, txid=burn_txid)
 
 
 @shared_task(name="scheduled_tools:reg_tickets_finder", task_id="reg_tickets_finder")
