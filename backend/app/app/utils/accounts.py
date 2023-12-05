@@ -14,14 +14,14 @@ def get_total_balance(db: Session, *, user: models.User) -> Dict:
     available_balance = user.balance if user.balance else 0.0
     cascade_pending = crud.cascade.get_pending_fee_sum(db, owner_id=user.id)
     sense_pending = crud.sense.get_pending_fee_sum(db, owner_id=user.id)
-    nft_pending = crud.sense.get_pending_fee_sum(db, owner_id=user.id)
+    nft_pending = crud.nft.get_pending_fee_sum(db, owner_id=user.id)
     collection_pending = (crud.collection.get_number_of_pending(db, owner_id=user.id)
                           * settings.TICKET_PRICE_COLLECTION_REG)
 
-    results = {
-        "available_balance": available_balance,
-    }
     total_pending = cascade_pending + sense_pending + nft_pending + collection_pending
+    results = {
+        "available_balance": available_balance - total_pending,
+    }
     if total_pending > 0:
         results["total_pending"] = total_pending
         results["pending_details"] = {
