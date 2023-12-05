@@ -108,7 +108,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         res = (db.query(self.model)
                .filter(self.model.owner_id == owner_id)
                .filter(sa.and_(self.model.process_status != 'DONE',
-                               self.model.process_status == 'DEAD')
+                               self.model.process_status != 'DEAD')
                        )
                .with_entities(sa.func.sum(self.model.wn_fee))
                .scalar()
