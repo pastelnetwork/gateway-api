@@ -230,8 +230,8 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
         }
         with db_context() as session:
             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
-            crud.user.decrement_balance(session, user_id=task_from_db.owner_id,
-                                        amount=settings.TICKET_PRICE_COLLECTION_REG)
+            crud.user.increase_balance(session, user_id=task_from_db.owner_id,
+                                       amount=settings.TICKET_PRICE_COLLECTION_REG)
         return
 
     stored_file_ipfs_link = task_from_db.stored_file_ipfs_link
@@ -286,7 +286,7 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
     with db_context() as session:
         logger.info(f"{wn_service}: Updating task in DB as DONE: {task_from_db.reg_ticket_txid}")
         task_from_db = update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
-        crud.user.decrement_balance(session, user_id=task_from_db.owner_id, amount=task_from_db.wn_fee)
+        crud.user.increase_balance(session, user_id=task_from_db.owner_id, amount=task_from_db.wn_fee)
 
         if wn_service != wn.WalletNodeService.NFT:      # check for wn.WalletNodeService.COLLECTION was before
             crud.preburn_tx.mark_used(session, task_from_db.burn_txid)
@@ -308,16 +308,10 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
                 if not pastel_id_pwd:
                     logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
                     return None
-                funding_address = None
-                # funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
-                #                                                 default_value=settings.MAIN_GATEWAY_ADDRESS)
-                # if not psl.check_address_balance(funding_address, settings.MIN_TICKET_PRICE_BALANCE,
-                #                                  f"{wn_service} Offer ticket"):
-                #     return None
+
                 offer_ticket = asyncio.run(psl.create_offer_ticket(task_from_db.act_ticket_txid, 1,
                                                                    task_from_db.pastel_id, pastel_id_pwd,
-                                                                   pastel_id_for_transfer,
-                                                                   funding_address))
+                                                                   pastel_id_for_transfer))
                 if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
                     logger.info(f"{wn_service}: Updating task in DB as offered to transfer: "
                                 f"{task_from_db.reg_ticket_txid}")

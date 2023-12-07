@@ -21,18 +21,16 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             .filter(ApiKey.api_key == api_key)
             .first())
 
-    def create(self, db: Session, *, obj_in: UserCreate,
-               balance: float = 0.0, funding_address: str = None) -> User:
+    def create(self, db: Session, *, obj_in: UserCreate, funding_address: str = None) -> User:
         db_obj = User(
             email=obj_in.email,
             hashed_password=get_secret_hash(obj_in.password),
             full_name=obj_in.full_name,
             is_superuser=obj_in.is_superuser,
+            balance_limit=obj_in.balance_limit
         )
         if funding_address:
             db_obj.funding_address = funding_address
-        if balance > 0:
-            db_obj.balance = balance
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -90,19 +88,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return None
         return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
 
-    def decrement_balance(self, db: Session, *, user_id: int, amount: float) -> Optional[User]:
+    def increase_balance(self, db: Session, *, user_id: int, amount: float) -> Optional[User]:
         db_obj = db.query(self.model).filter(User.id == user_id).first()
-        if not db_obj:
-            return None
-        # if db_obj.balance < amount:
-        #     return None
-        db_obj.balance -= amount
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-    def increment_balance(self, db: Session, *, owner_id: int, amount: float) -> Optional[User]:
-        db_obj = db.query(self.model).filter(User.id == owner_id).first()
         if not db_obj:
             return None
         db_obj.balance += amount
@@ -110,13 +97,23 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def check_balance(self, db: Session, *, owner_id: int, amount: float) -> bool:
+    def reset_balance(self, db: Session, *, user_id: int) -> Optional[User]:
+        db_obj = db.query(self.model).filter(User.id == user_id).first()
+        if not db_obj:
+            return None
+        db_obj.balance = 0.0
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def set_balance_limit(self, db: Session, *, owner_id: int, balance_limit: float) -> Optional[User]:
         db_obj = db.query(self.model).filter(User.id == owner_id).first()
         if not db_obj:
-            return False
-        if db_obj.balance < amount:
-            return False
-        return True
+            return None
+        db_obj.balance_limit = balance_limit
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
 
 
 class CRUDAccountTransactions(CRUDBase[AccountTransactions, AccountTransactionsCreate, AccountTransactionsUpdate]):

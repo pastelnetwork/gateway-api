@@ -261,7 +261,7 @@ class Settings(BaseSettings):
     TICKET_PRICE_TRANSFER: int = 10
     TICKET_PRICE_MIN_BALANCE: int = 1000  # used for balance check, just in case, so value is arbitrary
 
-    DEFAULT_NEW_USER_BALANCE: int = 10000
+    PRE_BURN_TX_CONFIRMATIONS: int = 3
 
     class Config:
         env_file = find_dotenv(usecwd=True)

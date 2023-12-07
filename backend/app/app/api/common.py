@@ -745,16 +745,9 @@ async def transfer_ticket(db, result_id, user_id, pastel_id_for_transfer,
         logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
         return None
 
-    account_funding_address = None
-    # account_funding_address = crud.user.get_funding_address(db=db, owner_id=user_id,
-    #                                                         default_value=settings.MAIN_GATEWAY_ADDRESS)
-    # if not psl.check_address_balance(account_funding_address, settings.MIN_TICKET_PRICE_BALANCE, "Offer ticket"):
-    #     raise HTTPException(status_code=501, detail=f"No enough funds in spendable address {account_funding_address} "
-    #                                                 f"to pay Offer ticket fee")
     offer_ticket = await psl.create_offer_ticket(task_from_db.act_ticket_txid, 1,
                                                  task_from_db.pastel_id, pastel_id_pwd,
-                                                 pastel_id_for_transfer,
-                                                 account_funding_address)
+                                                 pastel_id_for_transfer)
     if offer_ticket and 'txid' in offer_ticket and offer_ticket['txid']:
         upd = {"offer_ticket_txid": offer_ticket['txid'],
                "offer_ticket_intended_rcpt_pastel_id": pastel_id_for_transfer,

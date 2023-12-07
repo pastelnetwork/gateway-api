@@ -12,7 +12,7 @@ from app.models import ApiKey
 from app.utils import walletnode as wn, pasteld as psl
 from app.core.config import settings
 from app.core.status import DbStatus
-from app.utils.accounts import get_total_balance, get_total_balance_by_userid
+from app.utils.accounts import get_total_balance_by_userid
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
 from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
 
@@ -144,8 +144,8 @@ class PastelAPITask(celery.Task):
         total_fee = returned_fee*fee_multiplier
 
         # this method can throw and exception that is not retriable
-        check_balance(local_file.name, result_id, service, task_in_db,
-                      total_fee, update_task_in_db_func, user_id, wn_file_id)
+        check_account_balance_limit(local_file.name, result_id, service, task_in_db,
+                                    total_fee, update_task_in_db_func, user_id, wn_file_id)
 
         logger.info(f'{service}: File was registered with WalletNode with\n:'
                     f'\twn_file_id = {wn_file_id} and fee = {total_fee}. [Result ID: {result_id}]')
@@ -185,15 +185,6 @@ class PastelAPITask(celery.Task):
                         f'Should be {DbStatus.UPLOADED.value}'
                         f' ... [Result ID: {result_id}]')
             return result_id
-
-        # with db_context() as session:
-        #     funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
-        #                                                     default_value=settings.MAIN_GATEWAY_ADDRESS)
-        # if not psl.check_address_balance(funding_address, task_from_db.wn_fee, f"pre-burn fee for {service}"):
-        #     set_status_message(update_task_in_db_func, task_from_db,
-        #                        f"No enough funds in spendable address {funding_address} "
-        #                        f"to pre-burn fee for {service} ticket. Retrying")
-        #     retry_func()
 
         preburn_fee = task_from_db.wn_fee/5
         # can throw exception here - this is celery task, it will retry it on specific exceptions
@@ -249,16 +240,7 @@ class PastelAPITask(celery.Task):
                         set_status_message(update_task_in_db_func, task_from_db,
                                            f'Error while burning fee. Retrying')
                         retry_func()
-                    # burn_txid = psl.send_to_many_z(funding_address, {settings.BURN_ADDRESS: preburn_fee})
-                    # if not burn_txid:
-                        # if psl.check_wallet_balance_and_wait(settings.funding_address, preburn_fee, 2):
-                        #     # retry burn again after waiting
-                        #     burn_txid = psl.send_to_many_z(funding_address, {settings.BURN_ADDRESS: preburn_fee})
-                        # if not burn_txid:
-                        #     logger.info(f'{service}: Error while burning fee... [Result ID: {result_id}]')
-                        #     set_status_message(update_task_in_db_func, task_from_db,
-                        #                        f'Error while burning fee. Retrying')
-                        #     retry_func()
+
                     burn_tx = crud.preburn_tx.create_new_bound(session,
                                                                fee=preburn_fee,
                                                                height=height,
@@ -269,7 +251,7 @@ class PastelAPITask(celery.Task):
                                 f'bounding it to the task [Result ID: {result_id}]')
                     burn_tx = crud.preburn_tx.bind_pending_to_result(session, burn_tx,
                                                                      result_id=result_id)
-            if burn_tx.height + 5 > height:
+            if burn_tx.height + settings.PRE_BURN_TX_CONFIRMATIONS > height:
                 logger.info(f'{service}: Pre-burn tx [{burn_tx.txid}] not confirmed yet, '
                             f'retrying... [Result ID: {result_id}]')
                 upd = {"process_status_message": f'Pre-burn tx [{burn_tx.txid}] not confirmed yet. Retrying',
@@ -290,7 +272,7 @@ class PastelAPITask(celery.Task):
         return result_id
 
     @abc.abstractmethod
-    def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
+    def get_request_form(self, task_from_db, funding_address: str | None = None) -> str:
         return ""
 
     @abc.abstractmethod
@@ -325,16 +307,6 @@ class PastelAPITask(celery.Task):
         if not psl.check_balance(task_from_db.wn_fee):   # can throw exception here
             set_status_message(update_task_in_db_func, task_from_db, f'Not enough balance to pay WN Fee. Retrying')
             retry_func()
-        funding_address = None
-        # with db_context() as session:
-        #     funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
-        #                                                     default_value=settings.MAIN_GATEWAY_ADDRESS)
-        # can throw exception here
-        # if not psl.check_address_balance(funding_address, task_from_db.wn_fee, f"{service} ticket"):
-        #     set_status_message(update_task_in_db_func, task_from_db,
-        #                        f'No enough funds in spendable address {funding_address} '
-        #                        f'to pay {service} ticket fee. Retrying')
-        #     retry_func()
 
         ok, err_msg = self.check_specific_conditions(task_from_db)
         if not ok:
@@ -349,7 +321,7 @@ class PastelAPITask(celery.Task):
             logger.info(f'{service}: Calling "WN Start"... [Result ID: {result_id}]')
 
             # can throw exception here
-            form = self.get_request_form(task_from_db, funding_address)
+            form = self.get_request_form(task_from_db)
 
             if service == wn.WalletNodeService.NFT:
                 cmd = "register"
@@ -491,8 +463,8 @@ class PastelAPITask(celery.Task):
         total_fee = returned_fee*fee_multiplier
 
         # this method can throw and exception that is not retriable
-        check_balance(task_from_db.original_file_name, result_id, service, task_from_db,
-                      total_fee, update_task_in_db_func, task_from_db.owner_id, wn_file_id)
+        check_account_balance_limit(task_from_db.original_file_name, result_id, service, task_from_db,
+                                    total_fee, update_task_in_db_func, task_from_db.owner_id, wn_file_id)
 
         with db_context() as session:
             upd = {
@@ -560,16 +532,19 @@ def set_status_message(update_task_in_db_func, task_in_db, message: str):
         update_task_in_db_func(session, db_obj=task_in_db, obj_in=upd)
 
 
-def check_balance(local_file_name, result_id, service, task_in_db,
-                  total_fee, update_task_in_db_func, user_id, wn_file_id):
+def check_account_balance_limit(local_file_name, result_id, service, task_in_db,
+                                total_fee, update_task_in_db_func, user_id, wn_file_id):
     with db_context() as session:
         balances = get_total_balance_by_userid(session, user_id=user_id)
-    if balances and balances["available_balance"] < total_fee:
-        logger.error(f'{service}: Not enough balance to pay WN Fee {total_fee} for file {local_file_name}, '
+    if balances and 0 < balances["balance_limit"] < balances["total_balance"] + total_fee:
+        logger.error(f'{service}: Balance [{balances["total_balance"]}] is over set limit [{balances["balance_limit"]}]'
+                     f'to pay WN Fee {total_fee} for file {local_file_name}, '
                      f'. Throwing exception...')
         upd = {
             "process_status": DbStatus.ERROR.value,
-            "process_status_message": f'Not enough balance to pay WN Fee {total_fee} for file {local_file_name}.'
+            "process_status_message": f'Balance [{balances["total_balance"]}] '
+                                      f'is over set limit [{balances["balance_limit"]}]'
+                                      f'to pay WN Fee {total_fee} for file {local_file_name}.'
                                       f' Throwing exception',
             "wn_file_id": wn_file_id,
             "wn_fee": total_fee,

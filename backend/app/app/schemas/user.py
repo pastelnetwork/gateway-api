@@ -17,6 +17,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     email: EmailStr
     password: str
+    balance_limit: float = 0.0
 
 
 # Properties to receive via API on update

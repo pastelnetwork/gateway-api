@@ -12,8 +12,6 @@ import app.db.session as session
 from app import crud, models
 from app.api import deps
 import app.utils.pasteld as psl
-from app.models.user import TXType
-from app.schemas import AccountTransactions
 from app.utils.accounts import get_total_balance
 
 router = APIRouter()
@@ -117,14 +115,14 @@ def total_balances(
     return total_balances_list
 
 
-@router.post("/add_funds", response_model=AccountTransactions)
-def add_funds(
+@router.post("/set_balance_limit")
+def set_balance_limit(
     *,
     user_id_or_email: Union[int, str],
-    amount: float,
+    new_balance_limit: float,
     db: Session = Depends(session.get_db_session),
     super_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
-) -> AccountTransactions:
+) -> float:
     if isinstance(user_id_or_email, int):
         user = crud.user.get(db, id=user_id_or_email)
     else:
@@ -134,8 +132,10 @@ def add_funds(
             status_code=400,
             detail="The user with this ID does not exist in the system.",
         )
-    transaction = crud.account_transactions.create_with_owner(db=db,
-                                                              owner_id=user.id,
-                                                              balance=amount,
-                                                              tx_type=TXType.DEPOSIT)
-    return transaction
+    user = crud.user.set_balance_limit(db, owner_id=user.id, balance_limit=new_balance_limit)
+
+    # transaction = crud.account_transactions.create_with_owner(db=db,
+    #                                                           owner_id=user.id,
+    #                                                           balance=amount,
+    #                                                           tx_type=TXType.DEPOSIT)
+    return user.balance_limit

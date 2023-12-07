@@ -28,7 +28,9 @@ class ApiKeyInDBBase(ApiKeyBase):
     created_at: datetime
     owner_id: int
     pastel_id: Optional[str] = None
-    funding_address: Optional[str] = None
+    # funding_address: Optional[str] = None
+    # balance: Optional[float] = 0.0
+    # balance_limit: Optional[float] = 0.0
 
     class Config:
         from_attributes = True

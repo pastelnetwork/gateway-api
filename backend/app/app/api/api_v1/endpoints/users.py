@@ -29,7 +29,8 @@ def read_users(
     return users
 
 
-@router.post("", response_model=schemas.User, response_model_exclude_none=True)
+@router.post("", response_model=schemas.User, response_model_exclude_none=True,
+             description="Create new user, returns user object with funding address. limit=0 means no limit")
 def create_user(
     *,
     db: Session = Depends(session.get_db_session),
@@ -45,11 +46,7 @@ def create_user(
             status_code=400,
             detail="The user with this username already exists in the system.",
         )
-    funding_address = None
-    # funding_address = create_address()
-    user = crud.user.create(db, obj_in=user_in,
-                            balance=settings.DEFAULT_NEW_USER_BALANCE,
-                            funding_address=funding_address)
+    user = crud.user.create(db, obj_in=user_in)
     if settings.EMAILS_ENABLED and user_in.email:
         send_new_account_email(
             email_to=user_in.email, username=user_in.email, password=user_in.password
@@ -99,6 +96,7 @@ def create_user_open(
     password: str = Body(...),
     email: EmailStr = Body(...),
     full_name: str = Body(None),
+    balance_limit: float = Body(0.0, description="User's balance limit, 0 means no limit"),
 ) -> Any:
     """
     Create new user without the need to be logged in.
@@ -114,7 +112,7 @@ def create_user_open(
             status_code=400,
             detail="The user with this username already exists in the system",
         )
-    user_in = schemas.UserCreate(password=password, email=email, full_name=full_name)
+    user_in = schemas.UserCreate(password=password, email=email, full_name=full_name, balance_limit=balance_limit)
     user = crud.user.create(db, obj_in=user_in)
     return user
 

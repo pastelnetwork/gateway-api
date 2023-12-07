@@ -25,10 +25,10 @@ class NftAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.nft.get_by_result_id, crud.nft.update)
 
-    def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
-        if not spendable_address:
-            spendable_address = psl.find_address_with_funds(task_from_db.wn_fee)
-            if not spendable_address:
+    def get_request_form(self, task_from_db, funding_address: str | None = None) -> str:
+        if not funding_address:
+            funding_address = psl.find_address_with_funds(task_from_db.wn_fee)
+            if not funding_address:
                 logger.error(f"No spendable address found for amount > {task_from_db.wn_fee}. "
                              f"[Result ID: {task_from_db.result_id}]")
                 send_alert_email(f"No spendable address found to pay NFT fee in the amount > {task_from_db.wn_fee}")
@@ -55,7 +55,7 @@ class NftAPITask(PastelAPITask):
 
         return json.dumps(
             {
-                "spendable_address": spendable_address,
+                "spendable_address": funding_address,
                 "creator_pastelid": task_from_db.pastel_id,
 
                 "image_id": task_from_db.wn_file_id,

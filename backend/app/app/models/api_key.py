@@ -19,6 +19,7 @@ class ApiKey(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     funding_address = Column(String, unique=True, index=True, nullable=True)
     pastel_id = Column(String, unique=True, index=True, nullable=True)
-    balance = Column(Float, nullable=True)
+    balance = Column(Float, nullable=False, default=0.0)
+    balance_limit = Column(Float, nullable=False, default=0.0)
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="api_keys")

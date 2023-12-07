@@ -31,10 +31,10 @@ class CollectionsAPITask(PastelAPITask):
     def on_failure(self, exc, result_id, args, kwargs, einfo):
         PastelAPITask.on_failure_base(args, crud.collection.get_by_result_id, crud.collection.update)
 
-    def get_request_form(self, task_from_db, spendable_address: str | None) -> str:
-        if not spendable_address:
-            spendable_address = psl.find_address_with_funds(settings.TICKET_PRICE_COLLECTION_REG)
-            if not spendable_address:
+    def get_request_form(self, task_from_db, funding_address: str | None = None) -> str:
+        if not funding_address:
+            funding_address = psl.find_address_with_funds(settings.TICKET_PRICE_COLLECTION_REG)
+            if not funding_address:
                 logger.error(f"Collection-{task_from_db.item_type}: No spendable address "
                              f"found for amount > {settings.TICKET_PRICE_COLLECTION_REG}. "
                              f"[Result ID: {task_from_db.result_id}]")
@@ -56,7 +56,7 @@ class CollectionsAPITask(PastelAPITask):
                     task_from_db.minimum_similarity_score_to_first_entry_in_collection,
                 "no_of_days_to_finalize_collection": task_from_db.no_of_days_to_finalize_collection,
                 "royalty": task_from_db.royalty,
-                "spendable_address": spendable_address
+                "spendable_address": funding_address
             })
 
     def check_specific_conditions(self, task_from_db) -> (bool, str):
@@ -139,17 +139,7 @@ def process(self, result_id) -> str:
                     f'Should be {DbStatus.RESTARTED.value} OR {DbStatus.NEW.value}... [Result ID: {result_id}]')
         return result_id
 
-    funding_address = None
-    # with db_context() as session:
-    #     funding_address = crud.user.get_funding_address(session, owner_id=task_from_db.owner_id,
-    #                                                     default_value=settings.MAIN_GATEWAY_ADDRESS)
-    # if not psl.check_address_balance(funding_address, settings.MIN_TICKET_PRICE_BALANCE,
-    #                                  f"Collection-{task_from_db.item_type} ticket"):
-    #     raise PastelAPIException(f"No enough funds in spendable address {funding_address} "
-    #                              f"to pay Collection-{task_from_db.item_type} ticket fee")
-
-    # can throw exception here
-    form = self.get_request_form(task_from_db, funding_address)
+    form = self.get_request_form(task_from_db)
 
     logger.info(f'Collection-{task_from_db.item_type}: Calling WN to start collection ticket registration '
                 f'[Result ID: {result_id}]')

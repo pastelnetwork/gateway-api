@@ -82,14 +82,17 @@ async def process_collection_request(
         user_id: int, api_key: ApiKey,
 ) -> schemas.CollectionRegistrationResult:
     balances = get_total_balance_by_userid(db, user_id=user_id)
-    if balances and balances["available_balance"] < settings.TICKET_PRICE_COLLECTION_REG:
-        raise HTTPException(status_code=400, detail=f"Not enough balance to pay Ticket Fee "
-                                                    f"{settings.TICKET_PRICE_COLLECTION_REG}. {balances}")
+    if balances and 0 < balances["balance_limit"] < balances["total_balance"] + settings.TICKET_PRICE_COLLECTION_REG:
+        raise HTTPException(status_code=400, detail=f'Balance [{balances["total_balance"]}] is over set limit '
+                                                    f'[{balances["balance_limit"]}] to pay Ticket Fee '
+                                                    f'{settings.TICKET_PRICE_COLLECTION_REG}. {balances}')
 
     if max_permitted_open_nsfw_score < 0 or max_permitted_open_nsfw_score >= 1:
         raise HTTPException(status_code=400, detail="max_permitted_open_nsfw_score must be between 0 and 1")
-    if minimum_similarity_score_to_first_entry_in_collection < 0 or minimum_similarity_score_to_first_entry_in_collection >= 1:
-        raise HTTPException(status_code=400, detail="minimum_similarity_score_to_first_entry_in_collection must be between 0 and 1")
+    if (minimum_similarity_score_to_first_entry_in_collection < 0 or
+            minimum_similarity_score_to_first_entry_in_collection >= 1):
+        raise HTTPException(status_code=400, detail="minimum_similarity_score_to_first_entry_in_collection "
+                                                    "must be between 0 and 1")
     if royalty < 0 or royalty >= 100:
         raise HTTPException(status_code=400, detail="royalty must be between 0 and 100")
     if no_of_days_to_finalize_collection < 1 or no_of_days_to_finalize_collection > 7:

@@ -16,8 +16,6 @@ class CRUDApiKey(CRUDBase[ApiKey, ApiKeyCreate, ApiKeyUpdate]):
     def create_with_owner(db: Session, *, obj_in: ApiKeyCreate, owner_id: int,
                           pastel_id: str = None,
                           funding_address: str = None) -> ApiKey:
-        # obj_in_data = jsonable_encoder(obj_in)
-        # db_obj = self.model(**obj_in_data, owner_id=owner_id)
         db_obj = ApiKey(
             api_key=create_api_key(owner_id),
             can_nft=obj_in.can_nft,
@@ -27,8 +25,8 @@ class CRUDApiKey(CRUDBase[ApiKey, ApiKeyCreate, ApiKeyUpdate]):
         )
         if pastel_id:
             db_obj.pastel_id = pastel_id
-        if funding_address:
-            db_obj.funding_address = funding_address
+        # if funding_address:
+        #     db_obj.funding_address = funding_address
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -45,17 +43,17 @@ class CRUDApiKey(CRUDBase[ApiKey, ApiKeyCreate, ApiKeyUpdate]):
             .all()
         )
 
-    def get_funding_address_by_api_key(self, db: Session, *, api_key: str, default_value: str = None) -> Optional[str]:
-        db_obj = db.query(self.model).filter(ApiKey.api_key == api_key).first()
-        if not db_obj:
-            return None
-        return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
-
-    def get_funding_address_by_pastel_id(self, db: Session, *, pastel_id: str, default_value: str = None) -> Optional[str]:
-        db_obj = db.query(self.model).filter(ApiKey.pastel_id == pastel_id).first()
-        if not db_obj:
-            return None
-        return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
+    # def get_funding_address_by_api_key(self, db: Session, *, api_key: str, default_value: str = None) -> Optional[str]:
+    #     db_obj = db.query(self.model).filter(ApiKey.api_key == api_key).first()
+    #     if not db_obj:
+    #         return None
+    #     return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
+    #
+    # def get_funding_address_by_pastel_id(self, db: Session, *, pastel_id: str, default_value: str = None) -> Optional[str]:
+    #     db_obj = db.query(self.model).filter(ApiKey.pastel_id == pastel_id).first()
+    #     if not db_obj:
+    #         return None
+    #     return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
 
 
 api_key = CRUDApiKey(ApiKey)
