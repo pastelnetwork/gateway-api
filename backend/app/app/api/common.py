@@ -458,9 +458,13 @@ async def get_all_sense_or_nft_dd_data_from_request(*, tasks_from_db, gateway_re
                              content_type="application/zip")
 
 
-async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_type: str,
+async def get_all_sense_or_nft_dd_data_for_pastelid(*, pastel_id: str, ticket_type: str, action_type: str,
                                                     search_data_lambda, parse=False):
-    registration_ticket_txids = await get_reg_txids_by_pastel_id(pastel_id=pastel_id, ticket_type=ticket_type)
+    registration_ticket_txids = await get_reg_txids_by_pastel_id(pastel_id=pastel_id,
+                                                                 ticket_type=ticket_type, action_type=action_type)
+    if len(registration_ticket_txids) == 0:
+        raise HTTPException(status_code=404, detail=f"No {ticket_type}:{action_type} tickets"
+                                                    f" found for pastelID={pastel_id}")
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         for txid in registration_ticket_txids:
@@ -623,7 +627,7 @@ async def get_reg_txid_by_act_txid(act_txid: str) -> str:
     return act_ticket['ticket']['reg_txid']
 
 
-async def get_reg_txids_by_pastel_id(pastel_id: str, ticket_type: str) -> List[str]:
+async def get_reg_txids_by_pastel_id(pastel_id: str, ticket_type: str, action_type: str) -> List[str]:
     txids = []
     try:
         reg_tickets = psl.call("tickets", ['find', ticket_type, pastel_id])   # can throw exception here
@@ -634,6 +638,10 @@ async def get_reg_txids_by_pastel_id(pastel_id: str, ticket_type: str) -> List[s
 
     for reg_ticket in reg_tickets:
         if 'txid' in reg_ticket:
+            if 'ticket' in reg_ticket and 'action_type' in reg_ticket['ticket']:
+                if ((action_type == 'sense' and reg_ticket['ticket']['action_type'] == 'cascade') or
+                        (action_type == 'cascade' and reg_ticket['ticket']['action_type'] == 'sense')):
+                    continue
             txids.append(reg_ticket['txid'])
 
     return txids

@@ -103,11 +103,11 @@ class ResultRegistrationBase(BaseModel):
 
 
 class ResultRegistrationResult(ResultRegistrationBase):
-    result_id: Optional[str]
+    result_id: Optional[str] = None
 
 
 class CollectionRegistrationResult(ResultRegistrationBase):
-    collection_id: Optional[str]
+    collection_id: Optional[str] = None
 
 
 class RequestResult(BaseModel):

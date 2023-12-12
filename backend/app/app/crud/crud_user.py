@@ -1,6 +1,7 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.core.security import get_secret_hash, verify_hashed_secret
 from app.crud.base import CRUDBase, CreateSchemaType, ModelType, UpdateSchemaType
@@ -42,8 +43,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         if isinstance(obj_in, dict):
             update_data = obj_in
         else:
-            update_data = obj_in.dict(exclude_unset=True)
-        if update_data["password"]:
+            update_data = obj_in.model_dump(exclude_unset=True)
+        if "password" in update_data and update_data["password"]:
             hashed_password = get_secret_hash(update_data["password"])
             del update_data["password"]
             update_data["hashed_password"] = hashed_password
@@ -87,6 +88,27 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         if not db_obj:
             return None
         return db_obj.funding_address if (db_obj.funding_address and db_obj.funding_address != '') else default_value
+
+    def get_all_without_funding_address(self, db: Session) -> List[User]:
+        return (
+            db.query(self.model)
+            .filter(
+                or_(
+                    User.funding_address.is_(None),
+                    User.funding_address == '',
+                )
+            )
+            .all()
+        )
+
+    def get_all_with_balance_more_then(self, db: Session, *, balance: float) -> List[User]:
+        return (
+            db.query(self.model)
+            .filter(
+                User.balance > balance
+            )
+            .all()
+        )
 
     def increase_balance(self, db: Session, *, user_id: int, amount: float) -> Optional[User]:
         db_obj = db.query(self.model).filter(User.id == user_id).first()

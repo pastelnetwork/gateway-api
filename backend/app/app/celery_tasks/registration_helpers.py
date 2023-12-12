@@ -22,6 +22,9 @@ logger = get_task_logger(__name__)
 
 @shared_task(name="registration_helpers:registration_finisher")
 def registration_finisher():
+    if settings.ACCOUNT_MANAGER_ENABLED:  # throw and exception if account manager is enabled
+        raise Exception("Account manager and registration finisher can't be enabled at the same time")
+
     _registration_finisher(
         crud.cascade.get_all_started_not_finished,
         crud.cascade.update,
@@ -347,6 +350,8 @@ def _mark_task_in_db_as_failed(session,
 
 @shared_task(name="registration_helpers:registration_re_processor")
 def registration_re_processor():
+    if settings.ACCOUNT_MANAGER_ENABLED:  # throw and exception if account manager is enabled
+        raise Exception("Account manager and registration re-processor can't be enabled at the same time")
 
     _registration_re_processor(
         crud.cascade.get_all_failed,

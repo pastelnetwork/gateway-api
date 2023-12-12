@@ -37,4 +37,7 @@ celery = app.celery_app
 
 
 if __name__ == "__main__":
+    if settings.ACCOUNT_MANAGER_ENABLED:  # throw and exception if account manager is enabled
+        raise Exception("Account manager and Gateway API Server can't be enabled at the same time")
+
     uvicorn.run("main:app", port=9000, reload=True)

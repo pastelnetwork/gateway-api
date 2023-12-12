@@ -21,6 +21,9 @@ logger = get_task_logger(__name__)
 
 @shared_task(name="scheduled_tools:fee_pre_burner")
 def fee_pre_burner():
+    if settings.ACCOUNT_MANAGER_ENABLED:  # throw and exception if account manager is enabled
+        raise Exception("Account manager and fee pre burner can't be enabled at the same time")
+
     logger.info(f"fee_pre_burner task started")
     if settings.FEE_PRE_BURNER_RELEASE_NON_USED:
         logger.info(f"release non used")
@@ -111,6 +114,7 @@ def fee_pre_burner():
 @shared_task(name="scheduled_tools:reg_tickets_finder", task_id="reg_tickets_finder")
 @task_lock(main_key="registration_tickets_finder", timeout=5*60)
 def registration_tickets_finder():
+
     logger.info(f"cascade_tickets_finder started")
     try:
         with db_context() as session:
@@ -229,6 +233,9 @@ def process_action_tickets(tickets, last_processed_block):
 
 @shared_task(name="scheduled_tools:ticket_activator")
 def ticket_activator():
+    if settings.ACCOUNT_MANAGER_ENABLED:  # throw and exception if account manager is enabled
+        raise Exception("Account manager and ticket activator can't be enabled at the same time")
+
     _ticket_activator(
         crud.cascade.get_all_in_registered_state,
         crud.cascade.update,

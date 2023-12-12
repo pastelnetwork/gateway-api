@@ -10,7 +10,6 @@ from app import crud, models, schemas
 from app.api import deps
 from app.core.config import settings
 from app.utils.authentication import send_new_account_email
-from app.utils.pasteld import create_address
 
 router = APIRouter()
 
@@ -52,6 +51,26 @@ def create_user(
             email_to=user_in.email, username=user_in.email, password=user_in.password
         )
     return user
+
+
+@router.delete("/{user_id}", response_model=schemas.User, response_model_exclude_none=True)
+def delete_apikey(
+    *,
+    user_id: int,
+    db: Session = Depends(session.get_db_session),
+    super_user: models.User = Depends(deps.OAuth2Auth.get_current_active_superuser),
+) -> Any:
+    """
+    Delete user.
+    """
+    user = crud.user.get(db, id=user_id)
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="The user with this user ID does not exist in the system",
+        )
+    deletedUser = crud.user.remove(db, id=user_id)
+    return deletedUser
 
 
 @router.put("/me", response_model=schemas.User, response_model_exclude_none=True)
@@ -127,6 +146,11 @@ def read_user_by_id(
     Get a specific user by id.
     """
     user = crud.user.get(db, id=user_id)
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="The user with this user ID does not exist in the system",
+        )
     if user == current_user:
         return user
     if not crud.user.is_superuser(current_user):

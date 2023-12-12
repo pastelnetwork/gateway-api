@@ -15,13 +15,15 @@ class CRUDHistoryLog(CRUDBase[ModelType, CreateSchemaType, UpdateSchemaType]):
     def get_by_ids(self, db: Session,
                    task_id: int,
                    wn_file_id: str, wn_task_id: str, pastel_id: str) -> Optional[ModelType]:
-        return (
+        query = (
             db.query(self.model)
             .filter(self.model.task_id == task_id)
-            .filter(self.model.wn_file_id == wn_file_id)
             .filter(self.model.wn_task_id == wn_task_id)
             .filter(self.model.pastel_id == pastel_id)
-            .first())
+        )
+        if wn_file_id:
+            query = query.filter(self.model.wn_file_id == wn_file_id)
+        return query.first()
 
 class CRUDCascadeLog(CRUDHistoryLog[CascadeHistory, HistoryLogCreate, HistoryLogUpdate]):
     pass
@@ -32,7 +34,7 @@ class CRUDSenseLog(CRUDHistoryLog[SenseHistory, HistoryLogCreate, HistoryLogUpda
 class CRUDNftLog(CRUDHistoryLog[NftHistoryLog, HistoryLogCreate, HistoryLogUpdate]):
     pass
 
-class CRUDCollectionLog(CRUDBase[CollectionHistory, HistoryLogCreate, HistoryLogUpdate]):
+class CRUDCollectionLog(CRUDHistoryLog[CollectionHistory, HistoryLogCreate, HistoryLogUpdate]):
     pass
 
 cascade_log = CRUDCascadeLog(CascadeHistory)

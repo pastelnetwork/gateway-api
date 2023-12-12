@@ -21,7 +21,7 @@ cache = TTLCache(maxsize=100, ttl=600)
 @router.get("/pastelid_claiming_step_1")
 def pastelid_claiming_step_1(
     *,
-    pastel_id = Query("", description="Pastel ID to claim"),
+    pastel_id: str = Query("", description="Pastel ID to claim"),
     db: Session = Depends(session.get_db_session),
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> str:
@@ -47,8 +47,8 @@ def pastelid_claiming_step_1(
 @router.put("/pastelid_claiming_step_2")
 def pastelid_claiming_step_2(
     *,
-    pastel_id = Query("", description="Pastel ID to claim"),
-    signature = Query("", description="Signature of the message returned by pastelid_claiming_step_1"),
+    pastel_id: str = Query("", description="Pastel ID to claim"),
+    signature: str = Query("", description="Signature of the message returned by pastelid_claiming_step_1"),
     db: Session = Depends(session.get_db_session),
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
 ) -> Any:

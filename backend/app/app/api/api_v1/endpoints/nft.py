@@ -420,11 +420,11 @@ async def get_pastel_activation_ticket_by_its_txid(
 @router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}")
 async def get_pastel_ticket_data_from_media_file_hash(
         *,
-        stored_file_sha256_hash_as_hex: str,
+        media_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),
 ):
     output = []
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex, ticket_type="nft")
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=media_file_sha256_hash, ticket_type="nft")
     for ticket in tickets:
         reg_ticket = await common.get_registration_nft_ticket(ticket.reg_ticket_txid)
         output.append(reg_ticket)
@@ -602,7 +602,7 @@ async def get_raw_dd_result_file_by_pastel_id(
         pastel_id_of_user: str,
 ):
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                                  ticket_type="nft",
+                                                                  ticket_type="nft", action_type='',
                                                                   search_data_lambda=lambda txid:
                                                                   common.search_nft_dd_result_pastel(
                                                                       reg_ticket_txid=txid,
@@ -618,7 +618,7 @@ async def get_parsed_dd_result_file_by_pastel_id(
         pastel_id_of_user: str,
 ):
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                                  ticket_type="nft",
+                                                                  ticket_type="nft", action_type='',
                                                                   search_data_lambda=lambda txid:
                                                                   common.search_nft_dd_result_pastel(
                                                                       reg_ticket_txid=txid,

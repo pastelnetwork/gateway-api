@@ -191,10 +191,10 @@ async def get_nft_collections_by_collection_id(
         raise HTTPException(status_code=404, detail="gateway_result not found")
     return await result_to_collection(await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION))
 
+
 async def result_to_collection(result):
     coll = schemas.CollectionRegistrationResult(**result.dict())
     coll.collection_id = result.result_id
-    coll.status = result.result_status
     return coll
 
 

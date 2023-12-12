@@ -198,7 +198,9 @@ class Settings(BaseSettings):
     RETURN_DETAILED_WN_ERROR: bool = True
 
     # registration_helpers
+    REGISTRATION_FINISHER_ENABLED: bool = True
     REGISTRATION_FINISHER_INTERVAL: float = 600.0
+    REGISTRATION_RE_PROCESSOR_ENABLED: bool = True
     REGISTRATION_RE_PROCESSOR_INTERVAL: float = 700.0
 
     # scheduled_tools
@@ -213,6 +215,11 @@ class Settings(BaseSettings):
     TICKET_ACTIVATOR_ENABLED: bool = True
     WATCHDOG_INTERVAL: float = 1200.0
     WATCHDOG_ENABLED: bool = True
+
+    ACCOUNT_MANAGER_ENABLED: bool = False
+    ACCOUNT_MANAGER_ADDRESS_MAKER_INTERVAL: float = 120.0
+    ACCOUNT_MANAGER_BALANCER_INTERVAL: float = 1200.0
+    BALANCE_PAYMENT_THRESHOLD: float = 100000.0
 
     # celery config
     # 10 retries with exponential delays starting from 180 seconds, capped at 10 hours will take ~32 hours

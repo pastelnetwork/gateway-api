@@ -298,7 +298,7 @@ async def get_raw_output_file_by_pastel_id(
         db: Session = Depends(session.get_db_session),
 ):
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                                  ticket_type="action",
+                                                                  ticket_type="action", action_type='sense',
                                                                   search_data_lambda=lambda txid:
                                                                   common.search_pastel_file(
                                                                       db=db,
@@ -317,7 +317,7 @@ async def parsed_output_file_by_pastel_id(
         db: Session = Depends(session.get_db_session),
 ):
     return await common.get_all_sense_or_nft_dd_data_for_pastelid(pastel_id=pastel_id_of_user,
-                                                                  ticket_type="action",
+                                                                  ticket_type="action", action_type='sense',
                                                                   search_data_lambda=lambda txid:
                                                                   common.search_pastel_file(
                                                                       db=db,
@@ -436,11 +436,11 @@ async def get_pastel_activation_ticket_by_its_txid(
 @router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}")
 async def get_pastel_ticket_data_from_media_file_hash(
         *,
-        stored_file_sha256_hash_as_hex: str,
+        media_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),
 ):
     output = []
-    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=stored_file_sha256_hash_as_hex, ticket_type="sense")
+    tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=media_file_sha256_hash, ticket_type="sense")
     for ticket in tickets:
         reg_ticket = await common.get_registration_action_ticket(ticket.reg_ticket_txid, wn.WalletNodeService.SENSE)
         output.append(reg_ticket)

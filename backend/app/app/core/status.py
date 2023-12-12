@@ -38,23 +38,27 @@ def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
         return
 
     if wn_service == wn.WalletNodeService.CASCADE:
+        file_id = task_from_db.wn_file_id
         log_klass = crud.cascade_log
     elif wn_service == wn.WalletNodeService.SENSE:
+        file_id = task_from_db.wn_file_id
         log_klass = crud.sense_log
     elif wn_service == wn.WalletNodeService.NFT:
+        file_id = task_from_db.wn_file_id
         log_klass = crud.nft_log
     elif wn_service == wn.WalletNodeService.COLLECTION:
+        file_id = None
         log_klass = crud.collection_log
     else:
         return
 
     with db_context() as session:
-        log = log_klass.get_by_ids(session, task_from_db.id, task_from_db.wn_file_id,
+        log = log_klass.get_by_ids(session, task_from_db.id, file_id,
                                    task_from_db.wn_task_id, task_from_db.pastel_id)
         if not log:
             log = schemas.HistoryLogCreate(
                 task_id=task_from_db.id,
-                wn_file_id=task_from_db.wn_file_id,
+                wn_file_id=file_id,
                 wn_task_id=task_from_db.wn_task_id,
                 pastel_id=task_from_db.pastel_id,
                 status_messages=wn_task_status,
@@ -72,18 +76,22 @@ def add_status_to_history_log(task_from_db, wn_service, wn_task_status):
 def get_status_from_history_log(task_from_db, wn_service):
 
     if wn_service == wn.WalletNodeService.CASCADE:
+        file_id = task_from_db.wn_file_id
         log_klass = crud.cascade_log
     elif wn_service == wn.WalletNodeService.SENSE:
+        file_id = task_from_db.wn_file_id
         log_klass = crud.sense_log
     elif wn_service == wn.WalletNodeService.NFT:
+        file_id = task_from_db.wn_file_id
         log_klass = crud.nft_log
     elif wn_service == wn.WalletNodeService.COLLECTION:
+        file_id = None
         log_klass = crud.collection_log
     else:
         return
 
     with db_context() as session:
-        return log_klass.get_by_ids(session, task_from_db.id, task_from_db.wn_file_id,
+        return log_klass.get_by_ids(session, task_from_db.id, file_id,
                                     task_from_db.wn_task_id, task_from_db.pastel_id)
 
 
