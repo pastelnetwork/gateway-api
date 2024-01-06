@@ -15,7 +15,7 @@ from app.core.config import settings
 router = APIRouter()
 
 
-@router.get("", response_model=List[schemas.ApiKey], response_model_exclude_none=True)
+@router.get("", response_model=List[schemas.ApiKey], response_model_exclude_none=True, operation_id="api_keys_read_apikeys")
 def read_apikeys(
     db: Session = Depends(session.get_db_session),
     skip: int = 0,
@@ -34,7 +34,7 @@ def read_apikeys(
     return apikeys
 
 
-@router.post("", response_model=schemas.ApiKey, response_model_exclude_none=True)
+@router.post("", response_model=schemas.ApiKey, response_model_exclude_none=True, operation_id="api_keys_create_apikey")
 def create_apikey(
     *,
     db: Session = Depends(session.get_db_session),
@@ -59,7 +59,7 @@ def create_apikey(
     return apikey
 
 
-@router.get("/{api_key}", response_model=schemas.ApiKey, response_model_exclude_none=True)
+@router.get("/{api_key}", response_model=schemas.ApiKey, response_model_exclude_none=True, operation_id="api_keys_read_apikey")
 def read_apikey(
     *,
     db: Session = Depends(session.get_db_session),
@@ -72,7 +72,7 @@ def read_apikey(
     return get_api_key(db=db, api_key=api_key, current_user=current_user)
 
 
-@router.delete("/{api_key}", response_model=schemas.ApiKey)
+@router.delete("/{api_key}", response_model=schemas.ApiKey, operation_id="api_keys_delete_apikey")
 def delete_apikey(
     *,
     db: Session = Depends(session.get_db_session),

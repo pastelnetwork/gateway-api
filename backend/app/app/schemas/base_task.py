@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List, Any
+from typing import Optional, List, Dict
 
 from pydantic import BaseModel, Json
 
@@ -88,18 +88,18 @@ class ResultRegistrationBase(BaseModel):
     file_id: Optional[str] = None
     created_at: Optional[datetime] = None
     last_updated_at: Optional[datetime] = None
-    status_messages: Optional[Any] = None
+    status_messages: Optional[List[Dict | str]] = None
     retry_num: Optional[int] = None
     registration_ticket_txid: Optional[str] = None
     activation_ticket_txid: Optional[str] = None
     original_file_ipfs_link: Optional[str] = None
     stored_file_ipfs_link: Optional[str] = None
     stored_file_aws_link: Optional[str] = None
-    stored_file_other_links: Optional[Json] = None
+    stored_file_other_links: Optional[Dict] = None
     make_publicly_accessible: Optional[bool] = None
     offer_ticket_txid: Optional[str] = None
     offer_ticket_intended_rcpt_pastel_id: Optional[str] = None
-    error: Optional[Any] = None
+    error: Optional[str] = None
 
 
 class ResultRegistrationResult(ResultRegistrationBase):

@@ -26,10 +26,7 @@ def create_celery():
     celery_app.conf.update(worker_max_tasks_per_child=100)
 
     celery_app.conf.beat_schedule = {}
-    if app_settings.REGISTRATION_FINISHER_ENABLED:
-        if app_settings.ACCOUNT_MANAGER_ENABLED:    # throw and exception if account manager is enabled
-            raise Exception("Account manager and registration finisher can't be enabled at the same time")
-
+    if app_settings.REGISTRATION_FINISHER_ENABLED and not app_settings.ACCOUNT_MANAGER_ENABLED:
         celery_app.conf.beat_schedule.update(
             {
                 'registration_helpers_registration_finisher': {
@@ -39,10 +36,7 @@ def create_celery():
             }
         )
 
-    if app_settings.REGISTRATION_RE_PROCESSOR_ENABLED:
-        if app_settings.ACCOUNT_MANAGER_ENABLED:    # throw and exception if account manager is enabled
-            raise Exception("Account manager and registration re-processor can't be enabled at the same time")
-
+    if app_settings.REGISTRATION_RE_PROCESSOR_ENABLED and not app_settings.ACCOUNT_MANAGER_ENABLED:
         celery_app.conf.beat_schedule.update(
             {
                 'registration_helpers_registration_re_processor': {
@@ -52,10 +46,7 @@ def create_celery():
             }
         )
 
-    if app_settings.FEE_PRE_BURNER_ENABLED:
-        if app_settings.ACCOUNT_MANAGER_ENABLED:    # throw and exception if account manager is enabled
-            raise Exception("Account manager and fee pre burner can't be enabled at the same time")
-
+    if app_settings.FEE_PRE_BURNER_ENABLED and not app_settings.ACCOUNT_MANAGER_ENABLED:
         celery_app.conf.beat_schedule.update(
             {
                 'scheduled_tools_fee_pre_burner': {
@@ -64,10 +55,7 @@ def create_celery():
                 }
             }
         )
-    if app_settings.TICKET_ACTIVATOR_ENABLED:
-        if app_settings.ACCOUNT_MANAGER_ENABLED:    # throw and exception if account manager is enabled
-            raise Exception("Account manager and ticket activator can't be enabled at the same time")
-
+    if app_settings.TICKET_ACTIVATOR_ENABLED and not app_settings.ACCOUNT_MANAGER_ENABLED:
         celery_app.conf.beat_schedule.update(
             {
                 'scheduled_tools_ticket_activator': {
@@ -77,7 +65,7 @@ def create_celery():
             }
         )
 
-    if app_settings.REG_TICKETS_FINDER_ENABLED:
+    if app_settings.REG_TICKETS_FINDER_ENABLED and not app_settings.ACCOUNT_MANAGER_ENABLED:
         celery_app.conf.beat_schedule.update(
             {
                 'scheduled_tools_reg_tickets_finder': {
@@ -87,7 +75,7 @@ def create_celery():
             }
         )
 
-    if app_settings.WATCHDOG_ENABLED:
+    if app_settings.WATCHDOG_ENABLED and not app_settings.ACCOUNT_MANAGER_ENABLED:
         celery_app.conf.beat_schedule.update(
             {
                 'scheduled_tools_watchdog': {
@@ -98,6 +86,15 @@ def create_celery():
         )
 
     if app_settings.ACCOUNT_MANAGER_ENABLED:
+        if (app_settings.REGISTRATION_FINISHER_ENABLED or
+                app_settings.REGISTRATION_RE_PROCESSOR_ENABLED or
+                app_settings.FEE_PRE_BURNER_ENABLED or
+                app_settings.TICKET_ACTIVATOR_ENABLED or
+                app_settings.REG_TICKETS_FINDER_ENABLED or
+                app_settings.WATCHDOG_ENABLED):
+            raise Exception("Account Manager and Registration Finisher/Re-Processor/Fee Pre-Burner/"
+                            "Ticket Activator/Reg Tickets Finder/Watchdog cannot be enabled at the same time")
+
         celery_app.conf.beat_schedule.update(
             {
                 'account_manager_address_maker': {

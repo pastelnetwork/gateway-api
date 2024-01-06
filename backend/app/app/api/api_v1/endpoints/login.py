@@ -20,7 +20,7 @@ from app.utils.authentication import (
 router = APIRouter()
 
 
-@router.post("/login/access-token", response_model=schemas.Token)
+@router.post("/login/access-token", response_model=schemas.Token, operation_id="login_access_token")
 def login_access_token(
         db: Session = Depends(session.get_db_session),
         form_data: OAuth2PasswordRequestForm = Depends()
@@ -44,7 +44,7 @@ def login_access_token(
     }
 
 
-@router.post("/login/test-token", response_model=schemas.User)
+@router.post("/login/test-token", response_model=schemas.User, operation_id="login_test_token")
 def test_token(
         current_user: models.User = Depends(deps.OAuth2Auth.get_current_user)
 ) -> Any:
@@ -54,7 +54,7 @@ def test_token(
     return current_user
 
 
-@router.post("/password-recovery/{email}", response_model=schemas.Msg)
+@router.post("/password-recovery/{email}", response_model=schemas.Msg, operation_id="login_password_recovery")
 def recover_password(
         email: str,
         db: Session = Depends(session.get_db_session)
@@ -75,7 +75,8 @@ def recover_password(
     )
     return {"msg": f"Password recovery email sent to {email} with token {password_reset_token}"}
 
-@router.post("/reset-password/", response_model=schemas.Msg)
+
+@router.post("/reset-password/", response_model=schemas.Msg, operation_id="login_reset_password")
 def reset_password(
         token: str = Body(...),
         new_password: str = Body(...),

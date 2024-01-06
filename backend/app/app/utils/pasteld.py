@@ -273,7 +273,7 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type,
                                              task_from_db.wn_fee,
                                              task_from_db.pastel_id,
                                              pastel_id_pwd,
-                                             funding_address if funding_address else None]
+                                             funding_address if funding_address else ""]
                                  )   # can throw exception here
         if activation_ticket and 'txid' in activation_ticket:
             logger.info(f"Created {ticket_type} ticket {activation_ticket['txid']}")

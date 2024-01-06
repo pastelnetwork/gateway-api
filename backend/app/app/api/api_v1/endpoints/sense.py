@@ -16,7 +16,7 @@ router = APIRouter()
 
 # Submit a Sense OpenAPI gateway_request for the current user.
 # Note: Only authenticated user with API key
-@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True)
+@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="sense_submit_request")
 async def process_request(
         *,
         files: List[UploadFile],
@@ -40,7 +40,7 @@ async def process_request(
 
 # Get all Sense OpenAPI gateway_requests for the current user.
 # Note: Only authenticated user with API key
-@router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True)
+@router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True, operation_id="sense_get_all_requests")
 async def get_all_requests(
         *,
         status_requested: Optional[ReqStatus] = Query(None),
@@ -59,8 +59,7 @@ async def get_all_requests(
 
 # Get an individual Sense gateway_request by its gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult,
-            response_model_exclude_none=True)
+@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="sense_get_request_by_id")
 async def get_request_by_request_id(
         *,
         gateway_request_id: str,
@@ -76,7 +75,7 @@ async def get_request_by_request_id(
 
 # Get all Sense gateway_results for the current user.
 # Note: Only authenticated user with API key
-@router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
+@router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True, operation_id="sense_get_all_results")
 async def get_all_results(
         *,
         status_requested: Optional[ReqStatus] = Query(None),
@@ -99,8 +98,7 @@ async def get_all_results(
 
 # Get an individual Sense gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/gateway_results/{gateway_result_id}",
-            response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+@router.get("/gateway_results/{gateway_result_id}", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True, operation_id="sense_get_result_by_id")
 async def get_result_by_result_id(
         *,
         gateway_result_id: str,
@@ -116,7 +114,7 @@ async def get_result_by_result_id(
 
 # Get the set of underlying Sense raw_outputs_files from the corresponding gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/all_raw_output_files_from_request/{gateway_request_id}")
+@router.get("/all_raw_output_files_from_request/{gateway_request_id}", operation_id="sense_get_all_raw_output_files_from_request")
 async def get_all_raw_output_files_from_request(
         *,
         gateway_request_id: str,
@@ -141,7 +139,7 @@ async def get_all_raw_output_files_from_request(
 
 # Get the set of underlying Sense parsed_outputs_files from the corresponding gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/all_parsed_output_files_from_request/{gateway_request_id}")
+@router.get("/all_parsed_output_files_from_request/{gateway_request_id}", operation_id="sense_get_all_parsed_output_files_from_request")
 async def get_all_parsed_output_files_from_request(
         *,
         gateway_request_id: str,
@@ -166,7 +164,7 @@ async def get_all_parsed_output_files_from_request(
 
 # Get the underlying Sense raw_outputs_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/raw_output_file/{gateway_result_id}")
+@router.get("/raw_output_file/{gateway_result_id}", operation_id="sense_get_raw_output_file_by_result_id")
 async def get_raw_output_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -186,7 +184,7 @@ async def get_raw_output_file_by_result_id(
 
 # Get the underlying Sense parsed_outputs_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/parsed_output_file/{gateway_result_id}")
+@router.get("/parsed_output_file/{gateway_result_id}", operation_id="sense_get_parsed_output_file_by_result_id")
 async def get_parsed_output_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -207,7 +205,7 @@ async def get_parsed_output_file_by_result_id(
 
 # Get the underlying Sense raw_output_file from the corresponding Sense Registration Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_output_file_by_registration_ticket/{registration_ticket_txid}")
+@router.get("/raw_output_file_by_registration_ticket/{registration_ticket_txid}", operation_id="sense_get_raw_output_file_by_registration_ticket")
 async def get_raw_output_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -227,7 +225,7 @@ async def get_raw_output_file_by_registration_ticket(
 
 # Get the underlying Sense parsed_output_file from the corresponding Sense Registration Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/parsed_output_file_by_registration_ticket/{registration_ticket_txid}")
+@router.get("/parsed_output_file_by_registration_ticket/{registration_ticket_txid}", operation_id="sense_get_parsed_output_file_by_registration_ticket")
 async def get_parsed_output_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -248,7 +246,7 @@ async def get_parsed_output_file_by_registration_ticket(
 
 # Get the underlying Sense raw_output_file from the corresponding Sense Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_output_file_by_activation_ticket/{activation_ticket_txid}")
+@router.get("/raw_output_file_by_activation_ticket/{activation_ticket_txid}", operation_id="sense_get_raw_output_file_by_activation_ticket")
 async def get_raw_output_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
@@ -269,7 +267,7 @@ async def get_raw_output_file_by_activation_ticket(
 
 # Get the underlying Sense parsed_output_file from the corresponding Sense Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/parsed_output_file_by_activation_txid/{activation_ticket_txid}")
+@router.get("/parsed_output_file_by_activation_txid/{activation_ticket_txid}", operation_id="sense_get_parsed_output_file_by_activation_ticket")
 async def parsed_output_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
@@ -291,7 +289,7 @@ async def parsed_output_file_by_activation_ticket(
 
 # Get a list of the Sense raw_output_files for the given pastel_id
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_output_file_by_pastel_id/{pastel_id_of_user}")
+@router.get("/raw_output_file_by_pastel_id/{pastel_id_of_user}", operation_id="sense_get_raw_output_file_by_pastel_id")
 async def get_raw_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
@@ -310,7 +308,7 @@ async def get_raw_output_file_by_pastel_id(
 
 # Get a list of the Sense parsed_output_files for the given pastel_id
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/parsed_output_file_by_pastel_id/{pastel_id_of_user}")
+@router.get("/parsed_output_file_by_pastel_id/{pastel_id_of_user}", operation_id="sense_get_parsed_output_file_by_pastel_id")
 async def parsed_output_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
@@ -329,7 +327,7 @@ async def parsed_output_file_by_pastel_id(
 
 # Get the ORIGINAL uploaded from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/originally_submitted_file/{gateway_result_id}")
+@router.get("/originally_submitted_file/{gateway_result_id}", operation_id="sense_get_originally_submitted_file_by_result_id")
 async def get_originally_submitted_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -352,7 +350,7 @@ async def get_originally_submitted_file_by_result_id(
 
 # Get ALL Pastel Sense registration tickets from the blockchain corresponding to a particular gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_registration_tickets/{gateway_request_id}")
+@router.get("/pastel_registration_tickets/{gateway_request_id}", operation_id="sense_get_all_pastel_registration_tickets_from_request")
 async def get_all_pastel_sense_registration_tickets_from_request(
         *,
         gateway_request_id: str,
@@ -376,7 +374,7 @@ async def get_all_pastel_sense_registration_tickets_from_request(
 
 # Get Pastel Sense registration ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_registration_ticket/{gateway_result_id}")
+@router.get("/pastel_registration_ticket/{gateway_result_id}", operation_id="sense_get_pastel_registration_ticket_by_result_id")
 async def get_pastel_sense_registration_ticket_by_result_id(
         *,
         gateway_result_id: str,
@@ -393,7 +391,7 @@ async def get_pastel_sense_registration_ticket_by_result_id(
 
 # Get Pastel Sense activation ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_activation_ticket/{gateway_result_id}")
+@router.get("/pastel_activation_ticket/{gateway_result_id}", operation_id="sense_get_pastel_activation_ticket_by_result_id")
 async def get_pastel_sense_activation_ticket_by_result_id(
         *,
         gateway_result_id: str,
@@ -410,7 +408,7 @@ async def get_pastel_sense_activation_ticket_by_result_id(
 
 # Get the Pastel Sense Registration Ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}")
+@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}", operation_id="sense_get_pastel_registration_ticket_by_its_txid")
 async def get_pastel_registration_ticket_by_its_txid(
         *,
         registration_ticket_txid: str,
@@ -421,7 +419,7 @@ async def get_pastel_registration_ticket_by_its_txid(
 
 # Get the Pastel Sense Activation Ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}")
+@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}", operation_id="sense_get_pastel_activation_ticket_by_its_txid")
 async def get_pastel_activation_ticket_by_its_txid(
         *,
         activation_ticket_txid: str,
@@ -433,7 +431,7 @@ async def get_pastel_activation_ticket_by_its_txid(
 # Get the set of Pastel Sense ticket from the blockchain corresponding to a particular media_file_sha256_hash;
 # Contains block number and pastel_id in case there are multiple results for the same media_file_sha256_hash
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}")
+@router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}", operation_id="sense_get_pastel_ticket_by_media_file_hash")
 async def get_pastel_ticket_data_from_media_file_hash(
         *,
         media_file_sha256_hash: str,
@@ -479,7 +477,7 @@ async def result_status(
     await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.SENSE)
 
 
-@router.get("/result/transfer_pastel_ticket")
+@router.get("/result/transfer_pastel_ticket", operation_id="sense_transfer_pastel_ticket_to_another_pastelid")
 async def transfer_pastel_ticket_to_another_pastelid(
         *,
         gateway_result_id: str = Query(),

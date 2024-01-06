@@ -18,7 +18,7 @@ router = APIRouter()
 cache = TTLCache(maxsize=100, ttl=600)
 
 
-@router.get("/pastelid_claiming_step_1")
+@router.get("/pastelid_claiming_step_1", operation_id="account_pastelid_claiming_step_1")
 def pastelid_claiming_step_1(
     *,
     pastel_id: str = Query("", description="Pastel ID to claim"),
@@ -44,7 +44,7 @@ def pastelid_claiming_step_1(
     return hex_encoded_message.decode()
 
 
-@router.put("/pastelid_claiming_step_2")
+@router.put("/pastelid_claiming_step_2", operation_id="account_pastelid_claiming_step_2")
 def pastelid_claiming_step_2(
     *,
     pastel_id: str = Query("", description="Pastel ID to claim"),
@@ -89,7 +89,7 @@ def check_new_pastelid(current_user, db, pastel_id):
             )
 
 
-@router.get("/my_total_balance")
+@router.get("/my_total_balance", operation_id="account_my_total_balance")
 def my_total_balance(
     *,
     db: Session = Depends(session.get_db_session),
@@ -98,7 +98,7 @@ def my_total_balance(
     return get_total_balance(db, user=current_user)
 
 
-@router.get("/total_balances")
+@router.get("/total_balances", operation_id="account_total_balances")
 def total_balances(
     *,
     db: Session = Depends(session.get_db_session),
@@ -115,7 +115,7 @@ def total_balances(
     return total_balances_list
 
 
-@router.post("/set_balance_limit")
+@router.post("/set_balance_limit", operation_id="account_set_balance_limit")
 def set_balance_limit(
     *,
     user_id_or_email: Union[int, str],

@@ -44,6 +44,10 @@ async def process_nft_request(
         api_key: ApiKey,
 ) -> schemas.RequestResult:
     await check_pastelid_for_transfer(db=db, pastel_id=after_activation_transfer_to_pastelid, user_id=user_id)
+    if collection_act_txid:
+        result = await psl.check_ticket_transaction(collection_act_txid, 'collection-act', 0, 0)
+        if result != psl.TicketTransactionStatus.CONFIRMED:
+            raise HTTPException(status_code=400, detail=f'Collection activation ticket {collection_act_txid} not found')
 
     ipfs_hash = await store_file_to_ipfs(lf.path)
     _ = (
@@ -83,6 +87,10 @@ async def process_action_request(
         results=[]
     )
     await check_pastelid_for_transfer(db=db, pastel_id=after_activation_transfer_to_pastelid, user_id=user_id)
+    if service == wn.WalletNodeService.SENSE and collection_act_txid:
+        result = psl.check_ticket_transaction(collection_act_txid, 'action-act', 0, 0)
+        if result != psl.TicketTransactionStatus.CONFIRMED:
+            raise HTTPException(status_code=400, detail=f'Collection activation ticket {collection_act_txid} not found')
 
     for file in files:
         reg_result = await check_file_is_not_empty(file)

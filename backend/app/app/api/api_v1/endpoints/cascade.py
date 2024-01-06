@@ -17,7 +17,7 @@ router = APIRouter()
 
 # Submit a Cascade OpenAPI gateway_request for the current user
 # Note: Only authenticated user with API key
-@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True)
+@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="cascade_process_request")
 async def process_request(
         *,
         files: List[UploadFile],
@@ -40,7 +40,7 @@ async def process_request(
 
 # Get all Cascade OpenAPI gateway_requests for the current user
 # Note: Only authenticated user with API key
-@router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True)
+@router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True, operation_id="cascade_get_all_requests")
 async def get_all_requests(
         *,
         status_requested: Optional[ReqStatus] = Query(None),
@@ -62,7 +62,7 @@ async def get_all_requests(
 
 # Get an individual Cascade gateway_request by its gateway_request_id
 # Note: Only authenticated user with API key
-@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult, response_model_exclude_none=True)
+@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="cascade_get_request")
 async def get_request_by_request_id(
         *,
         gateway_request_id: str,
@@ -81,7 +81,7 @@ async def get_request_by_request_id(
 
 # Get all Cascade gateway_results for the current user
 # Note: Only authenticated user with API key
-@router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
+@router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True, operation_id="cascade_get_all_results")
 async def get_all_results(
         *,
         status_requested: Optional[ReqStatus] = Query(None),
@@ -104,8 +104,7 @@ async def get_all_results(
 
 # Get an individual Cascade gateway_result by its result_id
 # Note: Only authenticated user with API key
-@router.get("/gateway_results/{gateway_result_id}",
-            response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+@router.get("/gateway_results/{gateway_result_id}", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True, operation_id="cascade_get_result")
 async def get_result_by_result_id(
         *,
         gateway_result_id: str,
@@ -121,7 +120,7 @@ async def get_result_by_result_id(
 
 # Get ALL underlying Cascade stored_files from the corresponding gateway_request_id
 # Note: Only authenticated user with API key
-@router.get("/all_files_from_request/{gateway_request_id}")
+@router.get("/all_files_from_request/{gateway_request_id}", operation_id="cascade_get_all_files_from_request")
 async def get_all_files_from_request(
         *,
         gateway_request_id: str,
@@ -149,7 +148,7 @@ async def get_all_files_from_request(
 
 # Get the underlying Cascade stored_file from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/stored_file/{gateway_result_id}")
+@router.get("/stored_file/{gateway_result_id}", operation_id="cascade_get_stored_file")
 async def get_stored_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -171,7 +170,7 @@ async def get_stored_file_by_result_id(
 # Get the underlying Cascade stored_file from the corresponding Cascade Registration Ticket Transaction ID
 # Only succeeds if the user owns the Cascade file (authenticated user with API key)
 #    - in the context of Gateway it means that file was registered by that instance of Gateway with its PastelID
-@router.get("/stored_file_from_registration_ticket/{registration_ticket_txid}")
+@router.get("/stored_file_from_registration_ticket/{registration_ticket_txid}", operation_id="cascade_get_stored_file_from_registration_ticket")
 async def get_stored_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -194,7 +193,7 @@ async def get_stored_file_by_registration_ticket(
 # Get the underlying Cascade stored_file from the corresponding Cascade Activation Ticket Transaction ID
 # Only succeeds if the user owns the Cascade file (authenticated user with API key)
 #    - in the context of Gateway it means that file was registered by that instance of Gateway with its PastelID
-@router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}")
+@router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}", operation_id="cascade_get_stored_file_from_activation_ticket")
 async def get_stored_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
@@ -217,7 +216,7 @@ async def get_stored_file_by_activation_ticket(
 # Get the Public Cascade stored_file from the corresponding Cascade Registration Ticket Transaction ID
 # Only succeeds if the file was made Public during registration (by setting flag make_publicly_accessible)
 # Note: Available to any user
-@router.get("/public_stored_file_from_registration_ticket/{registration_ticket_txid}")
+@router.get("/public_stored_file_from_registration_ticket/{registration_ticket_txid}", operation_id="cascade_get_public_stored_file_from_registration_ticket")
 async def get_public_stored_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -231,7 +230,7 @@ async def get_public_stored_file_by_registration_ticket(
 
 # Get the ORIGINAL uploaded from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/originally_submitted_file/{gateway_result_id}")
+@router.get("/originally_submitted_file/{gateway_result_id}", operation_id="cascade_get_originally_submitted_file")
 async def get_originally_submitted_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -254,7 +253,7 @@ async def get_originally_submitted_file_by_result_id(
 
 # Get ALL Pastel cascade registration tickets from the blockchain corresponding to a particular gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_registration_tickets/{gateway_request_id}")
+@router.get("/pastel_registration_tickets/{gateway_request_id}", operation_id="cascade_get_all_pastel_registration_tickets_from_request")
 async def get_all_pastel_cascade_registration_tickets_from_request(
         *,
         gateway_request_id: str,
@@ -277,7 +276,7 @@ async def get_all_pastel_cascade_registration_tickets_from_request(
 
 # Get the Pastel Cascade registration ticket from the blockchain corresponding to a particular gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/pastel_registration_ticket/{gateway_result_id}")
+@router.get("/pastel_registration_ticket/{gateway_result_id}", operation_id="cascade_get_pastel_registration_ticket_from_result")
 async def get_pastel_cascade_registration_ticket_by_result_id(
         *,
         gateway_result_id: str,
@@ -294,7 +293,7 @@ async def get_pastel_cascade_registration_ticket_by_result_id(
 
 # Get the Pastel Cascade Activation ticket from the blockchain corresponding to a particular gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/pastel_activation_ticket/{gateway_result_id}")
+@router.get("/pastel_activation_ticket/{gateway_result_id}", operation_id="cascade_get_pastel_activation_ticket_from_result")
 async def get_pastel_cascade_activation_ticket_by_result_id(
         *,
         gateway_result_id: str,
@@ -311,7 +310,7 @@ async def get_pastel_cascade_activation_ticket_by_result_id(
 
 # Get the Pastel Cascade registration ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}")
+@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}", operation_id="cascade_get_pastel_registration_ticket_from_txid")
 async def get_pastel_registration_ticket_by_its_txid(
         *,
         registration_ticket_txid: str,
@@ -322,7 +321,7 @@ async def get_pastel_registration_ticket_by_its_txid(
 
 # Get the Pastel Cascade activation ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}")
+@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}", operation_id="cascade_get_pastel_activation_ticket_from_txid")
 async def get_pastel_activation_ticket_by_its_txid(
         *,
         activation_ticket_txid: str,
@@ -334,7 +333,7 @@ async def get_pastel_activation_ticket_by_its_txid(
 # Get the set of Pastel Cascade tickets from the blockchain corresponding to a particular stored_file_sha256_hash.
 # Contains pastel_block_number and pastel_id in case there are multiple results for the same stored_file_sha256_hash
 # Note: Available to any user
-@router.get("/pastel_ticket_from_stored_file_hash/{stored_file_sha256_hash_as_hex}")
+@router.get("/pastel_ticket_from_stored_file_hash/{stored_file_sha256_hash_as_hex}", operation_id="cascade_get_pastel_ticket_from_stored_file_hash")
 async def get_pastel_registration_ticket_by_stored_file_hash(
         *,
         stored_file_sha256_hash_as_hex: str,
@@ -386,7 +385,7 @@ async def status_of_result(
     await common.process_websocket_for_result(websocket, results, wn.WalletNodeService.CASCADE)
 
 
-@router.get("/result/transfer_pastel_ticket")
+@router.get("/result/transfer_pastel_ticket", operation_id="cascade_transfer_pastel_ticket_to_another_pastelid")
 async def transfer_pastel_ticket_to_another_pastelid(
         *,
         gateway_result_id: str = Query(),

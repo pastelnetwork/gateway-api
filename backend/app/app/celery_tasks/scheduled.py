@@ -114,6 +114,8 @@ def fee_pre_burner():
 @shared_task(name="scheduled_tools:reg_tickets_finder", task_id="reg_tickets_finder")
 @task_lock(main_key="registration_tickets_finder", timeout=5*60)
 def registration_tickets_finder():
+    if settings.ACCOUNT_MANAGER_ENABLED:  # throw and exception if account manager is enabled
+        raise Exception("Account manager and registration ticket finder can't be enabled at the same time")
 
     logger.info(f"cascade_tickets_finder started")
     try:
@@ -438,6 +440,9 @@ def parse_registration_ticket(reg_txid, service: wn.WalletNodeService) -> (int |
 
 @shared_task(name="scheduled_tools:watchdog")
 def watchdog():
+    if settings.ACCOUNT_MANAGER_ENABLED:  # throw and exception if account manager is enabled
+        raise Exception("Account manager and watchdog can't be enabled at the same time")
+
     logger.info(f"watchdog task started")
     _ticket_verificator(
         crud.cascade.get_all_in_done,

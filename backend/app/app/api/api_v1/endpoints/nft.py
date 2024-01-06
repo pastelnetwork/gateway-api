@@ -22,7 +22,7 @@ router = APIRouter()
 
 # Submit a NFT gateway_request for the current user.
 # Note: Only authenticated user with API key
-@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True)
+@router.post("", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="nft_process_request")
 async def process_request(
         *,
         file: UploadFile,
@@ -72,7 +72,7 @@ async def process_request(
 
 # Two-step NFT start - Upload file for NFT request.
 # Note: Only authenticated user with API key
-@router.post("/step_1_upload_image_file", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+@router.post("/step_1_upload_image_file", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True, operation_id="nft_step1_upload_image_file")
 async def step_1_upload_image_file(
         *,
         file: UploadFile,
@@ -100,7 +100,7 @@ async def step_1_upload_image_file(
 
 # Two-step NFT start - Submit a NFT gateway_request for the current user.
 # Note: Only authenticated user with API key
-@router.post("/step_2_process_nft", response_model=schemas.RequestResult, response_model_exclude_none=True)
+@router.post("/step_2_process_nft", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="nft_step2_process_nft")
 async def step_2_process_nft(
         *,
         file_id: str = Query("file_id", description="File ID from the upload endpoint"),
@@ -129,7 +129,7 @@ async def step_2_process_nft(
 
 # Get all NFT OpenAPI gateway_requests for the current user.
 # Note: Only authenticated user with API key
-@router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True)
+@router.get("/gateway_requests", response_model=List[schemas.RequestResult], response_model_exclude_none=True, operation_id="nft_get_all_requests")
 async def get_all_requests(
         *,
         status_requested: Optional[ReqStatus] = Query(None),
@@ -148,8 +148,7 @@ async def get_all_requests(
 
 # Get an individual NFT gateway_request by its gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult,
-            response_model_exclude_none=True)
+@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="nft_get_request_by_request_id")
 async def get_request_by_request_id(
         *,
         gateway_request_id: str,
@@ -165,7 +164,7 @@ async def get_request_by_request_id(
 
 # Get all NFT gateway_results for the current user.
 # Note: Only authenticated user with API key
-@router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True)
+@router.get("/gateway_results", response_model=List[schemas.ResultRegistrationResult], response_model_exclude_none=True, operation_id="nft_get_all_results")
 async def get_all_results(
         *,
         status_requested: Optional[ReqStatus] = Query(None),
@@ -188,8 +187,7 @@ async def get_all_results(
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/gateway_results/{gateway_result_id}",
-            response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True)
+@router.get("/gateway_results/{gateway_result_id}", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True, operation_id="nft_get_result_by_result_id")
 async def get_result_by_result_id(
         *,
         gateway_result_id: str,
@@ -205,7 +203,7 @@ async def get_result_by_result_id(
 
 # Get ALL underlying NFT stored_files from the corresponding gateway_request_id
 # Note: Only authenticated user with API key
-@router.get("/all_files_from_request/{gateway_request_id}")
+@router.get("/all_files_from_request/{gateway_request_id}", operation_id="nft_get_all_files_from_request")
 async def get_all_files_from_request(
         *,
         gateway_request_id: str,
@@ -233,7 +231,7 @@ async def get_all_files_from_request(
 
 # Get the underlying NFT stored_file from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/stored_file/{gateway_result_id}")
+@router.get("/stored_file/{gateway_result_id}", operation_id="nft_get_stored_file_by_result_id")
 async def get_stored_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -255,7 +253,7 @@ async def get_stored_file_by_result_id(
 # Get the underlying NFT stored_file from the corresponding NFT Registration Ticket Transaction ID
 # Only succeeds if the user owns the NFT file (authenticated user with API key)
 #    - in the context of Gateway it means that file was registered by that instance of Gateway with its PastelID
-@router.get("/stored_file_from_registration_ticket/{registration_ticket_txid}")
+@router.get("/stored_file_from_registration_ticket/{registration_ticket_txid}", operation_id="nft_get_stored_file_by_registration_ticket")
 async def get_stored_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -278,7 +276,7 @@ async def get_stored_file_by_registration_ticket(
 # Get the underlying NFT stored_file from the corresponding NFT Activation Ticket Transaction ID
 # Only succeeds if the user owns the NFT file (authenticated user with API key)
 #    - in the context of Gateway it means that file was registered by that instance of Gateway with its PastelID
-@router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}")
+@router.get("/stored_file_from_activation_ticket/{activation_ticket_txid}", operation_id="nft_get_stored_file_by_activation_ticket")
 async def get_stored_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
@@ -301,7 +299,7 @@ async def get_stored_file_by_activation_ticket(
 # Get the Public NFT stored_file from the corresponding NFT Registration Ticket Transaction ID
 # Only succeeds if the file was made Public during registration (by setting flag make_publicly_accessible)
 # Note: Available to any user
-@router.get("/public_stored_file_from_registration_ticket/{registration_ticket_txid}")
+@router.get("/public_stored_file_from_registration_ticket/{registration_ticket_txid}", operation_id="nft_get_public_stored_file_by_registration_ticket")
 async def get_public_stored_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -315,7 +313,7 @@ async def get_public_stored_file_by_registration_ticket(
 
 # Get the ORIGINAL uploaded file from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/originally_submitted_file/{gateway_result_id}")
+@router.get("/originally_submitted_file/{gateway_result_id}", operation_id="nft_get_originally_submitted_file_by_result_id")
 async def get_originally_submitted_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -338,7 +336,7 @@ async def get_originally_submitted_file_by_result_id(
 
 # Get ALL Pastel NFT registration tickets from the blockchain corresponding to a particular gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_registration_tickets/{gateway_request_id}")
+@router.get("/pastel_registration_tickets/{gateway_request_id}", operation_id="nft_get_all_pastel_registration_tickets_from_request")
 async def get_all_pastel_nft_registration_tickets_from_request(
         *,
         gateway_request_id: str,
@@ -360,7 +358,7 @@ async def get_all_pastel_nft_registration_tickets_from_request(
 
 # Get Pastel NFT registration ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_registration_ticket/{gateway_result_id}")
+@router.get("/pastel_registration_ticket/{gateway_result_id}", operation_id="nft_get_pastel_registration_ticket_by_result_id")
 async def get_pastel_nft_registration_ticket_by_result_id(
         *,
         gateway_result_id: str,
@@ -377,7 +375,7 @@ async def get_pastel_nft_registration_ticket_by_result_id(
 
 # Get Pastel NFT activation ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_activation_ticket/{gateway_result_id}")
+@router.get("/pastel_activation_ticket/{gateway_result_id}", operation_id="nft_get_pastel_activation_ticket_by_result_id")
 async def get_pastel_nft_activation_ticket_by_result_id(
         *,
         gateway_result_id: str,
@@ -394,7 +392,7 @@ async def get_pastel_nft_activation_ticket_by_result_id(
 
 # Get the Pastel NFT Registration Ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}")
+@router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}", operation_id="nft_get_pastel_registration_ticket_by_its_txid")
 async def get_pastel_registration_ticket_by_its_txid(
         *,
         registration_ticket_txid: str,
@@ -405,7 +403,7 @@ async def get_pastel_registration_ticket_by_its_txid(
 
 # Get the Pastel NFT Activation Ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}")
+@router.get("/pastel_activation_ticket_from_txid/{activation_ticket_txid}", operation_id="nft_get_pastel_activation_ticket_by_its_txid")
 async def get_pastel_activation_ticket_by_its_txid(
         *,
         activation_ticket_txid: str,
@@ -417,7 +415,7 @@ async def get_pastel_activation_ticket_by_its_txid(
 # Get the set of Pastel NFT ticket from the blockchain corresponding to a particular media_file_sha256_hash;
 # Contains block number and pastel_id in case there are multiple results for the same media_file_sha256_hash
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}")
+@router.get("/pastel_ticket_by_media_file_hash/{media_file_sha256_hash}", operation_id="nft_get_pastel_ticket_by_media_file_hash")
 async def get_pastel_ticket_data_from_media_file_hash(
         *,
         media_file_sha256_hash: str,
@@ -433,7 +431,7 @@ async def get_pastel_ticket_data_from_media_file_hash(
 
 # Get the set of underlying NFT raw_outputs_files from the corresponding gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/all_raw_dd_result_files_from_request/{gateway_request_id}")
+@router.get("/all_raw_dd_result_files_from_request/{gateway_request_id}", operation_id="nft_get_all_raw_dd_result_files_from_request")
 async def get_all_raw_dd_result_files_from_request(
         *,
         gateway_request_id: str,
@@ -457,7 +455,7 @@ async def get_all_raw_dd_result_files_from_request(
 
 # Get the set of underlying NFT parsed_outputs_files from the corresponding gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/all_parsed_dd_result_files_from_request/{gateway_request_id}")
+@router.get("/all_parsed_dd_result_files_from_request/{gateway_request_id}", operation_id="nft_get_all_parsed_dd_result_files_from_request")
 async def get_all_parsed_dd_result_files_from_request(
         *,
         gateway_request_id: str,
@@ -481,7 +479,7 @@ async def get_all_parsed_dd_result_files_from_request(
 
 # Get the underlying NFT raw_dd_result_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/raw_dd_result_file/{gateway_result_id}")
+@router.get("/raw_dd_result_file/{gateway_result_id}", operation_id="nft_get_raw_dd_result_file_by_result_id")
 async def get_raw_dd_result_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -500,7 +498,7 @@ async def get_raw_dd_result_file_by_result_id(
 
 # Get the underlying NFT parsed_dd_result_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/parsed_dd_result_file/{gateway_result_id}")
+@router.get("/parsed_dd_result_file/{gateway_result_id}", operation_id="nft_get_parsed_dd_result_file_by_result_id")
 async def get_parsed_dd_result_file_by_result_id(
         *,
         gateway_result_id: str,
@@ -520,7 +518,7 @@ async def get_parsed_dd_result_file_by_result_id(
 
 # Get the underlying NFT raw_dd_result_file from the corresponding NFT Registration Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_dd_result_file_by_registration_ticket/{registration_ticket_txid}")
+@router.get("/raw_dd_result_file_by_registration_ticket/{registration_ticket_txid}", operation_id="nft_get_raw_dd_result_file_by_registration_ticket")
 async def get_raw_dd_result_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -538,7 +536,7 @@ async def get_raw_dd_result_file_by_registration_ticket(
 
 # Get the underlying NFT parsed_dd_result_file from the corresponding NFT Registration Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/parsed_dd_result_file_by_registration_ticket/{registration_ticket_txid}")
+@router.get("/parsed_dd_result_file_by_registration_ticket/{registration_ticket_txid}", operation_id="nft_get_parsed_dd_result_file_by_registration_ticket")
 async def get_parsed_dd_result_file_by_registration_ticket(
         *,
         registration_ticket_txid: str,
@@ -557,7 +555,7 @@ async def get_parsed_dd_result_file_by_registration_ticket(
 
 # Get the underlying NFT raw_dd_result_file from the corresponding NFT Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_dd_result_file_by_activation_ticket/{activation_ticket_txid}")
+@router.get("/raw_dd_result_file_by_activation_ticket/{activation_ticket_txid}", operation_id="nft_get_raw_dd_result_file_by_activation_ticket")
 async def get_raw_dd_result_file_by_activation_ticket(
         *,
         activation_ticket_txid: str,
@@ -576,7 +574,7 @@ async def get_raw_dd_result_file_by_activation_ticket(
 
 # Get the underlying NFT parsed_dd_result_file from the corresponding NFT Activation Ticket Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/parsed_dd_result_file_by_activation_txid/{activation_ticket_txid}")
+@router.get("/parsed_dd_result_file_by_activation_txid/{activation_ticket_txid}", operation_id="nft_get_parsed_dd_result_file_by_activation_txid")
 async def get_parsed_dd_result_file_by_activation_txid(
         *,
         activation_ticket_txid: str,
@@ -596,7 +594,7 @@ async def get_parsed_dd_result_file_by_activation_txid(
 
 # Get a list of the NFT raw_dd_result_file for the given pastel_id
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/raw_dd_result_file_by_pastel_id/{pastel_id_of_user}")
+@router.get("/raw_dd_result_file_by_pastel_id/{pastel_id_of_user}", operation_id="nft_get_raw_dd_result_file_by_pastel_id")
 async def get_raw_dd_result_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
@@ -612,7 +610,7 @@ async def get_raw_dd_result_file_by_pastel_id(
 
 # Get a list of the NFT parsed_dd_result_file for the given pastel_id
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/parsed_dd_result_file_by_pastel_id/{pastel_id_of_user}")
+@router.get("/parsed_dd_result_file_by_pastel_id/{pastel_id_of_user}", operation_id="nft_get_parsed_dd_result_file_by_pastel_id")
 async def get_parsed_dd_result_file_by_pastel_id(
         *,
         pastel_id_of_user: str,
@@ -658,7 +656,7 @@ async def result_status(
     await common.process_websocket_for_result(websocket, tasks_in_db, wn.WalletNodeService.NFT)
 
 
-@router.get("/result/transfer_pastel_ticket")
+@router.get("/result/transfer_pastel_ticket", operation_id="nft_transfer_pastel_ticket_to_another_pastelid")
 async def transfer_pastel_ticket_to_another_pastelid(
         *,
         gateway_result_id: str = Query(),

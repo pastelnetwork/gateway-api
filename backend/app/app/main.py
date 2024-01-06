@@ -10,7 +10,7 @@ from app.api.api_v1.api import api_router
 def create_app() -> FastAPI:
     current_app = FastAPI(title=settings.PROJECT_NAME,
                           description=settings.PROJECT_DESCRIPTION,
-                          openapi_url=f"{settings.API_V1_STR}/openapi.json",
+                          openapi_url=f"{settings.API_V1_STR}/pastel_gateway_api.json",
                           docs_url="/",
                           version=settings.PROJECT_VERSION)
 

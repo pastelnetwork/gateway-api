@@ -18,7 +18,7 @@ router = APIRouter()
 
 # Submit a Sense Collection ticket register request for the current user.
 # Note: Only authenticated user with API key
-@router.post("/sense", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+@router.post("/sense", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_create_sense_collection")
 async def create_sense_collection(
         *,
         collection_name: str = Query("", description="Collection name"),
@@ -44,17 +44,21 @@ async def create_sense_collection(
         no_of_days_to_finalize_collection=no_of_days_to_finalize_collection,
         royalty=royalty, green=green, user_id=current_user.id, api_key=api_key)
 
+
 # Submit an NFT Collection ticket register request for the current user.
 # Note: Only authenticated user with API key
-@router.post("/nft", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+@router.post("/nft", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_create_nft_collection")
 async def create_nft_collection(
         *,
         collection_name: str = Query("", description="Collection name"),
         max_collection_entries: int = Query(1, description="Maximum number of items allowed in a collection"),
         collection_item_copy_count: int = Query(1, description="Allowed number of copies for all items in a collection"),
         list_of_pastelids_of_authorized_contributors: List[str] = Query([], description="List of pastelids of authorized contributors"),
-        max_permitted_open_nsfw_score: float = Query(0.0, description="Maximum permitted open NSFW score"),
-        minimum_similarity_score_to_first_entry_in_collection: float = Query(0.0, description="Minimum similarity score to first entry in collection"),
+        max_permitted_open_nsfw_score: float = Query(0.0, description="Maximum permitted open NSFW score. Where:"
+                                                                      " 0.0 means - 0% chance of NSFW content."
+                                                                      " 1.0 means - 100% chance of NSFW content"),
+        minimum_similarity_score_to_first_entry_in_collection: float = Query(0.0,
+                                                                             description="Minimum similarity score to first entry in collection. Where: 0.0 means - 0% similarity. And 1.0 means - 100% similarity"),
         no_of_days_to_finalize_collection: int = Query(0, description="Number of days to finalize collection"),
         royalty: float = Query(0.0, description="Royalty percentage"),
         green: bool = Query(False, description="Green"),
@@ -118,7 +122,7 @@ async def process_collection_request(
 
 # Get all Sense Collection ticket register for the current user.
 # Note: Only authenticated user with API key
-@router.get("/sense/collections", response_model=List[schemas.CollectionRegistrationResult], response_model_exclude_none=True)
+@router.get("/sense/collections", response_model=List[schemas.CollectionRegistrationResult], response_model_exclude_none=True, operation_id="collection_get_all_sense_collections")
 async def get_all_sense_collections(
         *,
         db: Session = Depends(session.get_db_session),
@@ -137,8 +141,7 @@ async def get_all_sense_collections(
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/sense/collections/{collection_id}",
-            response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+@router.get("/sense/collections/{collection_id}", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_get_sense_collections_by_collection_id")
 async def get_sense_collections_by_collection_id(
         *,
         collection_id: str,
@@ -156,7 +159,7 @@ async def get_sense_collections_by_collection_id(
 
 # Get all NFT Collection ticket register for the current user.
 # Note: Only authenticated user with API key
-@router.get("/nft/collections", response_model=List[schemas.CollectionRegistrationResult], response_model_exclude_none=True)
+@router.get("/nft/collections", response_model=List[schemas.CollectionRegistrationResult], response_model_exclude_none=True, operation_id="collection_get_all_nft_collections")
 async def get_all_nft_collections(
         *,
         db: Session = Depends(session.get_db_session),
@@ -175,8 +178,7 @@ async def get_all_nft_collections(
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/nft/collections/{collection_id}",
-            response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True)
+@router.get("/nft/collections/{collection_id}", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_get_nft_collections_by_collection_id")
 async def get_nft_collections_by_collection_id(
         *,
         collection_id: str,

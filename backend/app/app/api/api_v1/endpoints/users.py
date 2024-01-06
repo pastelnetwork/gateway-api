@@ -14,7 +14,7 @@ from app.utils.authentication import send_new_account_email
 router = APIRouter()
 
 
-@router.get("", response_model=List[schemas.User], response_model_exclude_none=True)
+@router.get("", response_model=List[schemas.User], response_model_exclude_none=True, operation_id="users_read_users")
 def read_users(
     db: Session = Depends(session.get_db_session),
     skip: int = 0,
@@ -28,8 +28,7 @@ def read_users(
     return users
 
 
-@router.post("", response_model=schemas.User, response_model_exclude_none=True,
-             description="Create new user, returns user object with funding address. limit=0 means no limit")
+@router.post("", response_model=schemas.User, response_model_exclude_none=True, description="Create new user, returns user object with funding address. limit=0 means no limit", operation_id="users_create_user")
 def create_user(
     *,
     db: Session = Depends(session.get_db_session),
@@ -53,7 +52,7 @@ def create_user(
     return user
 
 
-@router.delete("/{user_id}", response_model=schemas.User, response_model_exclude_none=True)
+@router.delete("/{user_id}", response_model=schemas.User, response_model_exclude_none=True, operation_id="users_delete_user")
 def delete_apikey(
     *,
     user_id: int,
@@ -73,7 +72,7 @@ def delete_apikey(
     return deletedUser
 
 
-@router.put("/me", response_model=schemas.User, response_model_exclude_none=True)
+@router.put("/me", response_model=schemas.User, response_model_exclude_none=True, operation_id="users_update_user_me")
 def update_user_me(
     *,
     db: Session = Depends(session.get_db_session),
@@ -97,7 +96,7 @@ def update_user_me(
     return user
 
 
-@router.get("/me", response_model=schemas.User, response_model_exclude_none=True)
+@router.get("/me", response_model=schemas.User, response_model_exclude_none=True, operation_id="users_read_user_me")
 def read_user_me(
     db: Session = Depends(session.get_db_session),
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
@@ -108,7 +107,7 @@ def read_user_me(
     return current_user
 
 
-@router.post("/open", response_model=schemas.User, response_model_exclude_none=True)
+@router.post("/open", response_model=schemas.User, response_model_exclude_none=True, operation_id="users_create_user_open")
 def create_user_open(
     *,
     db: Session = Depends(session.get_db_session),
@@ -136,7 +135,7 @@ def create_user_open(
     return user
 
 
-@router.get("/{user_id}", response_model=schemas.User, response_model_exclude_none=True)
+@router.get("/{user_id}", response_model=schemas.User, response_model_exclude_none=True, operation_id="users_read_user_by_id")
 def read_user_by_id(
     user_id: int,
     current_user: models.User = Depends(deps.OAuth2Auth.get_current_active_user),
@@ -160,7 +159,7 @@ def read_user_by_id(
     return user
 
 
-@router.put("/{user_id}", response_model=schemas.User, response_model_exclude_none=True)
+@router.put("/{user_id}", response_model=schemas.User, response_model_exclude_none=True, operation_id="users_update_user")
 def update_user(
     *,
     db: Session = Depends(session.get_db_session),
