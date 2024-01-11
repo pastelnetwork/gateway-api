@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     API_KEY_EXPIRE_MINUTES: int = 60 * 24 * 90
 
     # BACKEND_CORS_ORIGINS is a JSON-formatted list of origins
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = None
+    BACKEND_CORS_ORIGINS: List[str] = None
 
     @field_validator("BACKEND_CORS_ORIGINS", mode='before')
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
