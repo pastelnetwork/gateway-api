@@ -28,7 +28,7 @@ python-redis-cache = "^2.1.2"
 redlock = "^1.2.0"
 boto3 = "^1.28"
 gunicorn = "^21.2.0"
-pillow = "^10.0"
+pillow = "^10.2"
 aiohttp = "^3.7.4"
 
 [tool.poetry.dev-dependencies]
