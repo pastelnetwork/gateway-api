@@ -23,7 +23,7 @@ def upgrade() -> None:
     sa.Column('fee', sa.Integer(), nullable=True),
     sa.Column('height', sa.Integer(), nullable=True),
     sa.Column('txid', sa.String(), nullable=True),
-    sa.Column('status', sa.Enum('NEW', 'PENDING', 'USED', name='pbtxstatus'), nullable=True),
+    sa.Column('status', sa.Enum('NEW', 'PENDING', 'USED', 'BAD', name='pbtxstatus'), nullable=True),
     sa.Column('task_id', sa.String(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
