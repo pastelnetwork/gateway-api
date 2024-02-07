@@ -16,6 +16,17 @@ class WalletNodeService(Enum):
     SENSE = 'openapi/sense'
     COLLECTION = 'collection'
 
+    def ticket_name(self):
+        if self == WalletNodeService.NFT:
+            return "nft"
+        elif self == WalletNodeService.CASCADE:
+            return "cascade"
+        elif self == WalletNodeService.SENSE:
+            return "sense"
+        elif self == WalletNodeService.COLLECTION:
+            return "collection"
+        return None
+
     def __str__(self):
         return self.value
 

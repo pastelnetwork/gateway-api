@@ -338,7 +338,7 @@ def send_to_many_z(from_address: str, to_addresses: Dict[str, float], _fee: floa
     try:
         opid = call("z_sendmanywithchangetosender", [from_address, to_addresses_upd])
         if opid and isinstance(opid, str):
-            for _ in range(5):
+            for i in range(5):
                 op_status = call("z_getoperationstatus", [[opid]])
                 for operation in op_status:
                     if operation['id'] == opid:
@@ -350,6 +350,7 @@ def send_to_many_z(from_address: str, to_addresses: Dict[str, float], _fee: floa
                             return None
                         else:
                             break
+                time.sleep(i)
     except PasteldException as e:
         logger.error(f"Exception calling pasteld z_sendmanywithchangetosender: {e}")
     except Exception as e:

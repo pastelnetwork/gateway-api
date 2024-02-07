@@ -22,9 +22,10 @@ from app.core.config import settings
 from app.core.status import DbStatus, get_status_from_history_log
 from app.utils import walletnode as wn
 import app.utils.pasteld as psl
-from app.utils.ipfs_tools import store_file_to_ipfs
+from app.utils.ipfs_tools import store_file_to_ipfs, search_file_locally_or_in_ipfs
 import app.celery_tasks.nft as nft
 from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from app.db.session import db_context
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,40 @@ async def make_pending_result(file_name, file_content_type, ipfs_hash, result_id
     return reg_result
 
 
+async def process_existing_result(task_from_db, service: wn.WalletNodeService) -> schemas.ResultRegistrationResult:
+    reg_result = schemas.ResultRegistrationResult(
+        result_id=task_from_db.result_id,
+        result_status=schemas.Status.ERROR,
+        status_messages=[{"error": "This file has already been registered in the blockchain"}]
+    )
+    file_bytes = await search_file_locally_or_in_ipfs(task_from_db.original_file_local_path,
+                                                      task_from_db.original_file_ipfs_link, True)
+    if file_bytes:
+        sha3_256_hash = hashlib.sha3_256()
+        for chunk in iter(lambda: file_bytes.read(4096), b''):
+            sha3_256_hash.update(chunk)
+        data_hash = sha3_256_hash.hexdigest()
+        reg_result.status_messages = [
+            {
+                "error": "This file has already been registered in the blockchain",
+                "data_hash": data_hash
+            }
+        ]
+        with db_context() as db:
+            tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=data_hash, ticket_type="nft")
+            if not tickets:
+                tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=data_hash, ticket_type="sense")
+            if tickets and len(tickets) > 0:
+                reg_result.status_messages = [
+                    {
+                        "error": f"This file has already been registered in the {tickets[0].ticket_type} ticket",
+                        "data_hash": data_hash,
+                        "reg_ticket_txid": tickets[0].reg_ticket_txid
+                     }
+                ]
+    return reg_result
+
+
 async def check_result_registration_status(task_from_db, service: wn.WalletNodeService) \
         -> schemas.ResultRegistrationResult:
 
@@ -172,6 +207,8 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
             result_registration_status = schemas.Status.SUCCESS
         elif task_from_db.process_status == DbStatus.DEAD.value:
             result_registration_status = schemas.Status.FAILED
+        elif task_from_db.process_status == DbStatus.EXISTING.value:
+            return await process_existing_result(task_from_db, service)
 
     wn_task_status = ''
     if (result_registration_status == schemas.Status.UNKNOWN or
@@ -731,12 +768,14 @@ async def check_image(file: UploadFile, db,
         )
 
     if wn_service == wn.WalletNodeService.NFT or wn_service == wn.WalletNodeService.SENSE:
-        image_hash = await compute_hash(file)
-        ticket_type = "nft" if wn_service == wn.WalletNodeService.NFT else "sense"
-        tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=image_hash, ticket_type=ticket_type)
+        data_hash = await compute_hash(file)
+        tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=data_hash, ticket_type="nft")
+        if not tickets:
+            tickets = crud.reg_ticket.get_by_hash(db=db, data_hash_as_hex=data_hash, ticket_type="sense")
         for ticket in tickets:
-            message = {"error": f"This file has already been registered in the {ticket_type} ticket",
-                       "reg_ticket_txid": ticket.reg_ticket_txid}
+            message = {"error": f"This file has already been registered in the {ticket.ticket_type} ticket",
+                       "reg_ticket_txid": ticket.reg_ticket_txid,
+                       "data_hash": data_hash}
             return schemas.ResultRegistrationResult(
                 result_status=schemas.Status.ERROR,
                 file_name=file.filename,

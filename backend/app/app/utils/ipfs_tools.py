@@ -98,7 +98,6 @@ async def search_file_locally_or_in_ipfs(file_local_path, ipfs_cid, nothrow=Fals
         if ipfs_cid:
             try:
                 logger.info(f'File not found locally, trying to download from IPFS...')
-                # ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
                 async with IPFSClient(settings.IPFS_URL) as ipfs_client:
                     await ipfs_client.get(ipfs_cid, path.parent)
             except Exception as e:
@@ -119,7 +118,6 @@ async def search_file_locally_or_in_ipfs(file_local_path, ipfs_cid, nothrow=Fals
 
 async def store_file_to_ipfs(file_local_path):
     try:
-        # ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
         async with IPFSClient(settings.IPFS_URL) as ipfs_client:
             res = await ipfs_client.add(file_local_path)
         cid = res["Hash"]
@@ -133,8 +131,6 @@ async def store_file_to_ipfs(file_local_path):
 
 async def remove_file_from_ipfs(ipfs_cid):
     try:
-        # ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
-        # ipfs_client.pin.rm(ipfs_cid)
         async with IPFSClient(settings.IPFS_URL) as ipfs_client:
             await ipfs_client.remove_pin(ipfs_cid)
     except Exception as e:
@@ -143,7 +139,6 @@ async def remove_file_from_ipfs(ipfs_cid):
 
 async def read_file_from_ipfs(ipfs_cid):
     try:
-        # ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
         async with IPFSClient(settings.IPFS_URL) as ipfs_client:
             return await ipfs_client.cat(ipfs_cid)
     except Exception as e:
@@ -153,7 +148,6 @@ async def read_file_from_ipfs(ipfs_cid):
 
 async def get_file_from_ipfs(ipfs_cid, file_path) -> bool:
     try:
-        # ipfs_client = ipfshttpclient.connect(settings.IPFS_URL)
         async with IPFSClient(settings.IPFS_URL) as ipfs_client:
             await ipfs_client.get(ipfs_cid, file_path)
         return True

@@ -186,6 +186,14 @@ class PastelAPITask(celery.Task):
                         f' ... [Result ID: {result_id}]')
             return result_id
 
+        # checking here and marking as ERROR if not enough balance to pay for the WHOLE ticket,
+        # so it won't stuck in the PRE_BURN_FEE state even if there is PREBURN tx in the table
+        if not psl.check_balance(task_from_db.wn_fee):  # can throw exception here
+            logger.info(f'{service}: Not enough balance to pay for the ticket [Result ID: {result_id}]. ERROR')
+            upd = {"process_status_message": f'Not enough balance to pay for the ticket. ERROR',
+                   "updated_at": datetime.utcnow()}
+            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+
         preburn_fee = task_from_db.wn_fee/5
         # can throw exception here - this is celery task, it will retry it on specific exceptions
         height = psl.call("getblockcount", [])

@@ -28,7 +28,7 @@ def address_maker():
 
 
 @shared_task(name="account_manager:balancer")
-def address_maker():
+def balancer():
     logger.info(f"balancer task started")
     with db_context() as session:
         users = crud.user.get_all_with_balance_more_then(session, balance=settings.BALANCE_PAYMENT_THRESHOLD)
