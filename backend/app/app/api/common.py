@@ -236,7 +236,10 @@ async def check_result_registration_status(task_from_db, service: wn.WalletNodeS
         if wn_task_status and settings.RETURN_DETAILED_WN_ERROR:
             reg_result.status_messages = wn_task_status
     elif settings.RETURN_DETAILED_WN_ERROR:
-        reg_result.error = wn_task_status
+        if isinstance(wn_task_status, dict):
+            reg_result.error = json.dumps(wn_task_status)
+        else:
+            reg_result.error = str(wn_task_status)
     return reg_result
 
 

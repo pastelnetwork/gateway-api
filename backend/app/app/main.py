@@ -1,6 +1,10 @@
 import uvicorn as uvicorn
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import HTTPException
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
 
 from app.core.config import settings
 from app.core.celery_utils import create_celery
@@ -34,6 +38,25 @@ def create_app() -> FastAPI:
 
 app = create_app()
 celery = app.celery_app
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_request: Request, exc: HTTPException):
+
+    from app.schemas import RequestResult, ResultRegistrationResult, Status
+    response_content = RequestResult(
+        request_id="NONE",
+        request_status=Status.FAILED,
+        results=[
+            ResultRegistrationResult(
+                result_status=Status.FAILED,
+                error=exc.detail)
+        ]
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=jsonable_encoder(response_content, exclude_none=True)
+    )
 
 
 if __name__ == "__main__":
