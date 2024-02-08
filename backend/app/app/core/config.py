@@ -195,7 +195,7 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: Optional[EmailStr] = None
     FIRST_SUPERUSER_PASSWORD: Optional[str] = None
     USERS_OPEN_REGISTRATION: bool = False
-    RETURN_DETAILED_WN_ERROR: bool = True
+    RETURN_DETAILED_WN_ERROR: bool = False
 
     # registration_helpers
     REGISTRATION_FINISHER_ENABLED: bool = True
