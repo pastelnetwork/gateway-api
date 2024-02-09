@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+import re
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -348,11 +349,11 @@ def _ticket_activator(all_in_registered_state_func,
                 continue
 
             logger.info(f"{service}: Activating registration ticket {task_from_db.reg_ticket_txid}")
-            result, new_act_txid = psl.create_activation_ticket(task_from_db, called_at_height,
-                                                                act_ticket_type)
-            if result == psl.TicketCreateStatus.CREATED and new_act_txid:
+            result, found_value = psl.create_activation_ticket(task_from_db, called_at_height,
+                                                               act_ticket_type)
+            if result == psl.TicketCreateStatus.CREATED and found_value:
                 # setting activation ticket txid in db, but not finalizing yet (keep in registered state)
-                upd = {"act_ticket_txid": new_act_txid, "updated_at": datetime.utcnow(),
+                upd = {"act_ticket_txid": found_value, "updated_at": datetime.utcnow(),
                        "process_status_message": "new activation ticket created"}
             elif result == psl.TicketCreateStatus.ALREADY_EXIST:
                 # try to find existing activation ticket
@@ -365,8 +366,13 @@ def _ticket_activator(all_in_registered_state_func,
                     # something's wrong. set into BAD state
                     upd = {"process_status": DbStatus.BAD.value, "updated_at": datetime.utcnow(),
                            "process_status_message": "existing activation ticket txid invalid but can't find it"}
-                    if new_act_txid:
-                        upd["act_ticket_txid"] = new_act_txid
+                    if found_value:
+                        upd["act_ticket_txid"] = found_value
+            elif result == psl.TicketCreateStatus.WRONG_FEE and found_value:
+                upd = {"wn_fee": found_value, "updated_at": datetime.utcnow(),
+                       "process_status_message": f"Storage fee mismatch. Set to {found_value}"}
+                with db_context() as session:
+                    update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
             else:
                 # clear act_ticket_txid in db, but keep in registered state
                 upd = {"act_ticket_txid": "", "updated_at": datetime.utcnow(),
@@ -384,6 +390,18 @@ def _ticket_activator(all_in_registered_state_func,
                            "process_status_message": msg}
                     with db_context() as session:
                         update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                        continue
+                msg = f"The storage fee [{task_from_db.wn_fee}] is not matching the storage fee ["
+                if msg in error_msg:
+                    matches = re.findall(r'\[(.*?)]', error_msg)
+                    second_bracket_value = matches[1] if len(matches) > 1 else None
+                    if second_bracket_value:
+                        upd = {"wn_fee": second_bracket_value, "updated_at": datetime.utcnow(),
+                               "process_status_message": f"Storage fee mismatch. Set to {second_bracket_value}"}
+                        with db_context() as session:
+                            update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
+                            continue
+
 
 
 def find_activation_ticket(txid: str, ticket_type: str) -> str | None:
