@@ -370,7 +370,7 @@ def _ticket_activator(all_in_registered_state_func,
                         upd["act_ticket_txid"] = found_value
             elif result == psl.TicketCreateStatus.WRONG_FEE and found_value:
                 upd = {"wn_fee": found_value, "updated_at": datetime.utcnow(),
-                       "process_status_message": f"Storage fee mismatch. Set to {found_value}"}
+                       "process_status_message": f"Storage fee mismatch. Setting it to {found_value}"}
                 with db_context() as session:
                     update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
             else:
@@ -397,7 +397,9 @@ def _ticket_activator(all_in_registered_state_func,
                     second_bracket_value = matches[1] if len(matches) > 1 else None
                     if second_bracket_value:
                         upd = {"wn_fee": second_bracket_value, "updated_at": datetime.utcnow(),
-                               "process_status_message": f"Storage fee mismatch. Set to {second_bracket_value}"}
+                               "process_status_message": f"Storage fee mismatch. Setting it to {second_bracket_value}"}
+                        logger.error(f"{service}: Wrong fee for ticket ({task_from_db.wn_fee}), "
+                                     f"correct fee is {second_bracket_value}")
                         with db_context() as session:
                             update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
                             continue

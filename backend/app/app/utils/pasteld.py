@@ -286,16 +286,19 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type,
     except PasteldException as e:
         logger.error(f"Exception calling pasteld to create {ticket_type} ticket: {e}")
         if hasattr(e, 'message'):
-            error_msg = (f"Ticket (action-act) is invalid. The Activation ticket for the Registration ticket with txid "
-                         f"[{task_from_db.reg_ticket_txid}] already exists")
-            if error_msg in e.message:
-                match = re.search(r'txid=(.*?)]', e.message)
+            error_msg = e.message
+            msg = (f"Ticket (action-act) is invalid. The Activation ticket for the Registration ticket with txid "
+                   f"[{task_from_db.reg_ticket_txid}] already exists")
+            if msg in error_msg:
+                match = re.search(r'txid=(.*?)]', error_msg)
                 return TicketCreateStatus.ALREADY_EXIST, match.group(1) if match else None
-            error_msg = f"The storage fee [{task_from_db.wn_fee}] is not matching the storage fee ["
-            if error_msg in e.message:
+            msg = f"The storage fee [{task_from_db.wn_fee}] is not matching the storage fee ["
+            if msg in error_msg:
                 matches = re.findall(r'\[(.*?)]', error_msg)
                 second_bracket_value = matches[1] if len(matches) > 1 else None
                 if second_bracket_value:
+                    logger.error(f"Wrong fee for {ticket_type} ticket ({task_from_db.wn_fee}), "
+                                 f"correct fee is {second_bracket_value}")
                     return TicketCreateStatus.WRONG_FEE, second_bracket_value
         return TicketCreateStatus.ERROR, None
     except Exception as e:
