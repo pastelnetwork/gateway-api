@@ -1,13 +1,13 @@
 [Unit]
-Description=Pastel OpenAPI back-end server
+Description=Pastel Gateway API Web server
 After=network.target
 
 [Service]
 Restart=always
 Restart=on-failure
 RestartSec=10
-Environment=PYTHONPATH=/home/ubuntu/openapi/backend/app
-WorkingDirectory=/home/ubuntu/openapi/backend/app/app
+Environment=PYTHONPATH=/home/ubuntu/gateway/backend/app
+WorkingDirectory=/home/ubuntu/gateway/backend/app/app
 ExecStart=/home/ubuntu/.local/bin/poetry run uvicorn main:app --host 0.0.0.0 --port 8090
 User=ubuntu
 Group=ubuntu

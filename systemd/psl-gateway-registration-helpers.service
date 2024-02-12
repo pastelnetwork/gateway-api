@@ -1,13 +1,13 @@
 [Unit]
-Description=Pastel OpenAPI back-end server
+Description=Pastel Gateway API registration helpers
 After=network.target
 
 [Service]
 Restart=always
 Restart=on-failure
 RestartSec=10
-Environment=PYTHONPATH=/home/ubuntu/openapi/backend/app
-WorkingDirectory=/home/ubuntu/openapi/backend/app/app
+Environment=PYTHONPATH=/home/ubuntu/gateway/backend/app
+WorkingDirectory=/home/ubuntu/gateway/backend/app/app
 ExecStart=/home/ubuntu/.local/bin/poetry run celery -A app.main.celery worker -Q registration_helpers -n worker2@%h --loglevel=info
 User=ubuntu
 Group=ubuntu
