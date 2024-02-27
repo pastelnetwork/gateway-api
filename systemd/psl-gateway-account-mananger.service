@@ -1,0 +1,17 @@
+[Unit]
+Description=Pastel Gateway API account manager
+After=network.target
+
+[Service]
+Restart=always
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONPATH=/home/ubuntu/gateway/backend/app
+WorkingDirectory=/home/ubuntu/gateway/backend/app/app
+ExecStart=/home/ubuntu/.local/bin/poetry run celery -A app.main.celery worker -Q account_manager -n worker4@%h --loglevel=info
+User=ubuntu
+Group=ubuntu
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
