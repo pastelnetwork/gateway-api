@@ -141,8 +141,8 @@ async def get_all_sense_collections(
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/sense/collections/{collection_id}", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_get_sense_collections_by_collection_id")
-async def get_sense_collections_by_collection_id(
+@router.get("/sense/collections/{collection_id}", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_get_sense_collections_from_collection_id")
+async def get_sense_collections_from_collection_id(
         *,
         collection_id: str,
         db: Session = Depends(session.get_db_session),
@@ -178,8 +178,8 @@ async def get_all_nft_collections(
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/nft/collections/{collection_id}", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_get_nft_collections_by_collection_id")
-async def get_nft_collections_by_collection_id(
+@router.get("/nft/collections/{collection_id}", response_model=schemas.CollectionRegistrationResult, response_model_exclude_none=True, operation_id="collection_get_nft_collections_from_collection_id")
+async def get_nft_collections_from_collection_id(
         *,
         collection_id: str,
         db: Session = Depends(session.get_db_session),

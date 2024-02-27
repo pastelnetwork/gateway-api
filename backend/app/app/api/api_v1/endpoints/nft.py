@@ -148,8 +148,8 @@ async def get_all_requests(
 
 # Get an individual NFT gateway_request by its gateway_request_id.
 # Note: Only authenticated user with API key
-@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="nft_get_request_from_request_id")
-async def get_request_from_request_id(
+@router.get("/gateway_requests/{gateway_request_id}", response_model=schemas.RequestResult, response_model_exclude_none=True, operation_id="nft_get_request")
+async def get_request(
         *,
         gateway_request_id: str,
         db: Session = Depends(session.get_db_session),
@@ -187,8 +187,8 @@ async def get_all_results(
 
 # Get an individual NFT gateway_result by its result_id.
 # Note: Only authenticated user with API key
-@router.get("/gateway_results/{gateway_result_id}", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True, operation_id="nft_get_result_from_result_id")
-async def get_result_from_result_id(
+@router.get("/gateway_results/{gateway_result_id}", response_model=schemas.ResultRegistrationResult, response_model_exclude_none=True, operation_id="nft_get_result")
+async def get_result(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -231,8 +231,8 @@ async def get_all_files_from_request(
 
 # Get the underlying NFT stored_file from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/stored_file/{gateway_result_id}", operation_id="nft_get_stored_file_from_result_id")
-async def get_stored_file_from_result_id(
+@router.get("/stored_file/{gateway_result_id}", operation_id="nft_get_stored_file_from_result")
+async def get_stored_file_from_result(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -313,8 +313,8 @@ async def get_public_stored_file_from_registration_ticket(
 
 # Get the ORIGINAL uploaded file from the corresponding gateway_result_id
 # Note: Only authenticated user with API key
-@router.get("/originally_submitted_file/{gateway_result_id}", operation_id="nft_get_originally_submitted_file_from_result_id")
-async def get_originally_submitted_file_from_result_id(
+@router.get("/originally_submitted_file/{gateway_result_id}", operation_id="nft_get_originally_submitted_file_from_result")
+async def get_originally_submitted_file_from_result(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -358,8 +358,8 @@ async def get_all_pastel_nft_registration_tickets_from_request(
 
 # Get Pastel NFT registration ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_registration_ticket/{gateway_result_id}", operation_id="nft_get_pastel_registration_ticket_from_result_id")
-async def get_pastel_nft_registration_ticket_from_result_id(
+@router.get("/pastel_registration_ticket/{gateway_result_id}", operation_id="nft_get_pastel_registration_ticket_from_result")
+async def get_pastel_nft_registration_ticket_from_result(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -375,8 +375,8 @@ async def get_pastel_nft_registration_ticket_from_result_id(
 
 # Get Pastel NFT activation ticket from the blockchain corresponding to a particular gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/pastel_activation_ticket/{gateway_result_id}", operation_id="nft_get_pastel_activation_ticket_from_result_id")
-async def get_pastel_nft_activation_ticket_from_result_id(
+@router.get("/pastel_activation_ticket/{gateway_result_id}", operation_id="nft_get_pastel_activation_ticket_from_result")
+async def get_pastel_nft_activation_ticket_from_result(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -415,8 +415,8 @@ async def get_pastel_activation_ticket_from_txid(
 # Get the set of Pastel NFT ticket from the blockchain corresponding to a particular media_file_sha256_hash;
 # Contains block number and pastel_id in case there are multiple results for the same media_file_sha256_hash
 # Note: Available to any user and also visible on the Pastel Explorer site
-@router.get("/pastel_ticket_from_media_file_hash/{media_file_sha256_hash}", operation_id="nft_get_pastel_ticket_from_media_file_hash")
-async def get_pastel_ticket_data_from_media_file_hash(
+@router.get("/pastel_registration_ticket_from_media_file_hash/{media_file_sha256_hash}", operation_id="nft_get_pastel_registration_ticket_from_media_file_hash")
+async def get_pastel_registration_ticket_from_media_file_hash(
         *,
         media_file_sha256_hash: str,
         db: Session = Depends(session.get_db_session),
@@ -479,8 +479,8 @@ async def get_all_parsed_dd_result_files_from_request(
 
 # Get the underlying NFT raw_dd_result_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/raw_dd_result_file/{gateway_result_id}", operation_id="nft_get_raw_dd_result_file_from_result_id")
-async def get_raw_dd_result_file_from_result_id(
+@router.get("/raw_dd_result_file/{gateway_result_id}", operation_id="nft_get_raw_dd_result_file_from_result")
+async def get_raw_dd_result_file_from_result(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
@@ -498,8 +498,8 @@ async def get_raw_dd_result_file_from_result_id(
 
 # Get the underlying NFT parsed_dd_result_file from the corresponding gateway_result_id.
 # Note: Only authenticated user with API key
-@router.get("/parsed_dd_result_file/{gateway_result_id}", operation_id="nft_get_parsed_dd_result_file_from_result_id")
-async def get_parsed_dd_result_file_from_result_id(
+@router.get("/parsed_dd_result_file/{gateway_result_id}", operation_id="nft_get_parsed_dd_result_file_from_result")
+async def get_parsed_dd_result_file_from_result(
         *,
         gateway_result_id: str,
         db: Session = Depends(session.get_db_session),
