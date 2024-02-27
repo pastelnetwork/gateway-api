@@ -311,7 +311,7 @@ async def get_pastel_cascade_activation_ticket_from_result(
 # Get the Pastel Cascade registration ticket from the blockchain from its Transaction ID
 # Note: Available to any user and also visible on the Pastel Explorer site
 @router.get("/pastel_registration_ticket_from_txid/{registration_ticket_txid}", operation_id="cascade_get_pastel_registration_ticket_from_txid")
-async def get_pastel_registration_ticket_from_its_txid(
+async def get_pastel_registration_ticket_from_txid(
         *,
         registration_ticket_txid: str,
         db: Session = Depends(session.get_db_session),
