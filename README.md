@@ -8,13 +8,13 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ## Install dependencies
 ```
-cd /home/user/openapi/backend/app
+cd $HOME/gateway-api/backend/app
 poetry install
 ```
 
 ## Set python module path
 ```
-export PYTHONPATH=$PYTHONPATH:/<path>/openapi/backend/app
+export PYTHONPATH=$PYTHONPATH:$HOME/gateway-api/backend/app
 ```
 
 ## Copy and edit .env
@@ -22,34 +22,89 @@ export PYTHONPATH=$PYTHONPATH:/<path>/openapi/backend/app
 cp .env.example .env
 ```
 
-## To start application, either:
-```
-cd /home/user/openapi/backend/app
-poetry run python app/main.py
-```
-or
-```
-cd /home/user/openapi/backend/app/app
-poetry run uvicorn main:app --host 0.0.0.0 --port 8000
+## Gateway supports reading configuration from AWS Secret manager
+```ini
+AWS_SECRET_MANAGER_REGION="us-east-2"
+AWS_SECRET_MANAGER_RDS_CREDENTIALS="evnet-gateway-api-db-credentials"
+AWS_SECRET_MANAGER_RDS_PARAMETERS="gateway-api-db"
+AWS_SECRET_MANAGER_SMTP_SECRETS="gateway-api-smtp"
+AWS_SECRET_MANAGER_PASTEL_IDS="gateway-api-pastelids"
 ```
 
-## To start celery beat (celery scheduler)
+Where:
+AWS_SECRET_MANAGER_RDS_CREDENTIALS should contain:
+"username": "your_DB_username"
+"password": "your_DB_password"
+
+AWS_SECRET_MANAGER_RDS_PARAMETERS should contain:
+"port": "your_DB_port",
+"host": "your_DB_host"
+"dbname": "your_DB_name"
+
+AWS_SECRET_MANAGER_SMTP_SECRETS should contain:
+"password": "your_SMTP_password"
+
+AWS_SECRET_MANAGER_PASTEL_IDS is where gateway will store pastel ids for each user
+
+
+## Start for local development
+### Start API Server
 ```
-cd /home/user/openapi/backend/app
+cd $HOME/gateway-api/backend/app
+poetry run python app/main.py
+```
+### Start celery beat (celery scheduler)
+```
+cd $HOME/gateway-api/backend/app
 celery -A app.main.celery beat -l debug
 ```
 
-## To start celery workers (celery workers)
+### Start celery workers (celery workers)
 ```
-cd /home/user/openapi/backend/app
-celery -A app.main.celery worker --loglevel=debug -Q cascade,sense,registration_helpers,scheduled_tools
+cd $HOME/gateway-api/backend/app
+celery -A app.main.celery worker --loglevel=debug -Q cascade,sense,nft,registration_helpers,scheduled_tools
 ```
 
-## To start celery flower (celery monitoring web UI)
+### Start celery flower (celery monitoring web UI)
 ```
 cd /home/user/openapi/backend/app
 celery -A app.main.celery flower --port=5555
 ```
 
+Or use shell scripts:
+```shell
+0-start-web-server.sh
+1-start-celery-worker.sh
+2-start-celery-registration-helpers.sh
+3-start-celery-scheduled-tools.sh
+4-start-celery-beat.sh
+5-start-celery-flower.sh
+```
+
+## Start for production
+
+Best way is to use systemd service files. Example files are in `systemd` directory.
+
+You would need minimum 2 hosts, one for API server and celery workers to register and process tasks, and another for account manager:
+### Host 1: API server and celery workers
+* `systemd/psl-gateway-server.service`
+* `systemd/psl-gateway-workers.service`
+* `systemd/psl-gateway-registration-helpers.service`
+* `systemd/psl-gateway-scheduled-tools.service`
+* `systemd/psl-gateway-beat.service`
 
 
+### Host 2: Account manager
+* `systemd/psl-gateway-account-mananger.service`
+* `systemd/psl-gateway-beat.service`
+
+Config file (.env):
+``` ini
+REGISTRATION_FINISHER_ENABLED=False
+REGISTRATION_RE_PROCESSOR_ENABLED=False
+FEE_PRE_BURNER_ENABLED=False
+TICKET_ACTIVATOR_ENABLED=False
+REG_TICKETS_FINDER_ENABLED=False
+WATCHDOG_ENABLED=False
+ACCOUNT_MANAGER_ENABLED=True
+```
