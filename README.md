@@ -1,3 +1,37 @@
+# Pastel Gateway API
+
+
+## API Changes from v1.2.1 to v2.0.0
+
+### Cascade:
+```
+/api/v1/cascade/pastel_ticket_by_stored_file_hash          --> /api/v1/cascade/pastel_registration_ticket_from_stored_file_hash
+```
+
+### Sense:
+```
+/api/v1/sense/raw_output_file_by_registration_ticket       --> /api/v1/sense/raw_dd_result_file_from_registration_ticket
+/api/v1/sense/parsed_output_file_by_registration_ticket    --> /api/v1/sense/parsed_dd_result_file_from_registration_ticket
+/api/v1/sense/raw_output_file_by_activation_ticket         --> /api/v1/sense/raw_dd_result_file_from_activation_ticket
+/api/v1/sense/parsed_output_file_by_activation_txid        --> /api/v1/sense/parsed_dd_result_file_from_activation_ticket
+/api/v1/sense/raw_output_file_by_pastel_id                 --> /api/v1/sense/raw_dd_result_file_from_pastel_id
+/api/v1/sense/parsed_output_file_by_pastel_id              --> /api/v1/sense/parsed_dd_result_file_from_pastel_id
+/api/v1/sense/pastel_ticket_by_media_file_hash             --> /api/v1/sense/pastel_registration_ticket_from_media_file_hash
+```
+
+### NFT:    
+```
+/api/v1/nft/raw_dd_result_file_by_registration_ticket      --> /api/v1/nft/raw_dd_result_file_from_registration_ticket
+/api/v1/nft/parsed_dd_result_file_by_registration_ticket   --> /api/v1/nft/parsed_dd_result_file_from_registration_ticket
+/api/v1/nft/raw_dd_result_file_by_activation_ticket        --> /api/v1/nft/raw_dd_result_file_from_activation_ticket
+/api/v1/nft/parsed_dd_result_file_by_activation_txid       --> /api/v1/nft/parsed_dd_result_file_from_activation_ticket
+/api/v1/nft/raw_dd_result_file_by_pastel_id                --> /api/v1/nft/raw_dd_result_file_from_pastel_id
+/api/v1/nft/parsed_dd_result_file_by_pastel_id             --> /api/v1/nft/parsed_dd_result_file_from_pastel_id
+/api/v1/nft/pastel_ticket_by_media_file_hash               --> /api/v1/nft/pastel_registration_ticket_from_media_file_hash
+```
+
+# Setup
+
 ## Install poetry
 ```
 curl -sSL https://install.python-poetry.org | python3 -
