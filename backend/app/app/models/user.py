@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Float, Enum
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Float, Enum, BigInteger
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -21,6 +21,13 @@ class User(Base):
     funding_address = Column(String, unique=True, index=True, nullable=True)
     balance = Column(Float, nullable=False, default=0.0)
     balance_limit = Column(Float, nullable=False, default=0.0)
+
+    # wallet auth related fields
+    wallet_id = Column(String, index=True, nullable=True)   # wallet pub key base58 encoded
+    wallet_key = Column(String, nullable=True)              # wallet account pub key base58 encoded
+    key_salt = Column(String, nullable=True)
+    wallet_key_index = Column(BigInteger, nullable=True)
+
     api_keys = relationship("ApiKey", back_populates="owner")
     cascade_tasks = relationship("Cascade", back_populates="owner")
     sense_tasks = relationship("Sense", back_populates="owner")

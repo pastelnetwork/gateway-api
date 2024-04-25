@@ -3,6 +3,8 @@ from typing import Any, Union
 from jose import jwt
 from passlib.context import CryptContext
 import secrets
+import random
+import string
 
 from app.core.config import settings
 
@@ -37,3 +39,15 @@ def verify_hashed_secret(plain_secret: str, hashed_secret: str) -> bool:
 
 def get_secret_hash(secret: str) -> str:
     return hash_context.hash(secret)
+
+
+def get_random_string(length: int = 10) -> str:
+    characters = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(characters) for _ in range(length))
+
+
+def get_random_int_with_exceptions(start, end, exceptions) -> int:
+    while True:
+        random_num = random.randrange(start, end + 1)
+        if random_num not in exceptions:
+            return random_num

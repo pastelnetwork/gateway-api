@@ -3,21 +3,22 @@ from typing import Any, Dict, Optional, Union, List
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from app.core.security import get_secret_hash, verify_hashed_secret
+from app.core.security import get_secret_hash, verify_hashed_secret, get_random_string, get_random_int_with_exceptions
 from app.crud.base import CRUDBase, CreateSchemaType, ModelType, UpdateSchemaType
 from app.models.user import User, AccountTransactions, TXType
 from app.models.api_key import ApiKey
 from app.models.user import ClaimedPastelId
 from app.schemas.user import UserCreate, UserUpdate, AccountTransactionsCreate, AccountTransactionsUpdate
+from app.schemas.user import UserCreateWithKey, UserWithKey
 
 
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def get_by_email(self, db: Session, *, email: str) -> Optional[User]:
-        return db.query(User).filter(User.email == email).first()
+        return db.query(self.model).filter(User.email == email).first()
 
     def get_by_api_key(self, db: Session, *, api_key: str) -> Optional[User]:
         return (
-            db.query(User)
+            db.query(self.model)
             .join(ApiKey)
             .filter(ApiKey.api_key == api_key)
             .first())
@@ -67,7 +68,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     # Get user by PastelID from ClaimedPasteID table
     def get_by_pastelid(self, db: Session, *, pastel_id: str) -> Optional[User]:
         return (
-            db.query(User)
+            db.query(self.model)
             .join(ClaimedPastelId)
             .filter(ClaimedPastelId.pastel_id == pastel_id)
             .first())
@@ -133,6 +134,38 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         if not db_obj:
             return None
         db_obj.balance_limit = balance_limit
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    def create_with_key(self, db: Session, *, obj_in: UserCreateWithKey, funding_address: str = None) -> User:
+        key_salt = get_random_string(16)
+        wallet_key_index = get_random_int_with_exceptions(0x80000000, 0xffffffff, [0xA0000001])
+        db_obj = User(
+            email=obj_in.email,
+            full_name=obj_in.full_name,
+            balance_limit=obj_in.balance_limit,
+            wallet_id=obj_in.wallet_id,
+            key_salt=key_salt,
+            wallet_key_index=wallet_key_index,
+            hashed_password="no-password - key auth only"
+        )
+        if funding_address:
+            db_obj.funding_address = funding_address
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
+    # Get user by PastelID from ClaimedPasteID table
+    def get_by_wallet_id(self, db: Session, *, wallet_id: str) -> Optional[User]:
+        return db.query(self.model).filter(User.wallet_id == wallet_id).first()
+
+    def set_wallet_key(self, db: Session, *, owner_id: int, wallet_key: str) -> Optional[User]:
+        db_obj = db.query(self.model).filter(User.id == owner_id).first()
+        if not db_obj:
+            return None
+        db_obj.wallet_key = wallet_key
         db.commit()
         db.refresh(db_obj)
         return db_obj

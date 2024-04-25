@@ -104,6 +104,17 @@ def send_new_account_email(email_to: str, username: str, password: str) -> None:
     )
 
 
+def send_new_account_with_key_email(email_to: str, wallet_id: str, wallet_key_index: int, key_salt: str) -> None:
+    subject = f"{settings.PROJECT_NAME} - New account for wallet {wallet_id}"
+    link = settings.SERVER_HOST
+    send_email(
+        email_to=email_to,
+        subject_template=subject,
+        html_template=f'<a href="{link}/verify_user_with_key?i={wallet_key_index}&s={key_salt}">Verify</a>',
+        environment={"project_name": settings.PROJECT_NAME, "email": email_to,},
+    )
+
+
 def generate_password_reset_token(email: str) -> str:
     delta = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
     now = datetime.utcnow()
@@ -121,10 +132,3 @@ def verify_password_reset_token(token: str) -> Optional[str]:
         return decoded_token["email"]
     except jwt.JWTError:
         return None
-
-
-def get_random_string(length: int = 10) -> str:
-    characters = string.ascii_letters + string.digits
-    # Generate a random 15-character string
-    secret = ''.join(secrets.choice(characters) for _ in range(length))
-    return secret

@@ -8,7 +8,7 @@ from app import crud, models, schemas
 from app.api import deps
 from app.utils.accounts import get_total_balance_by_userid
 from app.utils.pasteld import create_and_register_pastelid
-from app.utils.authentication import get_random_string
+from app.core.security import get_random_string
 from app.utils.secret_manager import store_pastelid_to_secret_manager
 from app.core.config import settings
 

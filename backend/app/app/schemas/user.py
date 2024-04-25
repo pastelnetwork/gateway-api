@@ -44,6 +44,25 @@ class UserInDB(UserInDBBase):
     hashed_password: str
 
 
+# Properties to receive via API on creation
+class UserCreateWithKey(BaseModel):
+    email: EmailStr
+    wallet_id: str
+    full_name: Optional[str] = None
+    balance_limit: float = 0.0
+
+
+# Additional properties to return via API
+class UserWithKey(UserInDBBase):
+    wallet_id: str
+    key_salt: str
+    wallet_key_index: int
+
+
+class UserWithKeyInDb(UserWithKey):
+    wallet_key: Optional[str] = None
+
+
 ######################################################
 class AccountTransactionsBase(BaseModel):
     pass
