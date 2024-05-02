@@ -132,7 +132,7 @@ async def get_all_sense_collections(
     task_results = []
     tasks_from_db = crud.collection.get_multi_by_owner_by_type(db=db, owner_id=current_user.id, item_type="sense")
     if not tasks_from_db:
-        raise HTTPException(status_code=404, detail="No gateway_requests found")
+        raise HTTPException(status_code=200, detail="No gateway_requests found")
     for task_from_db in tasks_from_db:
         task_result = await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION)
         task_results.append(await result_to_collection(task_result))
@@ -169,7 +169,7 @@ async def get_all_nft_collections(
     task_results = []
     tasks_from_db = crud.collection.get_multi_by_owner_by_type(db=db, owner_id=current_user.id, item_type="nft")
     if not tasks_from_db:
-        raise HTTPException(status_code=404, detail="No gateway_requests found")
+        raise HTTPException(status_code=200, detail="No gateway_requests found")
     for task_from_db in tasks_from_db:
         task_result = await common.check_result_registration_status(task_from_db, wn.WalletNodeService.COLLECTION)
         task_results.append(await result_to_collection(task_result))

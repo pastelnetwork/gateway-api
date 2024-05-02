@@ -56,7 +56,7 @@ async def get_all_requests(
                                                                req_status=status_requested.value if status_requested else None,
                                                                skip=offset, limit=limit)
     if not tasks_from_db:
-        raise HTTPException(status_code=404, detail="No gateway_requests found")
+        raise HTTPException(status_code=200, detail="No gateway_requests found")
     return await common.parse_users_requests(tasks_from_db, wn.WalletNodeService.CASCADE)
 
 
@@ -94,8 +94,8 @@ async def get_all_results(
     tasks_from_db = crud.cascade.get_multi_by_owner_and_status(db=db, owner_id=current_user.id,
                                                                req_status=status_requested.value if status_requested else None,
                                                                skip=offset, limit=limit)
-    if not tasks_from_db:
-        raise HTTPException(status_code=404, detail="No gateway_requests found")
+    # if not tasks_from_db:
+    #     raise HTTPException(status_code=200, detail="No gateway_results found")
     for task_from_db in tasks_from_db:
         task_result = await common.check_result_registration_status(task_from_db, wn.WalletNodeService.CASCADE)
         tasks_results.append(task_result)

@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
@@ -69,7 +69,7 @@ async def set_wallet_key(
             detail="Invalid client ID or secret",
         )
 
-    user = crud.user.get_by_wallet_id(wallet_id)
+    user = crud.user.get_by_wallet_id(db, wallet_id=wallet_id)
     if not user:
         raise HTTPException(status_code=403, detail="Incorrect wallet_id")
 
@@ -124,14 +124,12 @@ async def get_login_with_key_params(
     if not await verify_signature(validation_token+timestamp, signature, wallet_id):
         raise HTTPException(status_code=403, detail="Incorrect signature")
 
-    user = crud.user.get_by_wallet_id(wallet_id)
+    user = crud.user.get_by_wallet_id(db, wallet_id=wallet_id)
     if not user:
         raise HTTPException(status_code=403, detail="Incorrect wallet_id")
 
-    if not user.wallet_key:
-        raise HTTPException(status_code=403, detail="Key not set")
-
-    return {"wallet_key_index": user.wallet_key_index, "key_salt": user.key_salt}
+    return schemas.UserWithKey(wallet_id=wallet_id, wallet_key_index=user.wallet_key_index, key_salt=user.key_salt,
+                               is_superuser=user.is_superuser)
 
 
 @router.post("/login", response_model=schemas.Token, operation_id="key_authentication_login_post")
@@ -152,7 +150,7 @@ async def login_with_key(
             detail="Invalid client ID or secret",
         )
 
-    user = crud.user.get_by_wallet_id(wallet_id)
+    user = crud.user.get_by_wallet_id(db, wallet_id=wallet_id)
     if not user:
         raise HTTPException(status_code=403, detail="Incorrect wallet_id")
 
@@ -176,5 +174,5 @@ async def login_with_key(
 
 
 def validate_timestamp(timestamp: str):
-    if int(timestamp) < (datetime.utcnow() - timedelta(minutes=5)).timestamp():
+    if int(timestamp) < (datetime.now(timezone.utc) - timedelta(minutes=5)).timestamp():
         raise HTTPException(status_code=403, detail="Timestamp too old")
