@@ -89,7 +89,7 @@ async def search_processed_file(*, db, task_from_db, update_task_in_db_func,
         file_bytes = await read_file_from_ipfs(task_from_db.stored_file_ipfs_link)
 
     if not file_bytes:
-        raise PastelAPIException(f"Dupe detection data is not found")
+        raise PastelAPIException(f"Processed file is not found")
 
     # cache file in local storage and IPFS
     cached_result_file = await store_file_into_local_cache(reg_ticket_txid=task_from_db.reg_ticket_txid,
