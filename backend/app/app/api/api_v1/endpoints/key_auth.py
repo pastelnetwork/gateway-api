@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.post("/user", response_model=schemas.UserWithKey, response_model_exclude_none=True,
-             description="Create new user with key auth, returns user object with funding address. limit=0 means no limit",
+             description="Create new user with key auth, returns user object with funding address.",
              operation_id="key_authentication_create_user")
 def create_user(
         *,
@@ -41,6 +41,14 @@ def create_user(
             status_code=400,
             detail="The account for this wallet already exists in the system.",
         )
+
+    user = crud.user.get_by_email(db, email=user_in.email)
+    if user:
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this email already exists in the system.",
+        )
+
     user = crud.user.create_with_key(db, obj_in=user_in)
     if settings.EMAILS_ENABLED and user_in.email:
         send_new_account_with_key_email( email_to=user_in.email, wallet_id=user.wallet_id,
