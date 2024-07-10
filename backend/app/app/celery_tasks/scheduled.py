@@ -15,7 +15,7 @@ import app.utils.pasteld as psl
 import app.utils.walletnode as wn
 from app.celery_tasks.registration_helpers import finalize_registration
 from app.models.preburn_tx import PBTXStatus
-from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from app.utils.secret_manager import get_pastelid_pwd
 
 logger = get_task_logger(__name__)
 
@@ -289,7 +289,7 @@ def _ticket_activator(all_in_registered_state_func,
             with db_context() as session:
                 update_task_in_db_func(session, db_obj=task_from_db, obj_in=upd)
             continue
-        if not get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id):
+        if not get_pastelid_pwd(task_from_db.pastel_id):
             logger.info(f"{service}: Skipping ticket {task_from_db.reg_ticket_txid}, "
                         f"caller pastel_id {task_from_db.pastel_id} is not ours")
             continue

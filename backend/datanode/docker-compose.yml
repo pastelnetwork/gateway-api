@@ -1,0 +1,51 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    volumes:
+      - ../backend/app:/app
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    ports:
+      - "8000:8000" # FastAPI
+      - "4001:4001" # IPFS
+      - "5001:5001" # IPFS
+      - "9933:9933" # Pastel Network - Mainnet
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:13
+    container_name: db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:6
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+    ports:
+      - "80:80"
+    entrypoint: /bin/sh -c "envsubst '\$SERVER_HOST' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:

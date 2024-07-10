@@ -105,12 +105,22 @@ def send_new_account_email(email_to: str, username: str, password: str) -> None:
 
 
 def send_new_account_with_key_email(email_to: str, wallet_id: str, wallet_key_index: int, key_salt: str) -> None:
-    subject = f"{settings.PROJECT_NAME} - New account for wallet {wallet_id}"
-    link = settings.FRONTEND_URL
+    subject = f"Action Required - Please Verify Your Email"
+    frontend = settings.FRONTEND_URL
+    # add backslash if not present
+    if not frontend.endswith('/'):
+        frontend += '/'
+    link = f"{frontend}verify_user_with_key?i={wallet_key_index}&s={key_salt}"
+    body = (f'Welcome to Pastel Portal! We’re excited to have you on board.<br/>'
+            f'To get started, please verify your email address by clicking the link below:<br/>'
+            f'<a href="{link}">Verify Email</a><br/><br/>'
+            f'Or copy and paste the following link into your browser:<br/>'
+            f'{link}<br/><br/>'
+            f'Your Wallet ID is: {wallet_id}<br/><br/>')
     send_email(
         email_to=email_to,
         subject_template=subject,
-        html_template=f'<a href="{link}/verify_user_with_key?i={wallet_key_index}&s={key_salt}">Verify</a>',
+        html_template=body,
         environment={"project_name": settings.PROJECT_NAME, "email": email_to,},
     )
 

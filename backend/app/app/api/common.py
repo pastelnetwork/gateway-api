@@ -24,7 +24,7 @@ from app.utils import walletnode as wn
 import app.utils.pasteld as psl
 from app.utils.ipfs_tools import store_file_to_ipfs, search_file_locally_or_in_ipfs
 import app.celery_tasks.nft as nft
-from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from app.utils.secret_manager import get_pastelid_pwd
 from app.db.session import db_context
 
 logger = logging.getLogger(__name__)
@@ -374,7 +374,7 @@ async def search_gateway_file(*, db, task_from_db, service: wn.WalletNodeService
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found")
 
     if (service == wn.WalletNodeService.CASCADE or service == wn.WalletNodeService.NFT) \
-            and not get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id):
+            and not get_pastelid_pwd(task_from_db.pastel_id):
         logger.error("Backend does not have correct Pastel ID")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail=f"Only owner can download cascade file")
@@ -807,7 +807,7 @@ async def transfer_ticket(db, result_id, user_id, pastel_id_for_transfer,
         raise HTTPException(status_code=404, detail=f"Ticket already transferred to "
                                                     f"{task_from_db.offer_ticket_intended_rcpt_pastel_id}")
 
-    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+    pastel_id_pwd = get_pastelid_pwd(task_from_db.pastel_id)
     if not pastel_id_pwd:
         logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
         return None

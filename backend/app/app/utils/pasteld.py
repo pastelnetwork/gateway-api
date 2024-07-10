@@ -13,7 +13,7 @@ from requests.auth import HTTPBasicAuth
 
 from app.core.config import settings
 from app.utils.authentication import send_alert_email
-from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from app.utils.secret_manager import get_pastelid_pwd
 
 logger = logging.getLogger(__name__)
 
@@ -267,7 +267,7 @@ def create_activation_ticket(task_from_db, called_at_height, ticket_type,
         else:
             if not check_balance(min_ticket_fee, send_email=False):
                 return TicketCreateStatus.ERROR, None
-        pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+        pastel_id_pwd = get_pastelid_pwd(task_from_db.pastel_id)
         activation_ticket = call('tickets', ['register', ticket_type,
                                              task_from_db.reg_ticket_txid,
                                              called_at_height,

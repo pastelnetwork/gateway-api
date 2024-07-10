@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.db.session import db_context
 from app.utils.authentication import send_alert_email
 from ..models import ApiKey
-from ..utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from ..utils.secret_manager import get_pastelid_pwd
 
 logger = get_task_logger(__name__)
 
@@ -145,7 +145,7 @@ def process(self, result_id) -> str:
                 f'[Result ID: {result_id}]')
     wn_task_id = ""
     try:
-        pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+        pastel_id_pwd = get_pastelid_pwd(task_from_db.pastel_id)
         if not pastel_id_pwd:
             logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
             set_status_message(crud.collection.update, task_from_db,

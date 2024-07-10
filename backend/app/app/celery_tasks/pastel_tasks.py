@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.core.status import DbStatus
 from app.utils.accounts import get_total_balance_by_userid
 from app.utils.ipfs_tools import search_file_locally_or_in_ipfs, store_file_to_ipfs
-from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from app.utils.secret_manager import get_pastelid_pwd
 
 logger = get_task_logger(__name__)
 
@@ -336,7 +336,7 @@ class PastelAPITask(celery.Task):
             else:
                 cmd = f"start/{task_from_db.wn_file_id}"
 
-            pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+            pastel_id_pwd = get_pastelid_pwd(task_from_db.pastel_id)
             if not pastel_id_pwd:
                 logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
                 set_status_message(update_task_in_db_func, task_from_db,

@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     PASTEL_RPC_PWD: str
 
     PASTEL_ID: Optional[str] = None
+    PASTEL_ID_PWD: Optional[str] = None
 
     BURN_ADDRESS: str
     MAIN_GATEWAY_ADDRESS: Optional[str] = None
@@ -80,15 +81,15 @@ class Settings(BaseSettings):
             port = info.data['WN_BASE_PORT'] if check_parameter('WN_BASE_PORT', info) else '8080'
             return f"http://{host}:{port}"
 
-    IPFS_HOST: Optional[str] = None
-    IPFS_URL: Optional[str] = None
-
     SCW_ENABLED: bool = False
     SCW_PIN_URL_PREFIX: Optional[str] = f"https://api.scaleway.com/ipfs/v1alpha1/regions"
     SCW_PIN_URL_SUFFIX: Optional[str] = f"pins/create-by-cid"
     SCW_REGION: Optional[str] = "fr-par"
     SCW_SECRET_KEY: Optional[str] = "2c95a2f3-802b-4fe2-96c9-374c9974dff9"     # TODO: move to AWS secret manager
     SCW_VOLUME_ID: Optional[str] = "4af3da90-2d92-4079-9b95-f5964e5b2c2c"
+
+    IPFS_HOST: Optional[str] = None
+    IPFS_URL: Optional[str] = None
 
     @field_validator("IPFS_URL", mode='before')
     def assemble_ipfs_url(cls, v: Optional[str], info: FieldValidationInfo) -> str:

@@ -5,7 +5,7 @@ from enum import Enum
 
 from app.core.config import settings
 from app.utils.authentication import send_alert_email
-from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from app.utils.secret_manager import get_pastelid_pwd
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class WalletnodeException(Exception):
 
 async def get_file_from_pastel(*, reg_ticket_txid, pastel_id: str, wn_service: WalletNodeService):
     logger.info(f"{wn_service} get_file_from_pastel: reg_ticket_txid = {reg_ticket_txid}")
-    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(pastel_id)
+    pastel_id_pwd = get_pastelid_pwd(pastel_id)
     if not pastel_id_pwd:
         logger.error(f"Pastel ID {pastel_id} not found in secret manager")
         return None
@@ -126,7 +126,7 @@ async def get_file_from_pastel(*, reg_ticket_txid, pastel_id: str, wn_service: W
 
 async def get_nft_dd_result_from_pastel(*, reg_ticket_txid: str, pastel_id: str):
     logger.info(f"get_nft_dd_result_from_pastel: reg_ticket_txid = {reg_ticket_txid}")
-    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(pastel_id)
+    pastel_id_pwd = get_pastelid_pwd(pastel_id)
     if not pastel_id_pwd:
         logger.error(f"Pastel ID {pastel_id} not found in secret manager")
         return None
@@ -147,7 +147,7 @@ async def get_nft_dd_result_from_pastel(*, reg_ticket_txid: str, pastel_id: str)
 
 async def download_file_from_wn_by_id(file_id, reg_ticket_txid, pastel_id: str):
     logger.info(f"download_file_from_wn_by_id: file_id = {file_id}; reg_ticket_txid = {reg_ticket_txid}")
-    pastel_id_pwd = get_pastelid_pwd_from_secret_manager(pastel_id)
+    pastel_id_pwd = get_pastelid_pwd(pastel_id)
     if not pastel_id_pwd:
         logger.error(f"Pastel ID {pastel_id} not found in secret manager")
         return None

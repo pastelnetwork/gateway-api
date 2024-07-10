@@ -15,7 +15,7 @@ from app.utils import walletnode as wn, pasteld as psl
 from app.utils.filestorage import store_file_into_local_cache
 from app.utils.ipfs_tools import store_file_to_ipfs
 from app.celery_tasks.pastel_tasks import check_preburn_tx
-from app.utils.secret_manager import get_pastelid_pwd_from_secret_manager
+from app.utils.secret_manager import get_pastelid_pwd
 
 logger = get_task_logger(__name__)
 
@@ -307,7 +307,7 @@ def finalize_registration(task_from_db, act_txid, update_task_in_db_func, wn_ser
                 if task_from_db.offer_ticket_txid:
                     logger.warn(f"{wn_service}: Offer ticket already exists!: {task_from_db.offer_ticket_txid}")
                     return
-                pastel_id_pwd = get_pastelid_pwd_from_secret_manager(task_from_db.pastel_id)
+                pastel_id_pwd = get_pastelid_pwd(task_from_db.pastel_id)
                 if not pastel_id_pwd:
                     logger.error(f"Pastel ID {task_from_db.pastel_id} not found in secret manager")
                     return None
