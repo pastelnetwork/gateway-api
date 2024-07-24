@@ -42,11 +42,18 @@ services:
     image: nginx:latest
     container_name: nginx
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./custom-nginx-script.sh:/docker-entrypoint.d/40-custom-nginx-script.sh
+      - letsencrypt:/etc/letsencrypt
+    environment:
+      - NGINX_HOST=${SERVER_HOST:-$HOST_IP}
+      - NGINX_PORT=80
+      - APP_UPSTREAM=app:8090
     env_file:
       - env
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - app
 
@@ -54,3 +61,4 @@ volumes:
   postgres_data:
   pastel_data:
     external: true
+  letsencrypt:
