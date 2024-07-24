@@ -545,15 +545,14 @@ def check_account_balance_limit(local_file_name, result_id, service, task_in_db,
     with db_context() as session:
         balances = get_total_balance_by_userid(session, user_id=user_id)
     if balances and 0 < balances["balance_limit"] < balances["total_balance"] + total_fee:
-        logger.error(f'{service}: Balance [{balances["total_balance"]}] is over set limit [{balances["balance_limit"]}]'
-                     f'to pay WN Fee {total_fee} for file {local_file_name}, '
+        logger.error(f'{service}: Balance [{balances["total_balance"]}] plus expected WN Fee {total_fee} '
+                     f'for file {local_file_name} will be over set limit [{balances["balance_limit"]}]'
                      f'. Throwing exception...')
         upd = {
             "process_status": DbStatus.ERROR.value,
-            "process_status_message": f'Balance [{balances["total_balance"]}] '
-                                      f'is over set limit [{balances["balance_limit"]}]'
-                                      f'to pay WN Fee {total_fee} for file {local_file_name}.'
-                                      f' Throwing exception',
+            "process_status_message": f'Balance [{balances["total_balance"]}] plus expected WN Fee {total_fee} '
+                                      f'for file {local_file_name} will be over set limit [{balances["balance_limit"]}]'
+                                      f'. Throwing exception',
             "wn_file_id": wn_file_id,
             "wn_fee": total_fee,
         }

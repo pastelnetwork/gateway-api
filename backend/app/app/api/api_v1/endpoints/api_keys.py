@@ -12,6 +12,9 @@ from app.core.security import get_random_string
 from app.utils.secret_manager import store_pastelid_to_secret_manager
 from app.core.config import settings
 
+import logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -45,17 +48,25 @@ def create_apikey(
     """
     Create new api key.
     """
-    balances = get_total_balance_by_userid(db, user_id=current_user.id)
-    if balances and 0 < balances["balance_limit"] < balances["total_balance"] + settings.TICKET_PRICE_PASTELID:
-        raise HTTPException(status_code=400, detail=f'Balance [{balances["total_balance"]}] is over set limit '
-                                                    f'[{balances["balance_limit"]}] to pay Ticket Fee '
-                                                    f'{settings.TICKET_PRICE_PASTELID}. {balances}')
-    passkey = get_random_string(16)
-    pastel_id = create_and_register_pastelid(passkey, settings.MAIN_GATEWAY_ADDRESS)
+    new_pastel_id = False
+    if settings.AWS_SECRET_MANAGER_REGION and settings.AWS_SECRET_MANAGER_PASTEL_IDS:
+        balances = get_total_balance_by_userid(db, user_id=current_user.id)
+        if balances and 0 < balances["balance_limit"] < balances["total_balance"] + settings.TICKET_PRICE_PASTELID:
+            raise HTTPException(status_code=400, detail=f'Balance [{balances["total_balance"]}] is over set limit '
+                                                        f'[{balances["balance_limit"]}] to pay Ticket Fee '
+                                                        f'{settings.TICKET_PRICE_PASTELID}. {balances}')
+        passkey = get_random_string(16)
+        pastel_id = create_and_register_pastelid(passkey, settings.MAIN_GATEWAY_ADDRESS)
+        new_pastel_id = True
+    else:
+        logger.debug(f"PASTEL_ID: {settings.PASTEL_ID}; PASTEL_ID_PWD: {settings.PASTEL_ID_PWD}")
+        pastel_id = settings.PASTEL_ID
+        passkey = settings.PASTEL_ID_PWD
     apikey = crud.api_key.create_with_owner(db=db, obj_in=apikey_in, owner_id=current_user.id,
                                             pastel_id=pastel_id)
-    crud.user.increase_balance(db, user_id=current_user.id, amount=settings.TICKET_PRICE_PASTELID)
-    store_pastelid_to_secret_manager(pastel_id, passkey)
+    if new_pastel_id:
+        crud.user.increase_balance(db, user_id=current_user.id, amount=settings.TICKET_PRICE_PASTELID)
+        store_pastelid_to_secret_manager(pastel_id, passkey)
     return apikey
 
 

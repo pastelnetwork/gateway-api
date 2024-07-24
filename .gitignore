@@ -5,3 +5,4 @@ backend/app/.idea/
 celerybeat-schedule.db
 celerybeat-schedule
 .DS_Store
+.python-version

@@ -1,24 +1,26 @@
-version: '3.9'
-
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: app
+    image: pastel_data_node:initialized
+    container_name: pastel_data_node
     volumes:
-      - ../backend/app:/app
-      - ./.env:/app/.env
+      - ../app:/app
+      - pastel_data:/root/.pastel
+      - ./env:/app/.env
+      - ${FILE_STORAGE}:/app/file_storage
     env_file:
-      - .env
+      - env
+    environment:
+      - C_FORCE_ROOT=true # for celery to run as root
     ports:
-      - "8000:8000" # FastAPI
+      - "8090:8090" # FastAPI
       - "4001:4001" # IPFS
       - "5001:5001" # IPFS
       - "9933:9933" # Pastel Network - Mainnet
     depends_on:
       - db
       - redis
+#    command: bash -c "while true; do echo 'Container is running'; sleep 60; done"
+    command: /scripts/run_app.sh
 
   db:
     image: postgres:13
@@ -26,7 +28,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     env_file:
-      - .env
+      - env
     ports:
       - "5432:5432"
 
@@ -40,12 +42,15 @@ services:
     image: nginx:latest
     container_name: nginx
     volumes:
-      - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    env_file:
+      - env
     ports:
       - "80:80"
-    entrypoint: /bin/sh -c "envsubst '\$SERVER_HOST' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
     depends_on:
       - app
 
 volumes:
   postgres_data:
+  pastel_data:
+    external: true

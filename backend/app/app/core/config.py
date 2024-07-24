@@ -148,7 +148,7 @@ class Settings(BaseSettings):
                 username=info.data["POSTGRES_USER"],
                 password=info.data["POSTGRES_PASSWORD"],
                 host=info.data["POSTGRES_SERVER"],
-                path=f"/{info.data['POSTGRES_DB'] if check_parameter('POSTGRES_DB', info) else ''}",
+                path=f"{info.data['POSTGRES_DB'] if check_parameter('POSTGRES_DB', info) else ''}",
             )
 
         return None
